@@ -9,8 +9,8 @@
     {
       "name": "model-scope",
       "source": "./",
-      "description": "Turn ANY parameterised model into an interactive explorer: move a slider and watch the simulation update, shown in views the MODEL defines (no fixed graphic/axis) — Bayesian/ideal-observer, neuron, decision (drift-diffusion), RL, POMDP, saccade, population, or any Monte-Carlo process. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step.",
-      "version": "1.1.0",
+      "description": "Turn ANY parameterised model into an interactive explorer: move a slider and watch the simulation update, shown in views the MODEL defines (no fixed graphic/axis) — Bayesian/ideal-observer, neuron, decision (drift-diffusion), RL, POMDP, saccade, population, or any Monte-Carlo process. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step. Includes a modelbook of canonical model families + a reusable code library (mslib.js).",
+      "version": "1.2.0",
       "author": { "name": "Joonoh Park" },
       "keywords": ["simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "psychophysics", "drift-diffusion"],
       "category": "data-and-visualization"

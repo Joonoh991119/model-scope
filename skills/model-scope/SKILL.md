@@ -48,6 +48,9 @@ index.html    the toolbox: builds sliders from each model's schema, runs simulat
               change, drives the optional playhead, and calls each view's draw().
 validate.mjs  Node gate — every model's simulate() runs & is sane; analytic checks where
               one exists.
+modules/mslib.js  OPTIONAL reusable model library (window.MSLIB): canonical building
+              blocks (sde, bayes, neuron, decision/Wong–Wang, rl, psy). Include only if a
+              model needs them; compose inside simulate(). See the modelbook below.
 ```
 
 ## The model contract — the one place you edit
@@ -132,9 +135,31 @@ Light, eye-friendly (off-white page, muted non-fluorescent colours, no glow); th
 already enforces it and is DPR-correct. Give each view a clear title, axis labels, and
 units. Let views breathe — the grid auto-fits; 1–4 views is typical.
 
+## Model families — the modelbook
+
+Don't invent a model from scratch when a canonical family fits. `references/modelbook/`
+is a curated, extensible catalogue distilled from open-source comp-neuro ecosystems
+(Acerbi lab observer/fitting, Wang lab decision circuits, Gardner lab psychophysics,
+Brian2 / Neuronal Dynamics neurons). Read `references/modelbook/INDEX.md` to pick a
+family, then its file for canonical equations, parameters + meaning, recommended views,
+and the matching `MSLIB` code module:
+
+- **bayesian-observer** — perception / magnitude & time estimation, central tendency, cue
+  combination, prior learning (`MSLIB.bayes`; fit with Acerbi's PyBADS/PyVBMC/IBS).
+- **decision-circuits** — DDM, leaky competing accumulators, Wong–Wang reduced circuit
+  (`MSLIB.decision`, `MSLIB.sde`).
+- **spiking-neurons** — LIF / EIF / Izhikevich / HH, f–I curves, rasters (`MSLIB.neuron`).
+- **reinforcement-learning** — Rescorla–Wagner, Q-softmax, Kalman/volatility (`MSLIB.rl`).
+- **psychophysics** — psychometric functions, SDT, scalar timing (`MSLIB.psy`).
+
+Treat these as starting skeletons, not prescriptions — adapt to the user's exact
+equations, and compose the small `MSLIB` functions rather than copying a whole repo
+(don't overfit to one paper's parameterisation). Adding a family = a new `MSLIB`
+sub-object + a `modelbook/<family>.md` + an INDEX row (see INDEX.md's "Adding a family").
+
 ## Validation
 
-`validate.mjs` reuses `engine.js`. Minimum gate: each model's `simulate()` runs without
+`validate.mjs` reuses `engine.js` (and sanity-checks `modules/mslib.js`). Minimum gate: each model's `simulate()` runs without
 throwing and returns data, and every view is a function. Add a per-model analytic check
 where one exists (Bayesian reliability weight in (0,1); decision-model error rate vs the
 closed form; a known limit). `node validate.mjs` must pass before declaring done.

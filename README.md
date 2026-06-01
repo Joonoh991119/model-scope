@@ -23,6 +23,7 @@ dynamical-systems, or any Monte-Carlo process.
 | **Agent** `model-gui-builder` | A subagent that builds one of these GUIs end-to-end from a model description, choosing the views that make the model intuitive. |
 | **Command** `/model-scope:scaffold` | Scaffolds a new model explorer from the bundled template into a target folder, ready to edit. |
 | **Template** (`skills/model-scope/assets/template/`) | A working reference app with two contrasting example models — a **Bayesian observer** (distribution + bias-curve + prior-update views) and a **drift-diffusion decision** (animated trajectory + RT histogram) — to copy and extend with one registry entry. |
+| **Modelbook + `mslib.js`** | A curated, extensible catalogue of canonical model families — Bayesian/ideal observer, decision circuits (incl. Wong–Wang), spiking neurons (LIF/Izhikevich), reinforcement learning, psychophysics/SDT — in `skills/model-scope/references/modelbook/` (equations · parameters · views · open-source sources: Acerbi/Wang/Gardner/Brian2), plus a small reusable code library `mslib.js` you compose inside `simulate()`. Designed as decoupled modules, not overfit to any one paper. |
 
 ## Install
 
