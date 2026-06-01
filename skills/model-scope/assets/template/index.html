@@ -70,7 +70,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         </div>
         <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Step"/>
         <span class="tread" id="tread">0 / 0</span>
-        <div class="spd">speed<input type="range" id="spd" min="1" max="400" step="1" value="30"/></div>
+        <div class="spd">speed<input type="range" id="spd" min="1" max="800" step="1" value="12"/></div>
       </div>
       <div class="views" id="views"></div>
     </div>
@@ -86,7 +86,7 @@ const $=(s,r=document)=>r.querySelector(s); const sleep=()=>new Promise(r=>setTi
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const reduceMotion = matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:'model-scope', data:null, model:null,
-  views:[], canvases:[], anim:null, length:1, head:1, playing:false, speed:30, rafId:0, gen:0, suppress:false };
+  views:[], canvases:[], anim:null, length:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false };
 
 function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
   SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId); b.onclick=()=>setModel(id); nav.appendChild(b); }); }
@@ -112,7 +112,7 @@ function setModel(id){ S.suppress=true; stopAll(); S.modelId=id; const m=SIM.MOD
 function onChange(){ if(!S.suppress) schedule(); }
 
 /* ---- simulate + render ---- */
-function recompute(){ stopAll(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
+function recompute(){ clearTimeout(rt); stopAll(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
   const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} };
   try{ S.data=S.model.simulate({...S.params}, env); }catch(e){ S.data=null; console.error(e); }
   if(myGen!==S.gen) return;
@@ -120,13 +120,18 @@ function recompute(){ stopAll(); const myGen=S.gen; S.seed=$('#seedInput').value
   S.head = (S.model.anim && !reduceMotion) ? 0 : S.length;
   readout(); if(S.model.anim && !reduceMotion){ play(); } else { drawAll(); } }
 function drawAll(){ const ui={ head:S.head, playing:S.playing, params:S.params };
-  for(let i=0;i<S.views.length;i++){ try{ const g=Plot.make(S.canvases[i]); S.views[i].draw(g, S.data, ui); }catch(e){ try{ Plot.make(S.canvases[i]).note('view error'); }catch(_){} } } }
+  for(let i=0;i<S.views.length;i++){
+    try{ S.views[i].draw(Plot.make(S.canvases[i]), S.data, ui); }
+    catch(e){ console.error('[model-scope] view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
+      try{ Plot.make(S.canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
 let rt; function schedule(){ clearTimeout(rt); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
 
 /* ---- playhead (for sequential models) ---- */
-function loop(){ if(S.playing){ S.head=Math.min(S.length, S.head + S.speed/60); } drawAll(); readout();
-  if(S.playing && S.head<S.length) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; if(S.head>=S.length)S.playing=false; pico(); } }
-function play(){ if(S.head>=S.length) S.head=0; S.playing=true; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
+function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;   // wall-clock → frame-rate independent
+  if(S.playing){ S.head=Math.min(S.length, S.head + S.speed*fdt); if(S.head>=S.length) S.playing=false; }      // stop BEFORE drawing the final frame (so views see frac→1, not 0)
+  drawAll(); readout();
+  if(S.playing) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; pico(); } }
+function play(){ if(S.head>=S.length) S.head=0; S.playing=true; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
 function pause(){ S.playing=false; pico(); }
 function stopAll(){ S.gen++; S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; }
 function readout(){ const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`;

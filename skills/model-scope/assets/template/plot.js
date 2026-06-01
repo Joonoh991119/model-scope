@@ -27,7 +27,7 @@
         const px=M.l, py=M.t, pw=Math.max(2,w-M.l-M.r), ph=Math.max(2,h-M.t-M.b);
         fr={px,py,pw,ph,x:o.x,y:o.y};
         sx=v=>px+(v-o.x[0])/((o.x[1]-o.x[0])||1)*pw; sy=v=>py+ph*(1-(v-o.y[0])/((o.y[1]-o.y[0])||1));
-        ctx.strokeStyle=TH.grid; ctx.lineWidth=1; ctx.font='10px "IBM Plex Mono",monospace'; ctx.fillStyle=TH.faint;
+        ctx.strokeStyle=TH.grid; ctx.lineWidth=1; ctx.font='11px "IBM Plex Mono",monospace'; ctx.fillStyle=TH.dim;
         const nx=o.xticks||5, ny=o.yticks||4;
         for(let i=0;i<=nx;i++){ const t=o.x[0]+(o.x[1]-o.x[0])*i/nx, X=sx(t);
           ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke();
@@ -80,10 +80,11 @@
   }
   // bin values into `bins` over [lo,hi]; snap bin width to a multiple of `quant` (e.g. dt) if given
   function histify(values, bins, lo, hi, quant){
-    let bw=(hi-lo)/bins; if(quant>0) bw=Math.max(quant, Math.round(bw/quant)*quant);
+    bins=Math.max(1,Math.floor(bins||1)); if(!(hi>lo)) hi=lo+(quant>0?quant:1);     // guard degenerate range
+    let bw=(hi-lo)/bins; if(quant>0) bw=Math.max(quant, Math.round(bw/quant)*quant); if(!(bw>0)) bw=(hi-lo)||1;
     const n=Math.max(1,Math.ceil((hi-lo)/bw)), counts=new Array(n).fill(0), edges=new Array(n);
     for(let i=0;i<n;i++) edges[i]=lo+i*bw;
-    for(const v of values){ let k=Math.floor((v-lo)/bw); if(k<0)k=0; if(k>=n)k=n-1; counts[k]++; }
+    for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop out-of-range (no fake edge mass)
     return { edges, counts, binW:bw, max:Math.max(1,...counts) };
   }
   global.Plot = { make, setup, TH, histify };

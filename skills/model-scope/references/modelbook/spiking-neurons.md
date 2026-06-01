@@ -32,7 +32,7 @@ const s={v:-65, refr:0};                                  // LIF
 const spiked = MSLIB.neuron.lifStep(s, I, MSLIB.neuron.LIF_DEFAULT, dt);   // dt in s
 const fi = MSLIB.neuron.fI((st,I,dt)=>MSLIB.neuron.lifStep(st,I,null,dt),
                             ()=>({v:-65,refr:0}), Irange, 1e-4, 1.0);       // [{I,rate}]
-const z={v:-65,u:-13}; const sp = MSLIB.neuron.izhStep(z, I, MSLIB.neuron.IZH_DEFAULT, dt /*ms*/);
+const z={v:-65,u:-13}; const sp = MSLIB.neuron.izhStep(z, I, MSLIB.neuron.IZH_DEFAULT, dt /* s */);
 ```
 Inject noisy input by adding `c·√dt·g()` to `I` each step (an OU current via
 `MSLIB.sde.ou` is more realistic). Networks: keep an array of states and a synaptic

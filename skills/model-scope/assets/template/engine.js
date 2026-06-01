@@ -52,12 +52,19 @@
         const vm=p.sigma_m*p.sigma_m, v0=p.sigma0*p.sigma0, w=v0/(v0+vm);   // reliability weight on the measurement
         const sigPost=Math.sqrt(1/(1/vm+1/v0));
         const m=p.theta + p.sigma_m*gaussian(env.rng), muPost=w*m+(1-w)*p.mu0;
-        const span=3.4*Math.max(p.sigma0, p.sigma_m, 1);
-        const lo=p.mu0-span, hi=p.mu0+span;
+        // frame from the actual support so θ, m, θ̂ are always on-plot (even at extreme settings)
+        const span=3.2*Math.max(p.sigma0, p.sigma_m, 0.5);
+        let lo=Math.min(p.mu0-span, p.theta-2*p.sigma_m, m-2*p.sigma_m, muPost),
+            hi=Math.max(p.mu0+span, p.theta+2*p.sigma_m, m+2*p.sigma_m, muPost);
+        const padd=(hi-lo)*0.04||0.1; lo-=padd; hi+=padd;
         // trial-to-trial prior-mean update toward the stimulus environment
         const N=Math.round(p.nTrials), muSeq=new Float64Array(N+1); muSeq[0]=p.mu0; let mu=p.mu0;
         for(let t=0;t<N;t++){ const stim=p.stimMean+0.55*gaussian(env.rng), mm=stim+p.sigma_m*gaussian(env.rng); mu=(1-p.alpha)*mu+p.alpha*mm; muSeq[t+1]=mu; }
-        return { w, sigPost, m, muPost, lo, hi, N, muSeq };
+        // the prior-update view needs its own y-range: μ can adapt past the inference support
+        let sLo=Math.min(p.stimMean, lo), sHi=Math.max(p.stimMean, hi);
+        for(let t=0;t<=N;t++){ if(muSeq[t]<sLo)sLo=muSeq[t]; if(muSeq[t]>sHi)sHi=muSeq[t]; }
+        const sp=(sHi-sLo)*0.06||0.1;
+        return { w, sigPost, m, muPost, lo, hi, seqLo:sLo-sp, seqHi:sHi+sp, N, muSeq };
       },
       views:[
         { title:'Inference on one trial', draw:(g,d,ui)=>{ const p=ui.params, T=TH();
@@ -86,7 +93,7 @@
           g.vline(p.mu0,{color:T.accent,label:'μ₀'});
         }},
         { title:'Prior mean updating over trials', draw:(g,d,ui)=>{ const p=ui.params, T=TH();
-          g.frame({x:[0,d.N], y:[d.lo,d.hi], xlabel:'trial', ylabel:'prior mean μ', title:'trial-to-trial prior update'});
+          g.frame({x:[0,d.N], y:[d.seqLo,d.seqHi], xlabel:'trial', ylabel:'prior mean μ', title:'trial-to-trial prior update'});
           g.hline(p.stimMean,{color:T.faint,dash:[5,4],label:'stimulus mean'});
           const k=Math.max(1,Math.min(d.N,Math.floor(ui.head)));
           const pts=[]; for(let t=0;t<=k;t++) pts.push([t,d.muSeq[t]]); g.line(pts,{color:T.accent,width:1.8});
