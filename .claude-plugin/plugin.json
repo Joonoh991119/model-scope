@@ -1,7 +1,7 @@
 {
   "name": "model-scope",
-  "version": "1.0.0",
-  "description": "Build a self-contained, schema-driven GUI that visualises any parameterised stochastic/dynamical model trial-by-trial (trajectory → accumulating histogram), with sliders for every parameter and optional 2-D phase-plane + energy-landscape views. Generalises the Bogacz et al. (2006) decision-model simulator pattern to any model — decision, random walk, population/epidemic, neural competition, Monte-Carlo, …",
+  "version": "1.1.0",
+  "description": "Turn ANY parameterised model into an interactive explorer: move a slider per parameter and watch the simulation update, shown in views the MODEL defines — no fixed graphic or axis. A Bayesian observer draws prior/likelihood/posterior + a central-tendency curve + prior updating; a neuron draws a trace + raster + f–I curve; a decision model animates a trajectory + RT histogram; a POMDP/saccade/RL/population model draws whatever fits. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step.",
   "author": { "name": "Joonoh Park", "email": "joonop99@snu.ac.kr" },
   "license": "MIT",
   "homepage": "https://github.com/joonohpark/model-scope",

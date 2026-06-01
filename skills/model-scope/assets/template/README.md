@@ -1,20 +1,23 @@
 # model-scope template
 
-A self-contained, **no-build** interactive simulator. Open `index.html` (double-click,
-or `python3 -m http.server` if your browser blocks `file://` scripts). Move a slider and
-watch each trial's trajectory resolve and drop a count into the outcome histogram; the
-accumulated histogram is the model's prediction.
+A self-contained, **no-build** interactive model explorer. Open `index.html` (double-click,
+or `python3 -m http.server` if your browser blocks `file://` scripts). Move a slider and the
+simulation re-runs; the result is shown in **views the model defines** — there is no fixed
+graphic or axis.
 
-Ships with three example models — **biased random walk** (decision / first-passage),
-**stochastic logistic growth** (population: establish vs. extinct), and **two-population
-competition** (2-D, with a phase plane + energy landscape). They share one interface, so
-the same controls/plots work for all three.
+Ships with two deliberately different examples so you can see the range:
+- **Bayesian observer** — prior/likelihood/posterior on a stimulus axis, an estimate-vs-true
+  *central-tendency* curve (with a ±SD ribbon), and a trial-to-trial prior-mean update.
+- **Drift-diffusion decision** — an animated evidence trajectory + an accumulating
+  response-time histogram (correct ↑ / error ↓).
 
 ## Files
-- `engine.js` — pure math: RNG, the `MODELS` registry, trial runners. **Edit this.**
-- `index.html` — the UI, generated from each model's parameter schema. Usually untouched.
-- `validate.mjs` — `node validate.mjs` checks every model runs and that the random walk
-  matches the drift-diffusion closed form.
+- `plot.js` — tiny canvas charting helper (`Plot`): `frame`, `line`, `band`, `bars`, `heat`,
+  `raster`, `vline`, … Each view defines its own axes. Rarely edited.
+- `engine.js` — pure math: RNG + the `MODELS` registry. **This is what you edit.**
+- `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
+  optional play/scrub transport, and the view grid. Usually untouched.
+- `validate.mjs` — `node validate.mjs` checks each model runs and is sane.
 
 ## Add your model — one registry entry
 
@@ -22,26 +25,26 @@ In `engine.js`, append to `MODELS` and add the id to `MODEL_ORDER`:
 
 ```js
 mymodel: {
-  id:'mymodel', name:'My model', dim:1,           // dim 1 → x(t); dim 2 → (y1,y2) + phase/landscape
-  blurb:'…', note:'…',
-  params:[ {name:'A',label:'Rate',min:0,max:3,step:0.01,default:1}, … ],
-  outcomes:[ {key:'hit',label:'reaches target',color:'pos'} ],   // 1 or 2 categories (color: pos|neg|accent)
-  init:(p)=>({t:0, x:0}),
-  step:(s,p,dt,rng)=>{ s.x += p.A*dt + p.c*Math.sqrt(dt)*gaussian(rng); s.t+=dt; },
-  done:(s,p)=> s.x>=p.target ? 1 : 0,             // 0 = ongoing; else 1-based outcome index
-  fields:(s)=>[s.x],
-  guides:(p)=>[ {v:p.target, label:'target', color:'pos'} ],     // 1-D reference lines (optional)
-  yRange:(p)=>[0, p.target*1.2],                  // 1-D vertical range (optional)
-  // measure:(s,p)=>s.t,   // scalar binned per trial (default = trial time)
-  // derived:(p)=>[{label:'λ',value:…,tag:'…'}],          // read-only computed display
-  // fieldState:(p,y1,y2)=>({t:0,y1,y2,/*hidden vars at steady state*/}),  // 2-D landscape only
+  id:'mymodel', name:'My model', blurb:'…', note:'…',
+  params:[ {name:'g', label:'Gain', min:0, max:5, step:0.01, default:1}, … ],
+  // run the model; return whatever your views need (curves, samples, fields, sequences…)
+  simulate:(p, env) => { /* env = {rng, seed, params} */ return { /* data */ }; },
+  views:[
+    { title:'…', draw:(g, data, ui) => {
+        g.frame({ x:[0,10], y:[0,1], xlabel:'input', ylabel:'response', title:'tuning' });
+        g.line(data.curve, { color:Plot.TH.accent, width:2 });
+        // ui.params, and ui.head if you add `anim`
+    }},
+  ],
+  // add only if the model is sequential (animate a playhead 0..N):
+  // anim:{ length:(p)=>p.nTrials },
 },
 ```
 
-`gaussian(rng)` and the RNG are already in scope. Reload `index.html` — your model appears
-as a tab with sliders auto-generated from `params`. Trials that never resolve before
-`Max time` are reported as non-responses.
+`makeRNG`, `gaussian`, `trialRng`, `npdf` are in scope in `engine.js`; `Plot.*` (helpers,
+theme, `histify`) are global in views. Reload `index.html` — your model appears as a tab
+with sliders auto-generated from `params`, and your views render and update as you tune.
 
-For the full rationale (per-trial seeding, the player loop, fixed-axis Δt-aligned
-histograms, the 2-D energy-landscape recipe), see the `model-scope` skill that generated
-this template.
+See the `model-scope` skill (`references/plotting.md`, `references/architecture.md`) for the
+full helper API and view recipes (distributions, tuning curves, trajectory+histogram,
+spike rasters, heatmaps/energy landscapes, learning sequences).

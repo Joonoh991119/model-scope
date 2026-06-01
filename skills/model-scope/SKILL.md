@@ -1,182 +1,155 @@
 ---
 name: model-scope
 description: >-
-  Build a self-contained, schema-driven web GUI that visualises ANY parameterised
-  stochastic or dynamical model trial-by-trial — watch one trial's trajectory
-  accumulate from t=0, drop a count into the outcome histogram when it resolves,
-  repeat n times to build the distribution, with a slider for every parameter and
-  optional 2-D phase-plane + energy-landscape views. USE THIS whenever the user wants
-  to "see what happens each trial", explore/tune a model by adjusting parameters, turn
-  equations into an interactive simulator, reproduce a modeling-paper figure
-  interactively, or build a visualiser for a drift-diffusion / race / accumulator /
-  random-walk / population / epidemic (SIR) / predator-prey / integrate-and-fire /
-  Monte-Carlo model. NOT only DDM — any model with state that evolves and yields an
-  outcome. Also triggers on "modeling GUI", "simulator", "parameter explorer",
-  "trajectory + histogram", and follow-ups like "add my model", "change the dynamics",
-  "make it a 2-D phase plane".
+  Build a self-contained web GUI that turns ANY parameterised model into an interactive
+  explorer: move a slider per parameter (or flip a condition) and watch the simulation
+  result update live, shown in views the MODEL defines — there is NO fixed graphic or
+  axis. A Bayesian observer draws prior/likelihood/posterior + a bias (central-tendency)
+  curve + trial-to-trial prior updating; a neuron draws a V(t) trace + spike raster +
+  f–I curve; a decision model animates an evidence trajectory + an RT histogram; a
+  saccade model draws eye paths + a landing map; a POMDP draws belief evolution. USE THIS
+  whenever the user wants a simulator / parameter explorer / "see how the result changes
+  as I tune X" / "turn these equations into something I can play with" / a teaching demo
+  for researchers — neuron models, Bayesian/ideal-observer models, drift-diffusion or
+  other decision models, reinforcement learning, POMDP, saccade/oculomotor, population /
+  epidemic / dynamical-systems, or any Monte-Carlo process. Also triggers on "modeling
+  GUI", "interactive figure", "add a view", "change the plot", "make it animate".
 ---
 
-# model-scope — interactive trial-by-trial model GUIs
+# model-scope — interactive model explorers (any model, any view)
 
-## What you are building (and why this shape)
+## What you build, and the one idea
 
-A single-page app where the user picks a model, moves a slider per parameter, and sees
-two linked things:
+A single-page app for researchers: a **control rail** (a slider per parameter, generated
+from a schema) and a **grid of views**. Moving any control re-runs the model and redraws
+the views, so the researcher *sees how the result changes* — building intuition by play.
 
-1. **This trial** — one trial's state trajectory drawn *as it evolves* from t = 0 until
-   it resolves (crosses a threshold / reaches an absorbing state / times out).
-2. **The histogram** — when a trial resolves, **one count drops into the outcome
-   histogram**; repeat the trial *n* times and that histogram *is* the model's
-   prediction (a response-time / first-passage / outcome distribution).
+The crucial design decision: **the toolbox imposes no visualisation.** It does not assume
+a trajectory, a histogram, or any particular axes. Each model declares its own `views`,
+and each view draws *whatever is intuitive for that model* — distributions, tuning
+curves, rasters, phase portraits, belief simplices, eye traces — using a small plotting
+helper. The decision-model "evidence trajectory + RT histogram" is just *one* recipe.
 
-This "watch the process, then watch the distribution it produces" framing is the whole
-point: it makes the link between micro-dynamics and macro-statistics visible, and it
-lets the user *feel* how each parameter reshapes both. It applies far beyond decision
-models — anything you can write as "state, a rule to step it with noise, and a condition
-that ends the trial" fits.
+Implement the model's math **exactly** as given (never re-derive from memory). Surface any
+ambiguity instead of guessing. Aim for a clean instrument, not a dashboard.
 
-**Do not over-build.** The win is a clean instrument, not a dashboard. Implement the
-model's math *exactly* as given (never re-derive from memory); surface ambiguity instead
-of guessing.
+## Architecture — 4 files, no build step
 
-## The architecture — 3 files, no build step
-
-Copy the bundled template (`assets/template/`) as the starting scaffold. It is
-deliberately tiny and dependency-free so it opens by double-clicking `index.html`.
+Copy the bundled template (`assets/template/`). It opens by double-clicking `index.html`
+(or `python3 -m http.server`). All classic `<script>`s — no bundler, no `npm install`.
 
 ```
-engine.js     pure math — RNG, MODELS registry, one-step integrator, trial runners.
-              NO DOM. Loads as a classic <script> (works from file://) AND is
-              eval-able in Node, so the UI and the test share one source of truth.
-index.html    the UI — builds all controls from each model's parameter schema, runs
-              the trial-by-trial player, and renders trajectory + histogram on <canvas>.
-validate.mjs  Node harness — re-uses engine.js to check each model (closed form where
-              one exists, otherwise shape/sanity + any analytic limits).
+plot.js       a tiny canvas charting helper (window.Plot): frame({x,y,…}) sets up a
+              view's OWN axes, then line/band/points/bars/heat/raster/vline/… draw in
+              data coordinates. Theme- & devicePixelRatio-correct. You rarely edit it.
+engine.js     pure math (window.SIM): RNG + the MODELS registry. NO DOM. Eval-able in
+              Node so validate.mjs shares the same source. You mostly edit ONLY this.
+index.html    the toolbox: builds sliders from each model's schema, runs simulate() on
+              change, drives the optional playhead, and calls each view's draw().
+validate.mjs  Node gate — every model's simulate() runs & is sane; analytic checks where
+              one exists.
 ```
 
-Why no framework / no build: a researcher should be able to open it offline, read it,
-and edit one registry entry. Classic scripts (not ES modules) load from `file://`;
-modules do not.
+## The model contract — the one place you edit
 
-## The model registry — the one place you edit
-
-Adding or changing a model = editing one declarative entry in `MODELS` (in `engine.js`).
-The GUI (sliders, labels, plots, stats) is **generated from this schema** — never
-hand-wire controls. Each model is a set of *pure* functions (no globals, no DOM):
+Adding/altering a model = one declarative entry in `MODELS` (+ its id in `MODEL_ORDER`).
+A model is pure (no DOM, no globals):
 
 ```js
 mymodel: {
-  id: 'mymodel', name: 'My model', dim: 1,            // dim 1 → x(t); dim 2 → (y1,y2)
-  blurb: 'one plain-language sentence',
-  note:  'a qualitative prediction or limiting case to surface in the UI',
-  params: [ { name:'A', label:'Drift', min:0, max:3, step:0.01, default:1, unit:'' }, … ],
-  outcomes: [ { key:'up', label:'upper', color:'pos' },                 // 1 or 2 categories
-              { key:'dn', label:'lower', color:'neg' } ],
-  init:  (p, rng) => ({ t:0, x:p.x0 }),               // fresh trial state (may draw rng)
-  step:  (s, p, dt, rng) => { s.x += p.A*dt + p.c*Math.sqrt(dt)*gaussian(rng); s.t+=dt; },
-  done:  (s, p) => (s.x>=p.B ? 1 : s.x<=-p.B ? 2 : 0),// 0 = ongoing; else 1-based outcome
-  fields:(s) => [s.x],                                // plotted variables: [x] or [y1,y2]
-  // optional:
-  measure:(s,p) => s.t,                               // scalar binned per trial (default t)
-  guides: (p) => [ {v:p.B}, {v:-p.B} ],               // 1-D reference/threshold lines
-  yRange: (p) => [-p.B*1.4, p.B*1.4],                 // 1-D vertical range (else inferred)
-  derived:(p) => [ {label:'λ = …', value:…, tag:'…'} ],            // read-only computed display
-  fieldState:(p,y1,y2) => ({t:0,y1,y2,/*hidden vars at quasi-steady-state*/}),  // 2-D landscape
+  id:'mymodel', name:'My model',
+  blurb:'one plain-language sentence', note:'a key qualitative effect to point out',
+  params: [ {name:'sigma', label:'Noise σ', min:0.1, max:3, step:0.01, default:1, unit?}, … ],
+  // run the whole simulation for these parameters; return ANY data the views need.
+  // env = { rng, seed, params } — rng is seeded from the seed field (reproducible).
+  simulate: (p, env) => { /* compute curves, samples, fields, sequences… */ return data; },
+  // one or more panels; each draws its own axes & graphics via g (see plot.js).
+  views: [
+    { title:'…', draw:(g, data, ui) => {
+        g.frame({ x:[lo,hi], y:[lo,hi], xlabel, ylabel, title });   // YOUR axes
+        g.line(pts); g.band(pts); g.bars(hist); g.vline(x); g.heat(...); g.raster(...);
+        // ui = { head, playing, params } — read ui.head for sequential animation
+    }},
+  ],
+  // OPTIONAL: makes the model sequential → the toolbox shows play/scrub + a playhead.
+  anim: { length:(p,data)=> N },     // head runs 0..N; views animate using ui.head
 }
 ```
 
-Contract notes (the *why*):
-- **`done` returns a 1-based outcome index, `0` = not yet.** Trials that never resolve
-  before `tMax` are **non-responses** — count and report them, never silently drop them
-  (some regimes genuinely don't terminate). Keep ≤ 2 outcome categories for the built-in
-  mirrored histogram; >2 needs a small rendering tweak (see `references/rendering.md`).
-- **`measure`** is the scalar the histogram accumulates — default is the trial time
-  (first-passage / decision time), but it can be a final value, a count, anything.
-- **`step` is one Euler–Maruyama step.** Noise enters as `c·dW` with `dW = √dt·N(0,1)`
-  (per-step SD `c·√dt`). Compute all increments from the *old* state (simultaneous
-  update) for multi-variable models. Cap trials at `tMax/dt` steps.
+Why this shape:
+- **`simulate` returns whatever you want.** Distributions, a tuning curve, sampled
+  trajectories, a 2-D field, a trial-by-trial sequence — the views interpret it. This is
+  what removes the fixed-graphic constraint.
+- **`views` own their axes.** `g.frame(...)` is per-view; one view can be a probability
+  density on a stimulus axis, the next an estimate-vs-true curve, the next a heatmap.
+- **`anim` is optional.** Static models (a tuning curve that just depends on params)
+  need none — they redraw on slider change. Sequential models (trial-by-trial learning,
+  an accumulating histogram, a spike train) declare `anim.length`; the toolbox provides a
+  playhead `ui.head ∈ [0,length]`, play/pause, fast-forward, scrub, and a speed control.
+  Views decide what `head` means (a trial index, a time, an iteration).
 
-## Simulation core — reproducible, instant, addressable
+## Reproducible & instant simulation
 
-Use a **seedable RNG** and seed **each trial independently**: `trialRng(seed, k) =
-makeRNG(seed + '#' + k)`. Why per-trial sub-seeds rather than one stream:
-- trial *k* is reproducible from `k` alone → the scrubber can jump to any trial, and the
-  "this trial" view regenerates the exact path on demand;
-- recomputing all *n* trials is deterministic and effectively instant, so changing a
-  parameter just re-runs from trial 1 with no caching machinery.
+Use the seedable RNG; for trial-based models seed each trial as `trialRng(seed, k) =
+makeRNG(seed + '#' + k)` so trial *k* is reproducible from `k` (the player can jump to it)
+and the whole batch recomputes deterministically and fast. `gaussian(rng)`, `makeRNG`,
+`npdf` (normal pdf) ship in `engine.js`. Keep `simulate` fast enough to run on every
+slider move (chunk only for very large batches).
 
-`gaussian(rng)` = Box–Muller (consumes 2 uniforms). `makeRNG(str)` = hash → mulberry32.
-The template ships both. A trial runner steps `init → step…step` until `done` ≠ 0 or the
-step cap, returning `{outcome, measure, path}`.
+## The plotting helper `g`
 
-## The trial-by-trial player — the signature UX
+Load `references/plotting.md` for the full API and view recipes. In one line: call
+`g.frame({x,y,xlabel,ylabel,title})` to define this view's axes, then draw with
+`g.line / g.band / g.points / g.marker / g.bars / g.heat / g.raster / g.vline / g.hline /
+g.text / g.legend / g.note`. `g.X(v)`/`g.Y(v)` map data→pixels if you need raw `g.ctx`.
+`Plot.histify(values, bins, lo, hi, quant?)` bins data (snap bin width to a multiple of
+`quant` such as `dt` to avoid comb artifacts). It's a small, plain helper — extend it
+freely (add a contour, a violin, a vector field) rather than fighting it.
 
-This is what makes it a *scope* and not a static plot. Implement it as the template does:
+## Recipes (reach for the one that fits the model)
 
-- A **transport bar**: ⏮ restart (clear histogram) · ▶/⏸ · ⏭ fast-forward (complete all
-  *n* → final histogram) · a **trial scrubber** (jump to "after k trials" + show trial
-  *k*'s trajectory) · a **speed** slider (integration steps drawn per frame: low to watch
-  one trial, high to fill fast).
-- Each animation frame advances the current trial's trajectory; when it resolves, the
-  matching histogram **bin grows by one** (a brief highlight sells the link); then the
-  next trial starts.
-- **Fix the histogram's axes once** (from the full result set: x to a high percentile of
-  `measure`, y to the final peak count) so bars *grow into place* instead of rescaling —
-  the right-skew and the fill-up read clearly.
+`references/plotting.md` has worked snippets for each:
+- **Distributions & inference** (Bayesian/ideal observer): prior/likelihood/posterior as
+  bands+lines on a stimulus axis; markers at θ, m, θ̂.
+- **Tuning / transfer curves** (bias/central-tendency, f–I, psychometric): a curve vs an
+  identity or baseline, with a ±SD ribbon; sweep a parameter and watch it deform.
+- **Animated trajectory + accumulating histogram** (decision / first-passage): `anim`
+  over trials; one view regenerates the current trial's path (`ui.head`), another bins the
+  outcomes of completed trials.
+- **Spike raster + trace** (neurons): a `V(t)` line + `g.raster(spikeRowsPerTrial)`.
+- **Heatmap / phase field** (2-D dynamical, energy landscape, belief simplex): `g.heat`
+  with a colormap; for an energy landscape, integrate the noise-free drift into a
+  potential and **rank-equalise** the colour (yellow = low/attractor, blue = high) so a
+  strong tilt doesn't wash out the structure.
+- **Sequence / learning** (RL value, POMDP belief, prior update): plot the quantity vs
+  iteration up to `ui.head`.
 
-See `references/rendering.md` for the player loop, fixed-axis binning, and the light
-canvas theme.
+These compose — a model can mix static curves and an animated view in the same grid.
 
-## Rendering — read it, don't decorate it
+## Theme & legibility
 
-Load `references/rendering.md` before writing UI. The essentials: a **light, eye-friendly**
-theme (white-ish background, muted non-fluorescent colours, no neon glow); **device-pixel-ratio**
-canvases so lines are crisp; **Δt-aligned histogram bins** (snap bin width to a multiple
-of `dt`, else the dt-quantised measures comb); fixed axes; one accent + two outcome
-colours, used consistently. Aim for an instrument, not an AI dashboard.
+Light, eye-friendly (off-white page, muted non-fluorescent colours, no glow); the helper
+already enforces it and is DPR-correct. Give each view a clear title, axis labels, and
+units. Let views breathe — the grid auto-fits; 1–4 views is typical.
 
-## 2-D dynamical models — phase plane + energy landscape
+## Validation
 
-If `dim === 2`, also draw the `(y1,y2)` phase plane and — when the deterministic drift is
-a **gradient field** (true for linearised competing-accumulator models) — an **energy
-landscape** that shows *where the attractor sits*. Load `references/dynamical-2d.md` for
-the full recipe: read the noise-free drift `F` generically from `step` (a zero-noise
-rng), integrate the potential `V` (`F = −∇V`), classify the fixed point (well / line /
-saddle) from the Jacobian, and paint a **rank-equalised** colour map with
-**yellow = low energy (attractor/valley), blue = high (ridge)**. Rank-equalisation is
-essential — plain min–max scaling lets a strong input tilt wash the structure to one
-colour. For models without an attractor (uniform drift), say so rather than drawing a
-misleading map.
-
-## Validation harness
-
-`validate.mjs` re-uses `engine.js` (no duplicated math). For every model assert it
-*runs* and produces sane outcomes (the easier/expected outcome dominates; non-responses
-counted). Where a closed form exists, check convergence to it as `dt → 0` and gate at a
-stated tolerance (Euler boundary overshoot is `O(√dt)` — converges, doesn't vanish at
-coarse dt). Where a known limit exists (e.g. "parameter X → reduces to model Y"), check
-it. Run `node validate.mjs` before declaring done.
+`validate.mjs` reuses `engine.js`. Minimum gate: each model's `simulate()` runs without
+throwing and returns data, and every view is a function. Add a per-model analytic check
+where one exists (Bayesian reliability weight in (0,1); decision-model error rate vs the
+closed form; a known limit). `node validate.mjs` must pass before declaring done.
 
 ## How to start
 
-1. **Scaffold**: copy `assets/template/` to the target folder (or run
-   `/model-scope:scaffold <dir>`). It already runs, with three example models spanning
-   1-D decision, 1-D population, and 2-D competition.
-2. **Add the user's model**: write ONE `MODELS` entry from their equations + parameters.
-   Pin down the exact equations first; implement them verbatim.
-3. **Wire experiment meaning**: in `blurb`/`note` and the controls, connect parameters to
-   what they mean (e.g. drift ↔ stimulus strength / coherence, noise ↔ sensory noise,
-   threshold ↔ speed–accuracy caution, tMax ↔ deadline). An optional intro/guide overlay
-   can hold a parameter↔concept table.
+1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs,
+   with two contrasting examples — a Bayesian observer (distributions + bias curve +
+   prior updating) and a drift-diffusion decision (animated trajectory + RT histogram).
+2. **Add the model**: pin the equations/parameters, then write ONE `MODELS` entry — its
+   `params`, a `simulate` that returns the data the model is about, and a `views` list
+   that draws what's intuitive. Add `anim` only if it's sequential.
+3. **Connect to the science**: in `blurb`/`note` and labels, relate parameters to what
+   they mean for the researcher (a stimulus/condition, a noise source, a learning rate, a
+   gain), so moving a slider tells a story.
 4. **Validate** (`node validate.mjs`) and **open** `index.html`.
 
-## Generality — examples to reach for
-
-The same three functions (`step`, `done`, `measure`) express, e.g.:
-decision (drift-diffusion, race, leaky competing accumulators, feedforward, pooled
-inhibition) · biased random walk / gambler's ruin · stochastic logistic or exponential
-growth (time-to-establish vs extinction) · SIR epidemic (time-to-peak, final size) ·
-predator–prey · integrate-and-fire neuron (first-spike latency) · queueing / birth–death
-· any first-passage or Monte-Carlo experiment. If the user's model has hidden variables
-(like a pooled inhibitory population), keep them in the state and only `fields` the ones
-to plot; give `fieldState` a quasi-steady-state projection so the landscape still works.
+The `model-gui-builder` agent can take a model description end-to-end.

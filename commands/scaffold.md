@@ -27,9 +27,10 @@ anything after it is an optional one-line description of the model to build.
 3. Confirm the scaffold: list the copied files (`engine.js`, `index.html`, `validate.mjs`,
    `README.md`) and run `node validate.mjs` in the target to show the example models pass.
 4. **Then load the `model-scope` skill** and follow it to add the user's model: pin the
-   equations, add ONE `MODELS` entry in `engine.js`, wire outcomes/guides/derived, validate,
-   and open `index.html`. If a model description was given in `$ARGUMENTS`, start on it; the
-   `model-gui-builder` agent can take it end-to-end.
+   equations, add ONE `MODELS` entry in `engine.js` (`params` + `simulate(p,env)→data` +
+   `views[]`, plus `anim` if sequential), choosing views that make the model intuitive;
+   validate and open `index.html`. If a model description was given in `$ARGUMENTS`, start
+   on it; the `model-gui-builder` agent can take it end-to-end.
 
 Report the target path, how to open it (`open index.html` or `python3 -m http.server`), and
 the one-entry edit point for adding a model.

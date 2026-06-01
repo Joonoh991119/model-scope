@@ -2,25 +2,27 @@
 
 A Claude Code **marketplace plugin** for building interactive scientific-modeling GUIs.
 
-> Turn a model — *any* model whose state evolves stochastically and produces an
-> outcome — into a self-contained web app where you move a slider per parameter and
-> **watch what happens on each trial**: one trial's trajectory unfolds, and when it
-> resolves a count drops into the outcome histogram; repeat *n* times to build the
-> distribution. Optional 2-D phase-plane and energy-landscape views.
+> Turn **any** parameterised model into a self-contained web app where you move a slider
+> per parameter (or flip a condition) and **watch the simulation result change** — shown
+> in views the *model* defines. There is no fixed graphic or axis: a Bayesian observer
+> draws prior/likelihood/posterior + a central-tendency curve + trial-to-trial prior
+> updating; a neuron draws a V(t) trace + spike raster + f–I curve; a decision model
+> animates an evidence trajectory + an RT histogram; a POMDP/saccade/RL/population model
+> draws whatever makes it intuitive.
 
-It generalises the Bogacz, Brown, Moehlis, Holmes & Cohen (2006) two-alternative
-decision-model simulator into a reusable pattern: drift-diffusion, race, accumulator,
-random walk, population/epidemic, predator–prey, integrate-and-fire, or any Monte-Carlo
-process.
+It is a toolbox for building simulators that help researchers *understand* a model by
+playing with it — Bayesian/ideal-observer, neuron, drift-diffusion & other decision
+models, reinforcement learning, POMDP, saccade/oculomotor, population/epidemic,
+dynamical-systems, or any Monte-Carlo process.
 
 ## What's inside
 
 | Component | What it does |
 |---|---|
-| **Skill** `model-scope` | The method: a 3-file, no-build architecture (pure-math `engine.js` + schema-driven `index.html` + Node `validate.mjs`), a model-registry interface, a trial-by-trial player, light-theme canvas rendering, and the optional 2-D phase/energy-landscape recipe. Auto-triggers when you ask to build/explore a model GUI. |
-| **Agent** `model-gui-builder` | A subagent that builds one of these GUIs end-to-end from a model description (equations + parameters). |
-| **Command** `/model-scope:scaffold` | Scaffolds a new model GUI from the bundled template into a target folder, ready to edit. |
-| **Template** (`skills/model-scope/assets/template/`) | A working, generalised reference app with three example models (biased random walk, stochastic logistic growth, two-population competition) — copy it and edit one registry entry to add your own. |
+| **Skill** `model-scope` | The method: a 4-file, no-build architecture (`plot.js` charting helper + pure-math `engine.js` + schema-driven `index.html` + Node `validate.mjs`), the `params` + `simulate()→data` + `views[]` model contract (each view defines its own axes/graphics), an optional playhead for sequential models, and view recipes (distributions, tuning curves, trajectory+histogram, rasters, heatmaps/energy landscapes, learning sequences). Auto-triggers when you ask to build/explore a model GUI. |
+| **Agent** `model-gui-builder` | A subagent that builds one of these GUIs end-to-end from a model description, choosing the views that make the model intuitive. |
+| **Command** `/model-scope:scaffold` | Scaffolds a new model explorer from the bundled template into a target folder, ready to edit. |
+| **Template** (`skills/model-scope/assets/template/`) | A working reference app with two contrasting example models — a **Bayesian observer** (distribution + bias-curve + prior-update views) and a **drift-diffusion decision** (animated trajectory + RT histogram) — to copy and extend with one registry entry. |
 
 ## Install
 

@@ -9,8 +9,8 @@
     {
       "name": "model-scope",
       "source": "./",
-      "description": "Build a self-contained, schema-driven web GUI that visualises ANY parameterised stochastic / dynamical model trial-by-trial: watch one trial's trajectory unfold, drop a count into the outcome histogram when it resolves, repeat n times for the distribution — with a slider per parameter and optional 2-D phase-plane + energy-landscape views. Generalises the Bogacz-2006 decision-model simulator to any model.",
-      "version": "1.0.0",
+      "description": "Turn ANY parameterised model into an interactive explorer: move a slider and watch the simulation update, shown in views the MODEL defines (no fixed graphic/axis) — Bayesian/ideal-observer, neuron, decision (drift-diffusion), RL, POMDP, saccade, population, or any Monte-Carlo process. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step.",
+      "version": "1.1.0",
       "author": { "name": "Joonoh Park" },
       "keywords": ["simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "psychophysics", "drift-diffusion"],
       "category": "data-and-visualization"

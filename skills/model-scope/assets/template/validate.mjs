@@ -1,63 +1,46 @@
 /* =============================================================================
- * validate.mjs — correctness gate, reusing engine.js (no duplicated math).
+ * validate.mjs — checks each model's simulate() runs and is sane, reusing engine.js.
  *   Run:  node validate.mjs
- *
- * 1. Shape test — every model runs, produces valid outcomes, and reports
- *    non-responses (never crashes / drops).
- * 2. Closed-form test — the biased random walk converges to the drift-diffusion
- *    first-passage formulae as dt → 0 (the pattern for "validate where a closed
- *    form exists"; Euler boundary overshoot is O(√dt)).
+ * The toolbox imposes no fixed output shape, so the gate is: simulate() returns data
+ * without throwing, every view is a function, and a per-model analytic check holds.
  * ========================================================================== */
 import fs from 'node:fs';
-const code = fs.readFileSync(new URL('./engine.js', import.meta.url), 'utf8');
-(0, eval)(code);
+// plot.js touches `document`/canvas; engine.js only needs it lazily inside views, so
+// stub the browser globals it references at module scope, then load engine.
+globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
+(0, eval)(fs.readFileSync(new URL('./engine.js', import.meta.url), 'utf8'));
 const SIM = globalThis.SIM;
 
-let fails = 0;
-const ok = (b) => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
-const pct = (x) => (100 * x).toFixed(2) + '%';
-const trialRng = (seed, k) => SIM.makeRNG(seed + '#' + k);
+let fails = 0; const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
+const env = (seed) => ({ rng: SIM.makeRNG(seed), seed, params: {} });
 
-function batch(model, p, opts, N, seed) {
-  let counts = [0, 0, 0], sum = [0, 0, 0];   // index 0 = non-response
-  for (let k = 0; k < N; k++) {
-    const r = SIM.runTrialFast(model, p, opts, trialRng(seed, k));
-    counts[r.outcome]++; if (r.outcome) sum[r.outcome] += r.measure;
-  }
-  return { counts, sum };
-}
+console.log('\n=== model-scope template models ===\n');
 
-console.log('\n=== 1. Shape test (every model runs & resolves sanely) ===\n');
-const cases = {
-  walk:     { A:1, c:1, B:1, x0:0 },
-  logistic: { r:1.2, K:1, c:0.09, x0:0.1 },
-  compete:  { I1:4, I2:3, c:0.4, k:6, w:6, Z:0.5 },
-};
+// every model: simulate runs, returns an object, and has ≥1 view function
 for (const id of SIM.MODEL_ORDER) {
-  const m = SIM.MODELS[id], r = batch(m, cases[id], { dt:0.005, tMax:30 }, 20000, 'shape-'+id);
-  const dec = r.counts[1] + r.counts[2];
-  const rate1 = dec ? r.counts[1] / dec : NaN;          // expected (outcome 1) should dominate
-  const valid = dec > 0 && rate1 >= 0.5;
-  console.log(`  ${m.name.padEnd(28)} outcome1=${pct(rate1).padStart(7)}  non-resp=${String(r.counts[0]).padStart(5)}  [${ok(valid)}]`);
+  const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
+  let data, threw = null; try { data = m.simulate(p, env('v-'+id)); } catch (e) { threw = e; }
+  const viewsOk = Array.isArray(m.views) && m.views.length >= 1 && m.views.every(v => typeof v.draw === 'function');
+  console.log(`  ${m.name.padEnd(28)} simulate=${threw?'\x1b[31mthrew\x1b[0m':'ok'}  views=${m.views.length}  [${ok(!threw && data && viewsOk)}]`);
+  if (threw) console.log('    ' + threw.message);
 }
 
-console.log('\n=== 2. Closed form — random walk → drift-diffusion (Eqs. 8/9) ===\n');
-const A=1, c=1, B=1;
-const ER_th = 1/(1+Math.exp(2*A*B/(c*c))), DT_th = (B/A)*Math.tanh(A*B/(c*c));
-console.log(`  theory:  P(−B) = ${pct(ER_th)}   mean first-passage = ${DT_th.toFixed(4)}\n   dt      P(−B)     T̄        |dER|    |dT|`);
-console.log('  ' + '-'.repeat(46));
-let last;
-for (const dt of [0.02, 0.005, 0.001, 0.0003]) {
-  const N = dt <= 0.001 ? 120000 : 60000;
-  const r = batch(SIM.MODELS.walk, {A,c,B,x0:0}, {dt, tMax:60}, N, 'cf-'+dt);
-  const dec = r.counts[1] + r.counts[2], ER = r.counts[2]/dec, T = (r.sum[1]+r.sum[2])/dec;
-  const dER = Math.abs(ER-ER_th)/ER_th, dT = Math.abs(T-DT_th)/DT_th;
-  console.log(`  ${dt.toString().padEnd(7)} ${pct(ER).padStart(7)} ${T.toFixed(4).padStart(8)} ${pct(dER).padStart(7)} ${pct(dT).padStart(7)}`);
-  last = { dER, dT };
+// Bayesian observer: reliability weight in (0,1); estimate lies between measurement & prior mean
+{
+  const m = SIM.MODELS.bayes, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('bayes'));
+  const between = (d.muPost - p.mu0) * (d.m - d.muPost) >= -1e-9;   // μ̂ between μ0 and m
+  console.log(`\n  Bayesian: w=${d.w.toFixed(3)} (0<w<1) · θ̂ between m and μ₀   [${ok(d.w>0 && d.w<1 && between)}]`);
 }
-console.log('  ' + '-'.repeat(46));
-console.log(`  [${ok(last.dER < 0.04)}] P(−B) within 4% at finest dt   (Euler O(√dt) bias → 0)`);
-console.log(`  [${ok(last.dT  < 0.04)}] mean first-passage within 4%`);
+
+// Drift-diffusion: error rate near the closed form 1/(1+e^{2Az/c²}) (Euler-biased but close)
+{
+  const m = SIM.MODELS.ddm, p = {}; m.params.forEach(s => p[s.name] = s.default); p.dt = 0.005; p.nTrials = 40000;
+  const d = m.simulate(p, env('ddm'));
+  let cor = 0, err = 0; for (let k = 0; k < d.n; k++){ if (d.out[k]===1) cor++; else if (d.out[k]===2) err++; }
+  const ER = err/(cor+err), th = 1/(1+Math.exp(2*p.A*p.z/(p.c*p.c)));
+  console.log(`  DDM: sim ER=${(100*ER).toFixed(2)}%  theory=${(100*th).toFixed(2)}%   [${ok(Math.abs(ER-th)/th < 0.12)}]`);
+}
 
 console.log(`\n${fails===0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}\n`);
 process.exit(fails===0 ? 0 : 1);
