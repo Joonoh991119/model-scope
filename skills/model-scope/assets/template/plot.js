@@ -19,11 +19,19 @@
     const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,w,h); return {ctx,w,h}; }
   const fmtTick=(t)=>{ const a=Math.abs(t); if(a!==0 && (a<0.01||a>=1e4)) return t.toExponential(1);
     return (Math.round(t*1000)/1000).toString(); };
+  function roundRect(ctx,x,y,w,h,r){ r=Math.min(r,h/2,w/2); ctx.beginPath(); ctx.moveTo(x+r,y);
+    ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+  function wrap2(ctx,str,maxw){ const words=String(str).split(/\s+/), lines=[]; let cur='';   // greedy wrap to ≤2 lines
+    for(let k=0;k<words.length;k++){ const wd=words[k], t=cur?cur+' '+wd:wd;
+      if(ctx.measureText(t).width<=maxw||!cur){ cur=t; } else { lines.push(cur); cur=wd; if(lines.length===2){ cur=''; break; } } }
+    if(cur&&lines.length<2) lines.push(cur);
+    for(let i=0;i<lines.length;i++){ let s=lines[i]; if(ctx.measureText(s).width>maxw){ while(s.length>1&&ctx.measureText(s+'…').width>maxw) s=s.slice(0,-1); lines[i]=s+'…'; } }
+    return lines.length?lines:['']; }
 
   function make(cv){
     const {ctx,w,h}=setup(cv); let sx=v=>v, sy=v=>v, fr=null;
     const g = { ctx, w, h, TH,
-      frame(o){ const M=o.margin||{l:48,r:14,t:o.title?24:12,b:o.xlabel?30:24};
+      frame(o){ const M=o.margin||{l:48,r:14,t:o.title?24:12,b:o.xlabel?42:26};
         const px=M.l, py=M.t, pw=Math.max(2,w-M.l-M.r), ph=Math.max(2,h-M.t-M.b);
         fr={px,py,pw,ph,x:o.x,y:o.y};
         sx=v=>px+(v-o.x[0])/((o.x[1]-o.x[0])||1)*pw; sy=v=>py+ph*(1-(v-o.y[0])/((o.y[1]-o.y[0])||1));
@@ -31,13 +39,13 @@
         const nx=o.xticks||5, ny=o.yticks||4;
         for(let i=0;i<=nx;i++){ const t=o.x[0]+(o.x[1]-o.x[0])*i/nx, X=sx(t);
           ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke();
-          ctx.textAlign='center'; if(!(o.xlabel&&i===nx)) ctx.fillText(fmtTick(t),X,py+ph+13); }
+          ctx.textAlign='center'; if(!(i===nx && (px+pw) > w-26)) ctx.fillText(fmtTick(t),X,py+ph+13); }  // skip last tick only if it would clip the edge
         for(let j=0;j<=ny;j++){ const t=o.y[0]+(o.y[1]-o.y[0])*j/ny, Y=sy(t);
           ctx.beginPath(); ctx.moveTo(px,Y); ctx.lineTo(px+pw,Y); ctx.stroke();
           ctx.textAlign='right'; ctx.fillText(fmtTick(t),px-6,Y+3); }
         ctx.fillStyle=TH.dim;
-        if(o.xlabel){ ctx.textAlign='right'; ctx.fillText(o.xlabel,px+pw,py+ph+13); }
-        if(o.ylabel){ ctx.save(); ctx.translate(px-36,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
+        if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31); }            // own line below the ticks (no overlap)
+        if(o.ylabel){ ctx.save(); ctx.translate(px-37,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
         if(o.title){ ctx.textAlign='left'; ctx.font='600 11px "IBM Plex Sans",system-ui,sans-serif'; ctx.fillText(o.title,px,py-9); }
         return g; },
       X:v=>sx(v), Y:v=>sy(v), frameRect:()=>fr,
@@ -75,6 +83,30 @@
       legend(items,o={}){ let yy=fr.py+8; const xx=o.x!==undefined?o.x:fr.px+fr.pw-8; ctx.textAlign='right'; ctx.font='10px "IBM Plex Mono",monospace';
         for(const it of items){ ctx.fillStyle=it.color; ctx.fillRect(xx-2,yy-7,8,8); ctx.fillStyle=TH.dim; ctx.fillText(it.label,xx-14,yy); yy+=14; } return g; },
       note(str){ ctx.fillStyle=TH.faint; ctx.font='11px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText(str, w/2, h/2); return g; },
+      // process pipeline (PIXEL space — needs no frame): an ordered strip of stage boxes
+      // with arrows; the active stage is highlighted, earlier ones marked done. Use it as a
+      // "process overview" view so the whole sequence is visible while you step the playhead.
+      // stages=[{key,name,about}]; active=index; o:{y,h,pad,gap,caption}. about → caption line.
+      flow(stages,active,o={}){ if(!stages||!stages.length) return g; const n=stages.length;
+        const pad=o.pad||12, gap=o.gap||9, bh=o.h||46, hasCap=o.caption!==false;
+        const top=o.y!==undefined?o.y:Math.round(hasCap? h*0.30 : h/2-bh/2);
+        const bw=Math.max(30,(w-2*pad-gap*(n-1))/n);
+        ctx.save(); ctx.lineJoin='round'; ctx.textBaseline='middle';
+        for(let i=0;i<n;i++){ const x=pad+i*(bw+gap), cur=i===active, done=active!=null&&i<active;
+          if(i>0){ const ay=top+bh/2; ctx.strokeStyle=TH.faint; ctx.fillStyle=TH.faint; ctx.lineWidth=1.3;
+            ctx.beginPath(); ctx.moveTo(x-gap+1,ay); ctx.lineTo(x-3.5,ay); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x-1,ay); ctx.lineTo(x-5,ay-3); ctx.lineTo(x-5,ay+3); ctx.closePath(); ctx.fill(); }
+          ctx.fillStyle=cur?TH.accent:(done?'rgba(74,122,147,.12)':'#fff'); roundRect(ctx,x,top,bw,bh,8); ctx.fill();
+          ctx.lineWidth=cur?1.5:1; ctx.strokeStyle=cur?TH.accent:TH.edge; ctx.stroke();
+          ctx.font='600 9px "IBM Plex Mono",monospace'; ctx.textAlign='left'; ctx.fillStyle=cur?'rgba(255,255,255,.85)':TH.faint; ctx.fillText(String(i+1),x+6,top+9);
+          ctx.font='600 10.5px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='center'; ctx.fillStyle=cur?'#fff':(done?TH.accent:TH.dim);
+          const lines=wrap2(ctx,stages[i].name,bw-12), lh=12, y0=top+bh/2-(lines.length-1)*lh/2; lines.forEach((ln,li)=>ctx.fillText(ln,x+bw/2,y0+li*lh)); }
+        if(hasCap && active!=null && stages[active] && stages[active].about){ ctx.textBaseline='top'; ctx.textAlign='center';
+          ctx.font='11px "IBM Plex Sans",system-ui,sans-serif'; ctx.fillStyle=TH.dim;
+          const maxw=w-2*pad, words=String(stages[active].about).split(/\s+/), L=[]; let line='';
+          for(const wd of words){ const t=line?line+' '+wd:wd; if(ctx.measureText(t).width>maxw&&line){ L.push(line); line=wd; if(L.length===3)break; } else line=t; }
+          if(line&&L.length<3) L.push(line); let cy=top+bh+13; for(const ln of L){ ctx.fillText(ln,w/2,cy); cy+=15; } }
+        ctx.restore(); return g; },
     };
     return g;
   }

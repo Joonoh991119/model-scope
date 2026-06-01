@@ -75,7 +75,9 @@ mymodel: {
     }},
   ],
   // OPTIONAL: makes the model sequential → the toolbox shows play/scrub + a playhead.
-  anim: { length:(p,data)=> N },     // head runs 0..N; views animate using ui.head
+  anim: { length:(p,data)=> N },     // continuous: head runs 0..N; views read ui.head
+  // OPTIONAL (instead of anim): PROCESS MODE — step through the model's internal pipeline.
+  stages: (p,data)=> [ {key,name,about}, … ],  // ◀ ▶ stepper; views read ui.stage/ui.stageKey
 }
 ```
 
@@ -90,6 +92,13 @@ Why this shape:
   an accumulating histogram, a spike train) declare `anim.length`; the toolbox provides a
   playhead `ui.head ∈ [0,length]`, play/pause, fast-forward, scrub, and a speed control.
   Views decide what `head` means (a trial index, a time, an iteration).
+- **`stages` is the process-mode alternative.** When the point is to *see each computation
+  in sequence* (a Bayesian observer: stimulus → encoding → measurement → likelihood →
+  posterior → estimate; a causal-inference observer: cues → likelihoods → causal posterior →
+  estimates), declare `stages` instead of `anim`. The toolbox turns the playhead into a
+  discrete **◀ ▶ stepper** with a stage-named readout; views read `ui.stage`/`ui.stageKey`
+  and progressively reveal each stage, and `g.flow(ui.stages, ui.stage)` draws the pipeline
+  strip. See `references/plotting.md` ("Process pipeline") and the modelbook process examples.
 
 ## Reproducible & instant simulation
 
@@ -104,7 +113,8 @@ slider move (chunk only for very large batches).
 Load `references/plotting.md` for the full API and view recipes. In one line: call
 `g.frame({x,y,xlabel,ylabel,title})` to define this view's axes, then draw with
 `g.line / g.band / g.points / g.marker / g.bars / g.heat / g.raster / g.vline / g.hline /
-g.text / g.legend / g.note`. `g.X(v)`/`g.Y(v)` map data→pixels if you need raw `g.ctx`.
+g.text / g.legend / g.note / g.flow` (`g.flow` = a process-pipeline strip for `stages`
+models). `g.X(v)`/`g.Y(v)` map data→pixels if you need raw `g.ctx`.
 `Plot.histify(values, bins, lo, hi, quant?)` bins data (snap bin width to a multiple of
 `quant` such as `dt` to avoid comb artifacts). It's a small, plain helper — extend it
 freely (add a contour, a violin, a vector field) rather than fighting it.
@@ -144,8 +154,14 @@ Brian2 / Neuronal Dynamics neurons). Read `references/modelbook/INDEX.md` to pic
 family, then its file for canonical equations, parameters + meaning, recommended views,
 and the matching `MSLIB` code module:
 
-- **bayesian-observer** — perception / magnitude & time estimation, central tendency, cue
-  combination, prior learning (`MSLIB.bayes`; fit with Acerbi's PyBADS/PyVBMC/IBS).
+- **bayesian-observer** — perception / magnitude & time estimation, central tendency,
+  prior learning (`MSLIB.bayes`; fit with Acerbi's PyBADS/PyVBMC/IBS).
+- **efficient-coding** — prior-shaped encoding, repulsive/anti-Bayesian bias, bias↔
+  discriminability, decision-conditioned estimation (`MSLIB.efficient`; Wei&Stocker, Luu&Stocker).
+- **causal-inference** — cue combination, multisensory fusion / ventriloquism, concept
+  learning (`MSLIB.causal`; Ernst&Banks, Körding, Tenenbaum).
+- **working-memory** — continuous report, precision/capacity, swap errors, von Mises mixtures
+  (`MSLIB.wm`; Zhang&Luck, Bays&Husain, MemToolbox).
 - **decision-circuits** — DDM, leaky competing accumulators, Wong–Wang reduced circuit
   (`MSLIB.decision`, `MSLIB.sde`).
 - **spiking-neurons** — LIF / EIF / Izhikevich / HH, f–I curves, rasters (`MSLIB.neuron`).
@@ -167,8 +183,10 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 ## How to start
 
 1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs,
-   with two contrasting examples — a Bayesian observer (distributions + bias curve +
-   prior updating) and a drift-diffusion decision (animated trajectory + RT histogram).
+   with five worked examples spanning both idioms — *continuous* anim (a Bayesian observer
+   with prior updating; a drift-diffusion decision with an RT histogram) and *process mode*
+   `stages` (an efficient-coding observer, a causal-inference observer, and a working-memory
+   mixture model that each step through their pipeline).
 2. **Add the model**: pin the equations/parameters, then write ONE `MODELS` entry — its
    `params`, a `simulate` that returns the data the model is about, and a `views` list
    that draws what's intuitive. Add `anim` only if it's sequential.

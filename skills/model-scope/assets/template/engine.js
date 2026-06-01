@@ -103,6 +103,203 @@
       anim:{ length:(p)=>Math.round(p.nTrials) },
     },
 
+    /* ---- Efficient-coding observer (Wei & Stocker): the prior reshapes the sensory code.
+            A PROCESS-mode model — step the playhead through the pipeline stages. ---- */
+    efficient: {
+      id:'efficient', name:'Efficient-coding observer',
+      blurb:'An efficient sensory code spends resolution where the prior is dense: the encoding F(θ)=CDF(prior) warps stimulus space so noise is uniform in sensory space. Decoding back skews the likelihood and biases the percept — repelled from the prior peak (Wei & Stocker).',
+      note:'Low noise + BLS (L2) loss → bias points AWAY from the prior peak (the "anti-Bayesian" repulsion). Switch to MAP, or raise σ, and the prior wins (attraction). Discriminability is best where the prior is densest. Step ▶ through the stages.',
+      params:[
+        {name:'theta',   label:'True stimulus θ', min:-3, max:3, step:0.05, default:1.1},
+        {name:'sigma',   label:'Sensory noise σ', min:0.02, max:0.5, step:0.005, default:0.1},
+        {name:'priorSD', label:'Prior width σ_prior', min:0.4, max:2.5, step:0.05, default:1},
+        {name:'lossMAP', label:'Loss: BLS(0) / MAP(1)', min:0, max:1, step:1, default:0, int:true},
+      ],
+      simulate:(p,env)=>{ const E=global.MSLIB.efficient, B=global.MSLIB.bayes, lo=-4, hi=4, NG=241;
+        const grid=B.linspace(lo,hi,NG), prior=Array.from(grid,x=>npdf(x,0,p.priorSD)), F=E.cdf(grid,prior);
+        const loss=p.lossMAP?'MAP':'BLS';
+        const mt=E.measure(p.theta,p.sigma,grid,F,()=>gaussian(env.rng));         // one measurement in F-space
+        const like=E.likelihood(mt,p.sigma,grid,F), post=B.gridPost(like,prior);
+        const estBLS=B.gridMean(post,grid), estMAP=B.gridMode(post,grid), est=loss==='MAP'?estMAP:estBLS;
+        const mBack=E.inv(Math.max(0,Math.min(1,mt)),grid,F);                      // measurement mapped back to stimulus space
+        const cg=B.linspace(-1.4,1.4,43), bias=[], disc=[], dAll=E.discrim(grid,prior);   // central region (avoid finite-grid edge artifact that dwarfs the lobes)
+        for(const th of cg){ let s=0,n=220; for(let k=0;k<n;k++) s+=E.decode(E.encode(th,grid,F)+p.sigma*gaussian(env.rng),p.sigma,grid,F,prior,loss);
+          bias.push([th, s/n-th]); disc.push([th, E.interp(th,grid,dAll)]); }
+        return { grid, prior, F, mt, mBack, like, post, est, estBLS, estMAP, lo, hi, bias, disc }; },
+      stages:()=>[
+        {key:'prior',  name:'Prior',                  about:'The stimulus prior p(θ) — which values occur often. It drives the entire efficient code.'},
+        {key:'encode', name:'Efficient encoding F(θ)', about:'Resources follow the prior: the encoding is the prior CDF F(θ). It warps stimulus space so equal sensory steps span small stimulus steps where the prior is dense.'},
+        {key:'measure',name:'Noisy measurement',       about:'A homogeneous Gaussian measurement m̃ = F(θ)+η lands in the uniform sensory space.'},
+        {key:'like',   name:'Likelihood (skewed)',     about:'Pulled back to stimulus space the likelihood p(m̃|θ) is asymmetric — its long tail points away from the prior peak.'},
+        {key:'post',   name:'Posterior',               about:'Posterior ∝ likelihood × prior. The prior pulls toward its peak; the skewed likelihood pushes away.'},
+        {key:'est',    name:'Estimate',                about:'BLS (posterior mean) and MAP (mode) differ for a skewed posterior — BLS can be repelled from the prior (anti-Bayesian).'},
+        {key:'pop',    name:'Bias & discriminability', about:'Across θ: bias b(θ)=E[θ̂]−θ (repulsion lobes) and the discrimination threshold D(θ)∝1/p(θ) — lowest (discrimination best) where the prior is densest.'},
+      ],
+      views:[
+        { title:'Process pipeline', draw:(g,d,ui)=> g.flow(ui.stages, ui.stage) },
+        { title:'Prior & efficient encoding', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
+          g.frame({x:[d.lo,d.hi],y:[0,1.05],xlabel:'stimulus θ',ylabel:'F(θ)',title:'prior p(θ) → encoding F(θ)=CDF'});
+          const pm=Math.max(...d.prior), pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm*0.9]);
+          g.band(pri,{color:'rgba(74,122,147,.10)'}).line(pri,{color:T.accent,width:1.2,dash:[4,3]});
+          if(ui.stage>=1){ const Fp=Array.from(d.grid,(x,i)=>[x,d.F[i]]); g.line(Fp,{color:T.ink,width:2});
+            g.marker(p.theta, global.MSLIB.efficient.encode(p.theta,d.grid,d.F),{color:T.ink,stroke:'#fff',r:4,label:'F(θ)'}); }
+          g.vline(p.theta,{color:T.faint,label:'θ'});
+          if(ui.stage>=2){ const my=Math.max(0,Math.min(1,d.mt)); g.hline(my,{color:T.warn,dash:[3,3],label:'m̃'}); g.marker(d.mBack,my,{color:T.warn,stroke:'#fff',r:3.5}); }
+          g.legend([{label:'prior',color:T.accent},{label:'F(θ)',color:T.ink}]);
+        }},
+        { title:'Likelihood · prior · posterior', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
+          const pm=Math.max(...d.prior), lm=Math.max(...d.like)||1, pom=Math.max(...d.post)||1;
+          g.frame({x:[d.lo,d.hi],y:[0,1.1],xlabel:'stimulus θ',title:'inference in stimulus space'});
+          const pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm]); g.band(pri,{color:'rgba(74,122,147,.10)'}).line(pri,{color:T.accent,width:1.1,dash:[4,3]});
+          if(ui.stage>=3){ const lik=Array.from(d.grid,(x,i)=>[x,d.like[i]/lm]); g.line(lik,{color:T.warn,width:1.6}); }
+          if(ui.stage>=4){ const pos=Array.from(d.grid,(x,i)=>[x,d.post[i]/pom]); g.band(pos,{color:'rgba(46,139,122,.16)'}).line(pos,{color:T.pos,width:2}); }
+          g.vline(p.theta,{color:T.ink,label:'θ'});
+          if(ui.stage>=2) g.vline(d.mBack,{color:T.warn,label:'m'});
+          if(ui.stage>=5){ g.vline(d.est,{color:T.pos,label:'θ̂'}); g.vline(p.lossMAP?d.estBLS:d.estMAP,{color:T.faint,dash:[2,2],label:p.lossMAP?'BLS':'MAP'}); }
+          g.legend([{label:'prior',color:T.accent},{label:'likelihood',color:T.warn},{label:'posterior',color:T.pos}]);
+        }},
+        { title:'Bias & discriminability', draw:(g,d,ui)=>{ const T=TH();
+          if(ui.stage<6){ g.frame({x:[-1.4,1.4],y:[-1,1],xlabel:'stimulus θ',title:'bias & discriminability'}); g.note('→ advance to the final stage'); return; }
+          let mn=0,mx=0; for(const b of d.bias){ mn=Math.min(mn,b[1]); mx=Math.max(mx,b[1]); } const pad=(mx-mn)*0.25||0.1;
+          g.frame({x:[-1.4,1.4],y:[mn-pad,mx+pad],xlabel:'stimulus θ',ylabel:'bias b(θ)',title:'repulsion lobes + discriminability D∝1/p (dashed)'});
+          g.hline(0,{color:T.faint,dash:[3,3]}); g.vline(0,{color:'rgba(80,75,65,.12)',dash:null,label:'prior peak'});
+          const dmax=Math.max(...d.disc.map(c=>c[1]))||1, scale=(mx-mn)||1, dpts=d.disc.map(c=>[c[0], mn + c[1]/dmax*scale*0.9]);
+          g.line(dpts,{color:T.faint,width:1.4,dash:[5,4]}); g.line(d.bias,{color:T.pos,width:2});
+        }},
+      ],
+    },
+
+    /* ---- Bayesian causal inference (Körding et al. 2007): infer whether two senses share
+            a cause, then fuse or segregate. PROCESS mode. ---- */
+    causal: {
+      id:'causal', name:'Causal inference',
+      blurb:'Two senses report a location. The observer infers whether they share one cause (C=1) or two (C=2), then estimates — fusing when a common cause is likely, segregating when not (Körding et al. 2007).',
+      note:'Small disparity → p(C=1) high → estimates fuse (ventriloquism). Large disparity → segregate, each sense trusts itself. Lower p_common or raise the noises to change the regime. Averaging blends the branches by p(C=1); Select switches; Match samples.',
+      params:[
+        {name:'sV',      label:'Visual position sᵥ', min:-15, max:15, step:0.5, default:6},
+        {name:'sA',      label:'Auditory position sₐ', min:-15, max:15, step:0.5, default:-4},
+        {name:'sigV',    label:'Visual noise σᵥ', min:0.5, max:12, step:0.5, default:2},
+        {name:'sigA',    label:'Auditory noise σₐ', min:0.5, max:15, step:0.5, default:8},
+        {name:'sigP',    label:'Prior width σ_p', min:2, max:30, step:1, default:15},
+        {name:'pCommon', label:'p(common cause)', min:0.05, max:0.95, step:0.05, default:0.5},
+        {name:'strategy',label:'Avg(0)/Select(1)/Match(2)', min:0, max:2, step:1, default:0, int:true},
+      ],
+      simulate:(p,env)=>{ const C=global.MSLIB.causal, strat=['average','select','match'][p.strategy]||'average';
+        const xv=p.sV+p.sigV*gaussian(env.rng), xa=p.sA+p.sigA*gaussian(env.rng);
+        const r=C.ciEstimate(xv,xa,p.sigV,p.sigA,p.sigP,p.pCommon,{strategy:strat,g:()=>env.rng()});
+        const lc=C.ciLikCommon(xv,xa,p.sigV,p.sigA,p.sigP), ls=C.ciLikSeparate(xv,xa,p.sigV,p.sigA,p.sigP);
+        const biasV=[]; for(let dsp=-20; dsp<=20; dsp+=1){ const svT=dsp/2, saT=-dsp/2; let s=0,n=240;
+          for(let k=0;k<n;k++){ const xv2=svT+p.sigV*gaussian(env.rng), xa2=saT+p.sigA*gaussian(env.rng);
+            s+=C.ciEstimate(xv2,xa2,p.sigV,p.sigA,p.sigP,p.pCommon,{strategy:strat,g:()=>env.rng()}).sHatV; }
+          biasV.push([dsp, s/n - svT]); }
+        return { xv, xa, lc, ls, r, biasV }; },
+      stages:()=>[
+        {key:'cues',    name:'Cues arrive',           about:'Each sense gives a noisy reading: xᵥ~N(sᵥ,σᵥ²), xₐ~N(sₐ,σₐ²). Their disparity is the evidence about cause.'},
+        {key:'lik',     name:'Hypothesis likelihoods', about:'How well does ONE common cause explain the pair vs TWO separate causes? Compute p(x|C=1) and p(x|C=2).'},
+        {key:'postC',   name:'Causal posterior',       about:'Bayes with the prior p_common gives p(C=1|x) — the belief the senses share a cause.'},
+        {key:'branch',  name:'Branch estimates',       about:'Fused estimate (assume common) vs segregated estimates (assume separate), each reliability-weighted with the prior.'},
+        {key:'combine', name:'Combine',                about:'Blend the branches by p(C=1) (or Select / Match). The N-shaped bias vs disparity is the signature.'},
+      ],
+      views:[
+        { title:'Process pipeline', draw:(g,d,ui)=> g.flow(ui.stages, ui.stage) },
+        { title:'Cue plane', draw:(g,d,ui)=>{ const T=TH();
+          g.frame({x:[-18,18],y:[-18,18],xlabel:'visual xᵥ',ylabel:'auditory xₐ',title:'cues in 2-D (diagonal = common cause)'});
+          g.line([[-18,-18],[18,18]],{color:T.faint,dash:[4,4]});
+          g.vline(0,{color:'rgba(80,75,65,.10)',dash:null}); g.hline(0,{color:'rgba(80,75,65,.10)',dash:null});
+          g.marker(d.xv,d.xa,{color:T.accent,r:5,label:'(xᵥ,xₐ)'});
+        }},
+        { title:'Causal evidence', draw:(g,d,ui)=>{ const T=TH();
+          g.frame({x:[0,1],y:[0,1],title:'one cause vs two → p(C=1|x)'}); const fr=g.frameRect(), ctx=g.ctx;
+          if(ui.stage>=1){ const den=Math.max(d.lc,d.ls)||1, bw=fr.pw*0.16, bx1=fr.px+fr.pw*0.24, bx2=fr.px+fr.pw*0.58;
+            ctx.fillStyle='rgba(74,122,147,.75)'; const h1=d.lc/den*fr.ph*0.72; ctx.fillRect(bx1,fr.py+fr.ph-h1,bw,h1);
+            ctx.fillStyle='rgba(194,91,66,.75)'; const h2=d.ls/den*fr.ph*0.72; ctx.fillRect(bx2,fr.py+fr.ph-h2,bw,h2);
+            ctx.fillStyle=T.dim; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center';
+            ctx.fillText('common',bx1+bw/2,fr.py+fr.ph+13); ctx.fillText('separate',bx2+bw/2,fr.py+fr.ph+13); }
+          if(ui.stage>=2){ const pc=d.r.pCommon; ctx.fillStyle=T.ink; ctx.font='600 13px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='center';
+            ctx.fillText('p(C=1) = '+pc.toFixed(2), fr.px+fr.pw*0.5, fr.py+16);
+            const gy=fr.py+30, gw=fr.pw*0.6, gx=fr.px+fr.pw*0.2; ctx.fillStyle='rgba(80,75,65,.12)'; ctx.fillRect(gx,gy,gw,7);
+            ctx.fillStyle=T.pos; ctx.fillRect(gx,gy,gw*pc,7); }
+        }},
+        { title:'Estimates & bias', draw:(g,d,ui)=>{ const T=TH();
+          if(ui.stage>=4){ let mn=0,mx=0; for(const b of d.biasV){ mn=Math.min(mn,b[1]); mx=Math.max(mx,b[1]); } const pad=(mx-mn)*0.15||1;
+            g.frame({x:[-20,20],y:[mn-pad,mx+pad],xlabel:'disparity sᵥ−sₐ',ylabel:'visual bias',title:'N-shaped bias (ventriloquism)'});
+            g.hline(0,{color:T.faint,dash:[3,3]}); g.line(d.biasV,{color:T.pos,width:2});
+          } else { g.frame({x:[-18,18],y:[0,1],xlabel:'spatial position',title:'estimates on the spatial axis'});
+            g.vline(d.xv,{color:T.accent,label:'xᵥ'}); g.vline(d.xa,{color:T.neg,label:'xₐ'});
+            if(ui.stage>=3){ g.vline(d.r.sFused,{color:T.pos,dash:[3,2],label:'fused'}); g.vline(d.r.sSegV,{color:T.warn,dash:[3,2],label:'seg'}); } }
+        }},
+      ],
+    },
+
+    /* ---- Working-memory recall (Bays & Husain; Zhang & Luck): a limited resource sets
+            precision; reports mix target / swap / guess. PROCESS mode + trial accumulation. ---- */
+    wm: {
+      id:'wm', name:'Working-memory recall',
+      blurb:'Remember N items on a feature circle, then report one. A limited resource sets recall precision; reports are a mixture of accurate memory, swaps to a non-target, and uniform guesses (Bays & Husain; Zhang & Luck).',
+      note:'Raise set size N → resource per item drops (precision↓). Swaps put mass under the non-targets; guesses raise a flat floor. The error histogram = target peak (κ) + swap bumps + uniform. Step ▶ through encode → recall → decompose.',
+      params:[
+        {name:'N',      label:'Set size N', min:1, max:8, step:1, default:4, int:true},
+        {name:'kappa',  label:'Precision κ', min:1, max:60, step:1, default:16},
+        {name:'pSwap',  label:'Swap rate β', min:0, max:0.6, step:0.02, default:0.15},
+        {name:'pGuess', label:'Guess rate γ', min:0, max:0.6, step:0.02, default:0.1},
+        {name:'nTrials',label:'Trials', min:100, max:6000, step:100, default:1500, int:true},
+      ],
+      simulate:(p,env)=>{ const W=global.MSLIB.wm, TWO=2*Math.PI, N=Math.round(p.N);
+        // effective, self-consistent weights (sum to 1): no swaps without non-targets; renormalise if β+γ>1
+        let pSwap = N<2 ? 0 : p.pSwap, pGuess = p.pGuess, pT = 1 - pSwap - pGuess;
+        if(pT < 0){ const s=pSwap+pGuess; pSwap/=s; pGuess/=s; pT=0; }
+        const offs=[]; for(let i=1;i<N;i++) offs.push(W.wrap(TWO*i/N));                       // fixed non-target offsets (clean demo)
+        const tBase=W.wrap(-1.3+0.5*gaussian(env.rng)), items=[tBase].concat(offs.map(o=>W.wrap(tBase+o)));
+        const cfg=k=>({target:k===undefined?0:k, nontargets: k===undefined?offs:items.slice(1), kappa:p.kappa, pT, pSwap, pGuess});
+        const sample=W.mixtureRecall(cfg(tBase), ()=>env.rng());
+        const n=Math.round(p.nTrials), errs=new Float64Array(n);
+        for(let k=0;k<n;k++){ const rng=trialRng(env.seed,k); errs[k]=W.mixtureRecall(cfg(), ()=>rng()).thetaHat; }
+        return { N, items, target:tBase, offs, sample, errs, pT, pSwap, pGuess, kappa:p.kappa, sd:W.kappaToSD(p.kappa) }; },
+      stages:()=>[
+        {key:'allocate',name:'Allocate resource', about:'A fixed memory resource is split across the N items: more items → less precision each (Bays & Husain power law).'},
+        {key:'encode',  name:'Encode array',      about:'Each item is stored on the feature circle with a spread set by its precision (κ → circular SD).'},
+        {key:'maintain',name:'Maintain',          about:'Items are held over the delay; here precision is fixed (the slots-vs-resource debate is about how κ changes).'},
+        {key:'probe',   name:'Probe',             about:'One item is cued as the target; the others become potential swap targets.'},
+        {key:'recall',  name:'Recall draw',       about:'Report = accurate memory (von Mises around target), a swap to a non-target, or a uniform guess.'},
+        {key:'accum',   name:'Accumulate errors', about:'Over many trials the report error θ̂−θ builds a histogram: a peak at 0, bumps under non-targets, a flat floor.'},
+        {key:'decomp',  name:'Decompose',         about:'Overlay the mixture: α·VM(target) + β·swap + γ·uniform — the Bays/Zhang–Luck decomposition.'},
+      ],
+      views:[
+        { title:'Process pipeline', draw:(g,d,ui)=> g.flow(ui.stages, ui.stage) },
+        { title:'Feature memory wheel', draw:(g,d,ui)=>{ const T=TH(), ctx=g.ctx, cx=g.w/2, cy=g.h/2+8, R=Math.min(g.w,g.h)*0.33;
+          ctx.strokeStyle=T.faint; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(cx,cy,R,0,2*Math.PI); ctx.stroke();
+          ctx.fillStyle=T.dim; ctx.font='600 11px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText('feature circle (orientation / hue)',10,15);
+          const P=(a,r)=>[cx+r*Math.cos(a), cy-r*Math.sin(a)], sd=Math.min(1.2,d.sd);
+          if(ui.stage>=1) for(let i=0;i<d.items.length;i++){ const a=d.items[i], isT=i===0;
+            ctx.strokeStyle=isT?'rgba(46,139,122,.30)':'rgba(74,122,147,.26)'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(cx,cy,R,-a-sd,-a+sd); ctx.stroke();
+            const q=P(a,R); ctx.fillStyle=isT?T.pos:T.accent; ctx.beginPath(); ctx.arc(q[0],q[1],isT?5.5:4,0,7); ctx.fill(); }
+          if(ui.stage>=3){ const t=P(d.target,R); ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(t[0],t[1],9,0,7); ctx.stroke();
+            ctx.fillStyle=T.pos; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText('probe',t[0],t[1]-13); }
+          if(ui.stage>=4 && d.sample){ const col=d.sample.branch==='target'?T.pos:d.sample.branch==='swap'?T.warn:T.neg, e=P(d.sample.thetaHat,R);
+            ctx.strokeStyle=col; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(e[0],e[1]); ctx.stroke();
+            ctx.fillStyle=col; ctx.beginPath(); ctx.arc(e[0],e[1],4,0,7); ctx.fill(); ctx.textAlign='center'; ctx.font='10px "IBM Plex Mono",monospace'; ctx.fillText('report: '+d.sample.branch,cx,g.h-9); }
+        }},
+        { title:'Set size → precision', draw:(g,d,ui)=>{ const T=TH(), W=global.MSLIB.wm;
+          g.frame({x:[1,8],y:[0,1.05],xlabel:'set size N',ylabel:'precision (rel.)',title:'shared-resource power law  P ∝ N^-0.74'});
+          const pts=[1,2,3,4,5,6,7,8].map(N=>[N, W.precisionFromSetsize(N,{k:0.74})]);
+          g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:3});
+          g.marker(d.N, W.precisionFromSetsize(d.N,{k:0.74}),{color:T.pos,stroke:'#fff',r:5,label:'N='+d.N});
+          g.text(1.15,0.13,'κ='+d.kappa+'  ·  circ.SD≈'+(d.sd*180/Math.PI).toFixed(0)+'°',{color:T.dim});
+        }},
+        { title:'Recall error & mixture', draw:(g,d,ui)=>{ const T=TH(), PIc=Math.PI, W=global.MSLIB.wm;
+          if(ui.stage<5){ g.frame({x:[-PIc,PIc],y:[0,1],xlabel:'report error θ̂−θ (rad)',title:'recall-error histogram'}); g.note('→ recall over many trials'); return; }
+          const hist=Plot.histify(Array.from(d.errs),61,-PIc,PIc); let mx=hist.max, curve=null, guessY=0;
+          if(ui.stage>=6){ const comps={kappa:d.kappa,pT:d.pT,pSwap:d.pSwap,pGuess:d.pGuess,nontargetOffsets:d.offs}, NG=180; curve=[];
+            for(let i=0;i<=NG;i++){ const x=-PIc+2*PIc*i/NG; curve.push([x, W.mixturePdf(x,comps)*d.errs.length*hist.binW]); }
+            guessY=d.pGuess*(1/(2*PIc))*d.errs.length*hist.binW; mx=Math.max(mx,...curve.map(c=>c[1])); }
+          g.frame({x:[-PIc,PIc],y:[0,mx*1.08],xlabel:'report error θ̂−θ (rad)',title:'target peak + swap bumps + guess floor'});
+          for(const o of d.offs) g.vline(o,{color:'rgba(176,125,42,.45)',dash:[2,3]});
+          g.bars(hist,{dir:'up',baseY:0,color:'rgba(74,122,147,.55)',max:mx});
+          if(curve){ g.hline(guessY,{color:T.neg,dash:[4,3],label:'guess floor'}); g.line(curve,{color:T.pos,width:2}); g.legend([{label:'data',color:'rgba(74,122,147,.8)'},{label:'mixture',color:T.pos}]); }
+        }},
+      ],
+    },
+
     /* ---- A drift-diffusion decision: animate one trial's evidence, accumulate RTs. ---- */
     ddm: {
       id:'ddm', name:'Drift-diffusion decision',
@@ -143,7 +340,7 @@
       anim:{ length:(p)=>Math.round(p.nTrials) },
     },
   };
-  const MODEL_ORDER = ['bayes','ddm'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

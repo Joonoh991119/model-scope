@@ -68,6 +68,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
           <button id="playBtn" title="Play / pause"><svg id="playIcon" viewBox="0 0 16 16"><path d="M4 3l9 5-9 5z"/></svg></button>
           <button id="toEndBtn" title="Fast-forward to end"><svg viewBox="0 0 16 16"><path d="M3 3l7 5-7 5z"/><rect x="11" y="3" width="2" height="10"/></svg></button>
         </div>
+        <div class="tctrl" id="stepCtrl" style="display:none">
+          <button id="stepBackBtn" title="Previous stage"><svg viewBox="0 0 16 16"><path d="M11 3v10L4 8z"/></svg></button>
+          <button id="stepFwdBtn" title="Next stage"><svg viewBox="0 0 16 16"><path d="M5 3v10l7-5z"/></svg></button>
+        </div>
         <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Step"/>
         <span class="tread" id="tread">0 / 0</span>
         <div class="spd">speed<input type="range" id="spd" min="1" max="800" step="1" value="12"/></div>
@@ -86,7 +90,9 @@ const $=(s,r=document)=>r.querySelector(s); const sleep=()=>new Promise(r=>setTi
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const reduceMotion = matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:'model-scope', data:null, model:null,
-  views:[], canvases:[], anim:null, length:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false };
+  views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
+  stageMode:false, stageList:null };
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
   SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId); b.onclick=()=>setModel(id); nav.appendChild(b); }); }
@@ -103,11 +109,13 @@ function makeField(spec,obj,onChange){ const wrap=document.createElement('div');
   num.addEventListener('blur',()=>apply(parseFloat(num.value)||spec.default)); apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
 function setModel(id){ S.suppress=true; stopAll(); S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
   [...$('#modelTabs').children].forEach(b=>b.setAttribute('aria-pressed',b.textContent===m.name));
-  $('#blurb').textContent=m.blurb||''; $('#note').textContent=m.note||''; $('#tip').textContent=m.anim?'move a slider · ▶ to watch it build':'move a slider · watch the views update';
+  $('#blurb').textContent=m.blurb||''; $('#note').textContent=m.note||''; $('#tip').textContent=m.stages?'move a slider · ▶ or ◀ ▶ to step through each process stage':m.anim?'move a slider · ▶ to watch it build':'move a slider · watch the views update';
   const box=$('#paramFields'); box.innerHTML=''; S.params={}; (m.params||[]).forEach(p=>S.params[p.name]=p.default); (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
   // build view cards
   S.views=m.views||[]; const vc=$('#views'); vc.innerHTML=''; S.canvases=S.views.map(()=>{ const d=document.createElement('div'); d.className='plot'; const cv=document.createElement('canvas'); d.appendChild(cv); vc.appendChild(d); return cv; });
-  $('#tbar').classList.toggle('hidden', !m.anim);
+  $('#tbar').classList.toggle('hidden', !(m.anim||m.stages));
+  $('#stepCtrl').style.display = m.stages ? 'flex' : 'none';
+  const spd=$('#spd'); if(m.stages){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; }   // stages step slowly, trials fast
   S.suppress=false; recompute(); }
 function onChange(){ if(!S.suppress) schedule(); }
 
@@ -116,10 +124,16 @@ function recompute(){ clearTimeout(rt); stopAll(); const myGen=S.gen; S.seed=$('
   const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} };
   try{ S.data=S.model.simulate({...S.params}, env); }catch(e){ S.data=null; console.error(e); }
   if(myGen!==S.gen) return;
-  S.length = S.model.anim ? Math.max(1, S.model.anim.length(S.params, S.data)) : 1;
-  S.head = (S.model.anim && !reduceMotion) ? 0 : S.length;
-  readout(); if(S.model.anim && !reduceMotion){ play(); } else { drawAll(); } }
-function drawAll(){ const ui={ head:S.head, playing:S.playing, params:S.params };
+  S.stageList = S.model.stages ? ((typeof S.model.stages==='function') ? S.model.stages(S.params, S.data) : S.model.stages) : null;
+  S.stageMode = !!(S.stageList && S.stageList.length);
+  S.length = S.stageMode ? S.stageList.length : (S.model.anim ? Math.max(1, S.model.anim.length(S.params, S.data)) : 1);
+  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;   // stages: head ∈ [0,length-1] (one unit per stage); continuous: [0,length]
+  const seq = S.stageMode || !!S.model.anim;
+  S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
+  readout(); if(seq && !reduceMotion){ play(); } else { drawAll(); } }
+function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, Math.floor(S.head))) : null;
+  const ui={ head:S.head, playing:S.playing, params:S.params, frac:S.head-Math.floor(S.head),
+    stage:stg, stageKey:(stg!=null && S.stageList[stg]) ? S.stageList[stg].key : null, stages:S.stageList, nStages:S.stageMode?S.length:0 };
   for(let i=0;i<S.views.length;i++){
     try{ S.views[i].draw(Plot.make(S.canvases[i]), S.data, ui); }
     catch(e){ console.error('[model-scope] view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
@@ -128,14 +142,16 @@ let rt; function schedule(){ clearTimeout(rt); rt=setTimeout(()=>{ if(!S.suppres
 
 /* ---- playhead (for sequential models) ---- */
 function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;   // wall-clock → frame-rate independent
-  if(S.playing){ S.head=Math.min(S.length, S.head + S.speed*fdt); if(S.head>=S.length) S.playing=false; }      // stop BEFORE drawing the final frame (so views see frac→1, not 0)
+  if(S.playing){ S.head=Math.min(S.maxHead, S.head + S.speed*fdt); if(S.head>=S.maxHead) S.playing=false; }    // stop BEFORE drawing the final frame (so views see frac→1, not 0)
   drawAll(); readout();
   if(S.playing) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; pico(); } }
-function play(){ if(S.head>=S.length) S.head=0; S.playing=true; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
+function play(){ if(S.head>=S.maxHead) S.head=0; S.playing=true; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
 function pause(){ S.playing=false; pico(); }
 function stopAll(){ S.gen++; S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; }
-function readout(){ const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`;
-  const sc=$('#scrub'); sc.max=Math.max(1,S.length); sc.value=S.head; sc.style.setProperty('--fill',(S.length?S.head/S.length*100:0)+'%'); }
+function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%');
+  if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k];
+    $('#tread').innerHTML=`<b>${k+1}</b> / ${S.length} · ${st?esc(st.name):''}`; }
+  else { const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`; } }
 function pico(){ $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
 
 $('#runBtn').onclick=()=>recompute();
@@ -144,8 +160,10 @@ $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
 $('#playBtn').onclick=()=>{ if(S.playing)pause(); else play(); };
 $('#toStartBtn').onclick=()=>{ S.head=0; play(); };
-$('#toEndBtn').onclick=()=>{ pause(); S.head=S.length; drawAll(); readout(); };
-$('#scrub').addEventListener('input',()=>{ pause(); S.head=clamp(+$('#scrub').value,0,S.length); drawAll(); readout(); });
+$('#toEndBtn').onclick=()=>{ pause(); S.head=S.maxHead; drawAll(); readout(); };
+$('#stepBackBtn').onclick=()=>{ pause(); const cur=Math.min(S.maxHead,Math.floor(S.head)); S.head=clamp(cur-1,0,S.maxHead); drawAll(); readout(); };
+$('#stepFwdBtn').onclick=()=>{ pause(); const cur=Math.min(S.maxHead,Math.floor(S.head)); S.head=clamp(cur+1,0,S.maxHead); drawAll(); readout(); };
+$('#scrub').addEventListener('input',()=>{ pause(); S.head=clamp(+$('#scrub').value,0,S.maxHead); drawAll(); readout(); });
 $('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; });
 let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(drawAll,90); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));

@@ -5,6 +5,10 @@ from a noisy internal measurement m — magnitude & **duration/time** estimation
 combination, orientation/spatial perception, central-tendency (regression-to-the-mean)
 biases, prior learning.
 
+**See also:** [efficient-coding.md](efficient-coding.md) when the *encoding* is shaped by the
+prior (repulsive/anti-Bayesian bias, bias↔discriminability, decision-conditioned estimation);
+[causal-inference.md](causal-inference.md) for cue combination & multisensory fusion.
+
 ## Canonical form (Gaussian, generalises)
 - Encoding / likelihood: `m | θ ~ N(θ, σ_m²)`. Sensory noise σ_m may be **constant**,
   **Weber-scaled** `σ_m = w_f·θ` (magnitude/time), or set by **efficient coding** (Fisher

@@ -6,8 +6,10 @@
  * ========================================================================== */
 import fs from 'node:fs';
 // plot.js touches `document`/canvas; engine.js only needs it lazily inside views, so
-// stub the browser globals it references at module scope, then load engine.
+// stub the browser globals it references at module scope. Load mslib.js FIRST — the
+// modelbook example models call MSLIB inside simulate() (mirrors index.html's <script> order).
 globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
+(0, eval)(fs.readFileSync(new URL('./modules/mslib.js', import.meta.url), 'utf8'));
 (0, eval)(fs.readFileSync(new URL('./engine.js', import.meta.url), 'utf8'));
 const SIM = globalThis.SIM;
 
@@ -42,12 +44,11 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  DDM: sim ER=${(100*ER).toFixed(2)}%  theory=${(100*th).toFixed(2)}%   [${ok(Math.abs(ER-th)/th < 0.12)}]`);
 }
 
-// ---- optional reusable library: modules/mslib.js loads & each block is sane ----
+// ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {
-  (0, eval)(fs.readFileSync(new URL('./modules/mslib.js', import.meta.url), 'utf8'));
-  const L = globalThis.MSLIB, g = () => { let u = Math.random() || 1e-9; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); };
-  const fam = ['sde','bayes','neuron','decision','rl','psy'].every(k => L[k]);
+  const L = globalThis.MSLIB, g = () => { let u = Math.random() || 1e-9; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); }, U = () => Math.random();
+  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm'].every(k => L[k]);
   const wgt = L.bayes.weight(0.9, 1);
   const fi = L.neuron.fI((s,I,dt)=>L.neuron.lifStep(s,I,null,dt), ()=>({v:-65,refr:0}), [0.1,0.3,0.6,1.0], 1e-4, 1.0);
   const mono = fi.every((p,i)=>i===0||p.rate>=fi[i-1].rate) && fi[3].rate>fi[0].rate;
@@ -57,6 +58,22 @@ try {
   const sdOk = Math.abs(L.psy.sdt(0.84,0.16).dprime - 2) < 0.2;
   console.log(`  families present [${ok(fam)}]   bayes weight∈(0,1) [${ok(wgt>0&&wgt<1)}]   LIF f-I monotonic [${ok(mono)}]`);
   console.log(`  Wong-Wang unit1 wins @ +coh [${ok(r.r1>r.r2)}]   Rescorla-Wagner converges [${ok(Math.abs(V-1)<0.01)}]   psychometric monotonic [${ok(pm)}]   SDT sensitivity [${ok(sdOk)}]`);
+  // efficient coding: consistent zero-noise decode, discriminability ∝ 1/p (tails>peak), skewed likelihood (tail away from prior peak)
+  const xs=L.bayes.linspace(-4,4,241), npd=(x,m,sd)=>Math.exp(-0.5*((x-m)/sd)*((x-m)/sd))/(sd*Math.sqrt(2*Math.PI)), pri=Array.from(xs,x=>npd(x,0,1)), F=L.efficient.cdf(xs,pri);
+  const decok = Math.abs(L.efficient.decode(L.efficient.encode(1.2,xs,F),1e-3,xs,F,pri,'BLS')-1.2)<0.05;
+  const dsc=L.efficient.discrim(xs,pri), dscok = dsc[20]>dsc[120] && dsc[220]>dsc[120];
+  const lk=L.efficient.likelihood(L.efficient.encode(1,xs,F),0.12,xs,F); let z=0,mean=0,mode=0,md=-1; for(let i=0;i<xs.length;i++){ z+=lk[i]; mean+=lk[i]*xs[i]; if(lk[i]>md){md=lk[i];mode=xs[i];} } mean/=z;
+  console.log(`  efficient: zero-noise decode≈θ [${ok(decok)}]   D∝1/p tails>peak [${ok(dscok)}]   likelihood skewed off peak [${ok(mean>mode)}]`);
+  // causal: MLE shrinks variance, p(C=1) higher when cues agree, number-game size principle
+  const mle=L.causal.cueCombineMLE([1,3],[0.5,1]), mleok=mle.variance<0.25;
+  const agree=L.causal.ciPosteriorCommon(0.1,-0.1,2,9,12,0.3)>L.causal.ciPosteriorCommon(10,-10,2,9,12,0.3);
+  const H=L.causal.numberGameHypotheses(100), pst=L.causal.conceptPosterior(H,[2,4,8,16]); let iP=-1,iE=-1; H.forEach((h,i)=>{ if(h.name==='powers 2')iP=i; if(h.name==='even')iE=i; });
+  console.log(`  causal: MLE var<min single [${ok(mleok)}]   p(C=1) agree>disagree [${ok(agree)}]   size principle powers>even [${ok(pst[iP]>pst[iE])}]`);
+  // working memory: I0(0)=1, κ→SD monotone, von Mises sampler mean≈μ, mixture target proportion≈pT
+  const i0=Math.abs(L.wm.besselI0(0)-1)<1e-9, sdm=L.wm.kappaToSD(2)>L.wm.kappaToSD(20);
+  let sx=0,sy=0; for(let i=0;i<3000;i++){ const t=L.wm.vmSample(0.6,8,U); sx+=Math.cos(t); sy+=Math.sin(t); } const cmOk=Math.abs(Math.atan2(sy,sx)-0.6)<0.12;
+  let nt=0,TT=5000; for(let i=0;i<TT;i++) if(L.wm.mixtureRecall({target:0,nontargets:[1.5,-1.5],kappa:10,pT:0.6,pSwap:0.25,pGuess:0.15},U).branch==='target') nt++;
+  console.log(`  wm: I0(0)=1 [${ok(i0)}]   κ→SD decreasing [${ok(sdm)}]   vonMises mean≈μ [${ok(cmOk)}]   mixture target≈pT [${ok(Math.abs(nt/TT-0.6)<0.05)}]`);
 } catch (e) { console.log('  ' + ok(false) + ' mslib failed: ' + e.message); }
 
 console.log(`\n${fails===0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}\n`);

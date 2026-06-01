@@ -5,19 +5,30 @@ or `python3 -m http.server` if your browser blocks `file://` scripts). Move a sl
 simulation re-runs; the result is shown in **views the model defines** — there is no fixed
 graphic or axis.
 
-Ships with two deliberately different examples so you can see the range:
-- **Bayesian observer** — prior/likelihood/posterior on a stimulus axis, an estimate-vs-true
-  *central-tendency* curve (with a ±SD ribbon), and a trial-to-trial prior-mean update.
-- **Drift-diffusion decision** — an animated evidence trajectory + an accumulating
-  response-time histogram (correct ↑ / error ↓).
+Ships with five examples spanning both idioms so you can see the range:
+- **Bayesian observer** *(continuous)* — prior/likelihood/posterior on a stimulus axis, an
+  estimate-vs-true *central-tendency* curve (±SD ribbon), and a trial-to-trial prior update.
+- **Drift-diffusion decision** *(continuous)* — an animated evidence trajectory + an
+  accumulating response-time histogram (correct ↑ / error ↓).
+- **Efficient-coding observer** *(process mode)* — step through prior → warped encoding F(θ) →
+  measurement → skewed likelihood → posterior → estimate → bias & discriminability (Wei & Stocker).
+- **Causal inference** *(process mode)* — cues → hypothesis likelihoods → p(C=1) → branch
+  estimates → combine, with the N-shaped ventriloquism bias (Körding et al.).
+- **Working-memory recall** *(process mode)* — allocate → encode on a feature wheel → probe →
+  recall → accumulate the error histogram → decompose into target/swap/guess (Bays & Husain).
+
+The process-mode models use `stages` instead of `anim`: the transport becomes a ◀ ▶ stepper
+and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the pipeline strip.
 
 ## Files
 - `plot.js` — tiny canvas charting helper (`Plot`): `frame`, `line`, `band`, `bars`, `heat`,
-  `raster`, `vline`, … Each view defines its own axes. Rarely edited.
+  `raster`, `vline`, `flow` (process strip), … Each view defines its own axes. Rarely edited.
 - `engine.js` — pure math: RNG + the `MODELS` registry. **This is what you edit.**
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
-  optional play/scrub transport, and the view grid. Usually untouched.
-- `validate.mjs` — `node validate.mjs` checks each model runs and is sane.
+  play/scrub transport (or ◀ ▶ stage stepper for `stages` models), and the view grid. Untouched.
+- `modules/mslib.js` — optional reusable library (`MSLIB`: `sde·bayes·neuron·decision·rl·psy·
+  efficient·causal·wm`) of canonical building blocks you compose inside `simulate()`.
+- `validate.mjs` — `node validate.mjs` checks each model runs and is sane (+ the `mslib` blocks).
 
 ## Add your model — one registry entry
 
@@ -36,8 +47,10 @@ mymodel: {
         // ui.params, and ui.head if you add `anim`
     }},
   ],
-  // add only if the model is sequential (animate a playhead 0..N):
+  // add only if the model is sequential (animate a continuous playhead 0..N):
   // anim:{ length:(p)=>p.nTrials },
+  // …or, for a "see each process step" model, declare stages instead of anim:
+  // stages:()=>[ {key:'a',name:'Stage A',about:'…'}, {key:'b',name:'Stage B',about:'…'} ],
 },
 ```
 
@@ -47,4 +60,4 @@ with sliders auto-generated from `params`, and your views render and update as y
 
 See the `model-scope` skill (`references/plotting.md`, `references/architecture.md`) for the
 full helper API and view recipes (distributions, tuning curves, trajectory+histogram,
-spike rasters, heatmaps/energy landscapes, learning sequences).
+spike rasters, heatmaps/energy landscapes, learning sequences, process pipelines).

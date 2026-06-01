@@ -15,11 +15,18 @@ functions you compose.
 
 | File | Family | Use for | MSLIB |
 |---|---|---|---|
-| [bayesian-observer.md](bayesian-observer.md) | Bayesian / ideal observer | perception, magnitude & time estimation, cue combination, central tendency | `bayes` |
+| [bayesian-observer.md](bayesian-observer.md) | Bayesian / ideal observer | perception, magnitude & time estimation, central tendency, prior learning | `bayes` |
+| [efficient-coding.md](efficient-coding.md) | Efficient coding & sequential observers | prior-shaped encoding, repulsive/anti-Bayesian bias, bias↔discriminability, decision-conditioned estimation | `efficient`, `bayes` |
+| [causal-inference.md](causal-inference.md) | Causal inference & Bayesian cognition | multisensory fusion, ventriloquism, cue combination, concept learning | `causal` |
+| [working-memory.md](working-memory.md) | Working memory & mixture models | continuous report, precision/capacity, swap errors, von Mises mixtures | `wm` |
 | [decision-circuits.md](decision-circuits.md) | Evidence accumulation & attractor decision | 2AFC decisions, RT distributions, speed–accuracy, winner-take-all | `decision`, `sde` |
 | [spiking-neurons.md](spiking-neurons.md) | Single-neuron & small networks | membrane dynamics, f–I curves, spike trains, gain | `neuron` |
 | [reinforcement-learning.md](reinforcement-learning.md) | Learning & belief update | value learning, choice, volatility, prior updating | `rl` |
 | [psychophysics.md](psychophysics.md) | Psychometrics & detection | psychometric curves, SDT, thresholds, scalar timing | `psy` |
+
+Several families ship as **process-mode** worked examples (a `stages` pipeline you step
+through): efficient-coding, causal-inference, and working-memory each render their internal
+computation stage by stage. See [../architecture.md](../architecture.md) ("Process mode").
 
 ## The source ecosystems (for grounding & deeper reference)
 
@@ -32,6 +39,15 @@ functions you compose.
   Dynamics* exercises (a worked Wong–Wang) and `brian-team/brian2` `examples/frompapers`.
 - **Gardner lab** — `justingardner/mgl` + gru.stanford.edu: psychophysics tooling, the
   normalization model of attention (Reynolds–Heeger), pRF encoding, SDT.
+- **Stocker lab & Wei Ji Ma lab** — efficient-coding observers and the canonical Bayesian
+  pipeline: `lingqiz/speed-prior-2021`, `cpc-lab-stocker/{Self-consistent-model,
+  adapt-discr-efficient-code,conditioned-versus-full-inference}`; Ma–Kording–Goldreich
+  *Bayesian Models of Perception and Action* (cns.nyu.edu/malab/bayesianbook.html).
+- **Körding & Shams labs** — Bayesian causal inference: `evans1112/bcitoolbox` (Python),
+  `multisensoryperceptionlab/BCIT` (MATLAB), `lacerbi/visvest-causinf`. **Tenenbaum / ProbMods**
+  (probmods.org) for discrete-hypothesis Bayesian cognition.
+- **Bays lab & MemToolbox** — working-memory mixture models: `visionlab/MemToolbox`,
+  paulbays.com/toolbox, `JimGrange/mixtur`, `eddjberry/mixturer`.
 - **Brian2** (`brian-team/brian2`), **Neuronal Dynamics** (Gerstner et al.), **Neuromatch
   Academy**: canonical LIF / EIF / Izhikevich / Hodgkin–Huxley / Wilson–Cowan references.
 

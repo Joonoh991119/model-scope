@@ -31,10 +31,28 @@ deterministic). `npdf(x,μ,σ)` (normal pdf) is also exported for distribution v
 | `params[]` | ✓ | `{name,label,min,max,step,default,unit?,int?}` — sliders are generated from this |
 | `simulate(p,env)` | ✓ | run the whole model; **return any data object** the views need |
 | `views[]` | ✓ | `[{title, draw(g,data,ui)}]` — each panel draws its own axes/graphics |
-| `anim` | – | `{length:(p,data)=>N}` → sequential: toolbox shows play/scrub, `ui.head∈[0,N]` |
+| `anim` | – | `{length:(p,data)=>N}` → **continuous** sequential: play/scrub, `ui.head∈[0,N]` (a trial index, a time, an iteration) |
+| `stages` | – | `(p,data)=>[{key,name,about}]` (or a static array) → **process mode**: the playhead steps through the model's named pipeline stages; views switch on `ui.stage`/`ui.stageKey` to reveal each computation in turn |
 
-`ui = { head, playing, params }`. For non-`anim` models, `head=length=1` and views just
-render the static result; the transport bar is hidden.
+`ui = { head, playing, params, frac, stage, stageKey, stages, nStages }`. `head` is the
+continuous playhead (∈[0,length]); `frac = head−⌊head⌋` is within-step progress (use it to
+fade a stage in). A model declares **either** `anim` (continuous; `stage` is null — views
+read `head`) **or** `stages` (discrete process steps; `length = stages.length`,
+`stage = ⌊head⌋` clamped to the last stage, `stageKey` is that stage's `key`). If both are
+present, `stages` wins. For static models `head=length=1`, `stage=null`, and the transport
+bar is hidden.
+
+### Process mode — render a model's pipeline step by step
+
+`stages` is for the *"see each process in sequence"* idiom: a Bayesian observer as
+stimulus → encoding → measurement → likelihood → prior → posterior → loss → estimate; a
+causal-inference observer as cues → per-hypothesis likelihoods → causal posterior →
+branch estimates → combine. Declare the ordered stages, give the toolbar ◀ ▶ single-step
+buttons + a stage-named readout (it auto-appears), and in each view either (a) draw the
+whole **pipeline overview** with `g.flow(ui.stages, ui.stage)` (the active box lights up),
+or (b) `switch(ui.stageKey)` / compare `ui.stage` to reveal that stage's panel — earlier
+stages stay drawn, the current one is emphasised. The playhead auto-advances slowly
+(≈1.4 stages/s) so each step is readable; ◀ ▶ and the scrubber step discretely.
 
 ## What the toolbox (index.html) does
 

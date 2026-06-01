@@ -7,10 +7,14 @@
  *     <script src="modules/mslib.js"></script>   (before engine.js)
  * then use e.g. MSLIB.neuron.lifStep(...), MSLIB.bayes.gaussPosterior(...).
  *
- * Design: every function is pure, takes its randomness as a `g` argument
- * (g = () => N(0,1), e.g. ()=>SIM.gaussian(rng)), and is FREE-STANDING — it never uses
- * `this`, so you can destructure (`const { wwStep } = MSLIB.decision`) freely. All times
- * are in SECONDS. Add a family by attaching another sub-object to MSLIB — nothing couples.
+ * Design: every function is pure, takes its randomness as a `g` argument, and is
+ * FREE-STANDING — it never uses `this`, so you can destructure (`const { wwStep } =
+ * MSLIB.decision`) freely. All times are in SECONDS. Add a family by attaching another
+ * sub-object to MSLIB — nothing couples.
+ *   RNG CONVENTION (check each call site): sde/bayes/efficient/neuron/decision expect a
+ *   GAUSSIAN g = ()=>N(0,1) (e.g. ()=>SIM.gaussian(rng)); the wm samplers (vmSample,
+ *   mixtureRecall) and causal's probability-matching expect a UNIFORM g = ()=>[0,1)
+ *   (e.g. ()=>rng()). Passing the wrong one gives wrong-shaped draws, not an error.
  *
  * Sources (equations, not code): Wong & Wang 2006 (xjwanglab/wong-wang-2006); Gerstner
  * Neuronal Dynamics & Brian2 (brian-team/brian2) for LIF/Izhikevich; Acerbi lab
@@ -33,11 +37,17 @@
   const gaussPosterior = (m, sm, mu0, s0) => { const vm=sm*sm, v0=s0*s0, v=1/(1/vm+1/v0);
     return { mu:(m/vm+mu0/v0)*v, sigma:sqrt(v) }; };
   const weight = (sm, s0) => { const v0=s0*s0; return v0/(v0+sm*sm); };               // reliability of m; θ̂=w·m+(1−w)μ0
-  const centralTendency = (thetaGrid, sm, mu0, s0) => { const w=weight(sm,s0);
-    return thetaGrid.map(th => ({ theta:th, est:w*th+(1-w)*mu0, sd:w*sm })); };        // regression toward the prior
+  const centralTendency = (thetaGrid, sm, mu0, s0) => { const w=weight(sm,s0);          // regression toward the prior
+    return Array.from(thetaGrid, th => ({ theta:th, est:w*th+(1-w)*mu0, sd:w*sm })); };  // Array.from: thetaGrid may be a Float64Array (typed .map would coerce objects→NaN)
   const weberNoise = (theta, wf, floor=1e-3) => max(floor, wf*abs(theta));            // σ_m = wf·θ (magnitude/time)
   const bayesTrial = (theta, sm, mu0, s0, g) => { const m=theta+sm*g(), post=gaussPosterior(m,sm,mu0,s0); return { m, est:post.mu, post }; };
-  const bayes = { gaussPosterior, weight, centralTendency, weberNoise, trial: bayesTrial };
+  // generic GRID pipeline (any prior/likelihood shape; the base for efficient-coding & self-consistency)
+  const linspace = (lo, hi, n) => { const a=new Float64Array(n), s=(hi-lo)/((n-1)||1); for(let i=0;i<n;i++) a[i]=lo+i*s; return a; };
+  const gridPost = (like, prior) => { const n=like.length, p=new Float64Array(n); let z=0;             // normalized discrete posterior ∝ like·prior
+    for(let i=0;i<n;i++){ p[i]=max(0,like[i])*max(0,prior[i]); z+=p[i]; } if(z>0) for(let i=0;i<n;i++) p[i]/=z; return p; };
+  const gridMean = (post, xs) => { let m=0; for(let i=0;i<post.length;i++) m+=post[i]*xs[i]; return m; };  // BLS / L2 estimate
+  const gridMode = (post, xs) => { let b=0; for(let i=1;i<post.length;i++) if(post[i]>post[b]) b=i; return xs[b]; };  // MAP / L0 estimate
+  const bayes = { gaussPosterior, weight, centralTendency, weberNoise, trial: bayesTrial, linspace, gridPost, gridMean, gridMode };
 
   /* ---- neuron: single-cell spiking (all times in SECONDS) ---- */
   const LIF_DEFAULT = { tau:0.02, EL:-65, R:100, Vth:-50, Vreset:-65, tref:0.003 };   // s, mV, MΩ
@@ -50,8 +60,8 @@
     s.v += h*(0.04*s.v*s.v + 5*s.v + 140 - s.u + I);
     s.u += h*(p.a*(p.b*s.v - s.u));
     if (s.v >= 30) { s.v = p.c; s.u += p.d; return true; } return false; };
-  const fI = (stepFn, init, Irange, dt, T) => Irange.map(I => { const s=init(); let n=0; const steps=Math.round(T/dt);
-    for (let k=0;k<steps;k++) if (stepFn(s,I,dt)) n++; return { I, rate:n/T }; });      // mean rate (Hz) — dt & T in seconds
+  const fI = (stepFn, init, Irange, dt, T) => Array.from(Irange, I => { const s=init(); let n=0; const steps=Math.round(T/dt);
+    for (let k=0;k<steps;k++) if (stepFn(s,I,dt)) n++; return { I, rate:n/T }; });      // mean rate (Hz) — dt & T in seconds (Array.from so a typed Irange works)
   const neuron = { LIF_DEFAULT, lifStep, IZH_DEFAULT, izhStep, fI };
 
   /* ---- decision: Wong & Wang (2006) reduced two-variable circuit ---- */
@@ -92,5 +102,98 @@
   const sdt = (hr, far) => { const clip=x=>Math.min(1-1e-4,max(1e-4,x)), zH=zinv(clip(hr)), zF=zinv(clip(far)); return { dprime:zH-zF, criterion:-0.5*(zH+zF) }; };
   const psy = { psychometric, sdt };
 
-  global.MSLIB = { sde, bayes, neuron, decision, rl, psy };
+  /* ---- efficient: efficient-coding-constrained Bayesian observer (Wei & Stocker 2015/2017)
+         + decision-conditioned / self-consistent estimation (Luu & Stocker 2018). The prior
+         RESHAPES sensory encoding: F(θ)=CDF(prior) warps stimulus→uniform sensory space where
+         noise is homogeneous; decoding back gives repulsive ("anti-Bayesian") bias and the
+         lawful bias↔discriminability relation. Grid-based; composes with bayes.gridPost/Mean. ---- */
+  const ecCdf = (xs, prior) => { const n=xs.length, F=new Float64Array(n); let c=0, z=0;            // F(θ)∈[0,1], monotone
+    for(let i=0;i<n;i++) z+=max(0,prior[i]);
+    for(let i=0;i<n;i++){ c+=max(0,prior[i]); F[i]= z>0 ? c/z : (n>1?i/(n-1):0); } return F; };
+  const ecInterp = (x, xs, ys) => { const n=xs.length; if(!n) return 0; if(x<=xs[0]) return ys[0]; if(x>=xs[n-1]) return ys[n-1];
+    let lo=0, hi=n-1; while(hi-lo>1){ const mid=(lo+hi)>>1; if(xs[mid]<=x) lo=mid; else hi=mid; }                 // binary search
+    const t=(x-xs[lo])/((xs[hi]-xs[lo])||1); return ys[lo]+t*(ys[hi]-ys[lo]); };
+  const ecEncode = (theta, xs, F) => ecInterp(theta, xs, F);                                          // F(θ)
+  const ecInv = (u, xs, F) => ecInterp(u, F, xs);                                                     // F^{-1}(u)→θ (F monotone)
+  const ecMeasure = (theta, sigma, xs, F, g) => ecEncode(theta,xs,F) + sigma*g();                     // sensory sample in F-space
+  const ecLikelihood = (mt, sigma, xs, F) => { const n=xs.length, L=new Float64Array(n);              // p(m|θ) over grid (skewed in θ)
+    for(let i=0;i<n;i++){ const z=(F[i]-mt)/sigma; L[i]=exp(-0.5*z*z); } return L; };
+  const ecDecode = (mt, sigma, xs, F, prior, loss) => { const post=gridPost(ecLikelihood(mt,sigma,xs,F), prior);
+    return loss==='MAP' ? gridMode(post,xs) : gridMean(post,xs); };                                    // BLS default → repulsive bias
+  const ecBias = (xs, sigma, F, prior, loss, nSamp, g) => { const n=xs.length, b=new Float64Array(n); // E[θ̂|θ]−θ via Monte Carlo
+    for(let i=0;i<n;i++){ let s=0; for(let k=0;k<nSamp;k++) s+=ecDecode(F[i]+sigma*g(),sigma,xs,F,prior,loss); b[i]=s/nSamp - xs[i]; } return b; };
+  const ecDiscrim = (xs, prior) => { const n=xs.length, d=new Float64Array(n); let mx=0;              // D(θ) ∝ 1/p(θ) (Cramér–Rao), normalized
+    for(let i=0;i<n;i++){ d[i]= prior[i]>1e-9 ? 1/prior[i] : Infinity; if(isFinite(d[i])&&d[i]>mx) mx=d[i]; }
+    for(let i=0;i<n;i++) d[i]= isFinite(d[i]) ? d[i]/(mx||1) : 1; return d; };
+  const ecCondMean = (post, xs, boundary, side) => { let z=0, m=0;                                    // self-consistency: mean of posterior TRUNCATED to the decided side
+    for(let i=0;i<xs.length;i++){ const keep = side>=0 ? xs[i]>=boundary : xs[i]<boundary; if(keep){ z+=post[i]; m+=post[i]*xs[i]; } } return z>0 ? m/z : boundary; };
+  const efficient = { cdf:ecCdf, interp:ecInterp, encode:ecEncode, inv:ecInv, measure:ecMeasure,
+    likelihood:ecLikelihood, decode:ecDecode, biasCurve:ecBias, discrim:ecDiscrim, condMean:ecCondMean };
+
+  /* ---- causal: cue combination (Ernst & Banks 2002), Bayesian causal inference (Körding et
+         al. 2007), and Bayesian concept learning / the number game (Tenenbaum 2000). MLE is the
+         C=1 (forced-fusion) limit of CI; the number game is the discrete-hypothesis cousin with
+         the size-principle likelihood. Gaussian closed forms validate vs bcitoolbox (evans1112). ---- */
+  const relWeights = (sig) => { const inv=sig.map(s=>1/(s*s)), z=inv.reduce((a,b)=>a+b,0); return inv.map(v=>v/z); };
+  const cueCombineMLE = (cues, sig) => { const w=relWeights(sig); let est=0; for(let i=0;i<cues.length;i++) est+=w[i]*cues[i];
+    const v=1/sig.reduce((a,s)=>a+1/(s*s),0); return { estimate:est, variance:v, weights:w }; };          // σ_comb ≤ min σ_i
+  const ciLikCommon = (xv,xa,sv,sa,sp,mup=0) => { const sv2=sv*sv,sa2=sa*sa,sp2=sp*sp, D=sv2*sa2+sv2*sp2+sa2*sp2;  // Körding Eq.4
+    const num=(xv-xa)*(xv-xa)*sp2 + (xv-mup)*(xv-mup)*sa2 + (xa-mup)*(xa-mup)*sv2; return exp(-0.5*num/D)/(2*PI*sqrt(D)); };
+  const ciLikSeparate = (xv,xa,sv,sa,sp,mup=0) => { const a=sv*sv+sp*sp, b=sa*sa+sp*sp;                            // Körding Eq.6
+    return exp(-0.5*((xv-mup)*(xv-mup)/a + (xa-mup)*(xa-mup)/b))/(2*PI*sqrt(a*b)); };
+  const ciPosteriorCommon = (xv,xa,sv,sa,sp,pc,mup=0) => { const c=ciLikCommon(xv,xa,sv,sa,sp,mup)*pc, s=ciLikSeparate(xv,xa,sv,sa,sp,mup)*(1-pc);
+    return (c+s)>0 ? c/(c+s) : pc; };                                                                              // Körding Eq.2
+  const ciFusedEstimate = (xv,xa,sv,sa,sp,mup=0) => { const wv=1/(sv*sv),wa=1/(sa*sa),wp=1/(sp*sp); return (xv*wv+xa*wa+mup*wp)/(wv+wa+wp); };
+  const ciSegEstimate = (x,sigma,sp,mup=0) => { const w=1/(sigma*sigma),wp=1/(sp*sp); return (x*w+mup*wp)/(w+wp); };
+  const ciEstimate = (xv,xa,sv,sa,sp,pc,opts={}) => { const mup=opts.mup||0, strat=opts.strategy||'average', g=opts.g;
+    const pC=ciPosteriorCommon(xv,xa,sv,sa,sp,pc,mup), sF=ciFusedEstimate(xv,xa,sv,sa,sp,mup), sV=ciSegEstimate(xv,sv,sp,mup), sA=ciSegEstimate(xa,sa,sp,mup);
+    let hv, ha; if(strat==='select'){ const k=pC>0.5; hv=k?sF:sV; ha=k?sF:sA; }
+    else if(strat==='match'){ const k=(g?g():0.5)<pC; hv=k?sF:sV; ha=k?sF:sA; }
+    else { hv=pC*sF+(1-pC)*sV; ha=pC*sF+(1-pC)*sA; }                                                               // model averaging (default)
+    return { pCommon:pC, sFused:sF, sSegV:sV, sSegA:sA, sHatV:hv, sHatA:ha }; };
+  const ngHypotheses = (N=100) => { const H=[], add=(name,mem,prior)=>H.push({name,members:new Set(mem),size:mem.length,prior});  // number game
+    const rg=(a,b)=>{ const r=[]; for(let i=a;i<=b;i++) r.push(i); return r; };
+    for(let k=2;k<=10;k++) add('mult '+k, rg(1,N).filter(x=>x%k===0), 0.5/9);
+    for(let k=2;k<=10;k++){ const p=[]; for(let v=k;v<=N;v*=k) p.push(v); add('powers '+k, p, 0.5/9); }
+    add('even', rg(1,N).filter(x=>x%2===0), 0.5); add('odd', rg(1,N).filter(x=>x%2), 0.5);
+    add('squares', rg(1,N).filter(x=>Number.isInteger(sqrt(x))), 0.5);
+    for(let a=1;a<=N;a++) for(let b=a;b<=N;b++) add('['+a+','+b+']', rg(a,b), 0.1/(N*(N+1)/2));                     // interval hypotheses
+    return H; };
+  const ngLikelihood = (h, ex) => { for(const x of ex) if(!h.members.has(x)) return 0; return Math.pow(1/h.size, ex.length); };  // size principle (1/|h|)^n
+  const ngPosterior = (H, ex) => { const w=H.map(h=>ngLikelihood(h,ex)*h.prior); let z=0; for(const v of w) z+=v; return z>0 ? w.map(v=>v/z) : w; };
+  const ngGeneralize = (H, post, N=100) => { const out=new Float64Array(N+1); for(let i=0;i<H.length;i++){ if(post[i]<=0) continue; for(const y of H[i].members) out[y]+=post[i]; } return out; };
+  const causal = { reliabilityWeights:relWeights, cueCombineMLE, ciLikCommon, ciLikSeparate, ciPosteriorCommon,
+    ciFusedEstimate, ciSegEstimate, ciEstimate, numberGameHypotheses:ngHypotheses, sizePrincipleLikelihood:ngLikelihood, conceptPosterior:ngPosterior, generalizationCurve:ngGeneralize };
+
+  /* ---- wm: visual working-memory mixture models — Zhang & Luck (2008) 2-component
+         (target+guess), Bays/Husain (2008/2009) 3-component swap model, and the von Mises
+         machinery (Best & Fisher 1979 sampler, transcribed from MemToolbox vonmisesrnd.m).
+         Angles in RADIANS on (−π,π]; RNG injected as g (∈[0,1)). 2-comp = pSwap:0, no offsets. ---- */
+  const TWO_PI = 2*PI, vmWrap = (x) => ((x+PI)%TWO_PI+TWO_PI)%TWO_PI - PI;
+  const besselI0 = (k) => { k=abs(k); if(k<15){ let t=1,s=1; for(let m=1;m<60;m++){ t*=(k*k)/(4*m*m); s+=t; if(t<s*1e-15) break; } return s; }
+    const e=1/(8*k); return exp(k)/sqrt(TWO_PI*k)*(1+e+4.5*e*e+37.5*e*e*e); };
+  const besselI1 = (k) => { const sg=Math.sign(k)||1; k=abs(k); if(k<15){ let t=k/2,s=k/2; for(let m=1;m<60;m++){ t*=(k*k)/(4*m*(m+1)); s+=t; if(t<s*1e-15) break; } return sg*s; }
+    const e=1/(8*k); return sg*exp(k)/sqrt(TWO_PI*k)*(1-3*e-7.5*e*e-52.5*e*e*e); };
+  const i1i0 = (k) => { k=abs(k); return k>700 ? (1 - 0.5/k - 0.125/(k*k)) : besselI1(k)/besselI0(k); };  // I1/I0 (mean resultant length), stable as κ→∞ (avoids Inf/Inf)
+  const vmPdf = (x, mu, kappa) => { if(kappa<=0) return 1/TWO_PI; const logI0 = kappa>700 ? (kappa-0.5*Math.log(TWO_PI*kappa)) : Math.log(besselI0(kappa));
+    return exp(kappa*Math.cos(x-mu) - Math.log(TWO_PI) - logI0); };
+  const vmSample = (mu, kappa, g) => { if(!(kappa>1e-6)) return vmWrap(g()*TWO_PI-PI);                 // Best & Fisher (1979); tiny/invalid κ → uniform
+    const tau=1+sqrt(1+4*kappa*kappa), rho=(tau-sqrt(2*tau))/(2*kappa), r=(1+rho*rho)/(2*rho); let f=1;
+    if(!isFinite(r)) return vmWrap(g()*TWO_PI-PI);
+    for(let it=0; it<1000; it++){ const u1=g(), u2=g(), z=Math.cos(PI*u1); f=(1+r*z)/(r+z); const c=kappa*(r-f);
+      if(c*(2-c)-u2>0) break; if(Math.log(c/u2)+1-c>=0) break; }
+    return vmWrap(mu + Math.sign(g()-0.5)*Math.acos(Math.max(-1,Math.min(1,f)))); };
+  const kappaToSD = (kappa) => { if(!(kappa>1e-9)) return Infinity; if(!isFinite(kappa)) return 0; const R=i1i0(kappa); return sqrt(-2*Math.log(R)); };
+  const sdToKappa = (S) => { const R=exp(-S*S/2); if(R<0.53) return 2*R+R*R*R+5*Math.pow(R,5)/6; if(R<0.85) return -0.4+1.39*R+0.43/(1-R); return 1/(R*R*R-4*R*R+3*R); };
+  const fisherInfo = (kappa) => kappa*i1i0(kappa);
+  const precisionFromSetsize = (N, opts={}) => { const P1=opts.P1!==undefined?opts.P1:1, k=opts.k!==undefined?opts.k:0.74; return P1*Math.pow(N,-k); };  // Bays & Husain 2008
+  const mixtureRecall = (cfg, g) => { const { target, nontargets=[], kappa, pT, pSwap=0, pGuess } = cfg, u=g();
+    if(u<pT) return { thetaHat:vmSample(target,kappa,g), branch:'target' };
+    if(u<pT+pSwap && nontargets.length){ const j=Math.floor(g()*nontargets.length); return { thetaHat:vmSample(nontargets[j],kappa,g), branch:'swap', swapTo:j }; }
+    return { thetaHat:vmWrap(g()*TWO_PI-PI), branch:'guess' }; };
+  const mixturePdf = (err, c) => { const { kappa, pT, pSwap=0, pGuess, nontargetOffsets=[] } = c; let p=pT*vmPdf(err,0,kappa)+pGuess*(1/TWO_PI);
+    const m=nontargetOffsets.length; if(m) for(const phi of nontargetOffsets) p += (pSwap/m)*vmPdf(err,phi,kappa); return p; };
+  const wm = { wrap:vmWrap, besselI0, besselI1, vmPdf, vmSample, kappaToSD, sdToKappa, fisherInfo, precisionFromSetsize, mixtureRecall, mixturePdf };
+
+  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm };
 })(typeof window !== 'undefined' ? window : globalThis);

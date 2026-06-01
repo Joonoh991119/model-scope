@@ -18,6 +18,9 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 - `g.heat(nx,ny,(i,j)=>t∈[0,1], (t)=>[r,g,b])` — fills the frame with a colour map.
 - `g.raster(rows,{color,width})` — `rows[i]` = array of event x-positions → lane of ticks.
 - `g.text(x,y,str,{color,font,align})`, `g.legend([{label,color}],{x})`, `g.note(str)` (centred placeholder).
+- `g.flow(stages, active, {y,h,pad,gap,caption})` — a **process pipeline** strip (PIXEL space,
+  needs no `frame`): ordered stage boxes with arrows, the `active` one highlighted, earlier
+  ones marked done; `stages[active].about` renders as a caption. Pass `ui.stages, ui.stage`.
 - `Plot.histify(values, bins, lo, hi, quant?)` → `{edges, counts, binW, max}`. Pass
   `quant = dt` so bin width is a multiple of `dt` (else dt-quantised values comb).
 - `Plot.TH` — theme colours: `ink, dim, faint, accent, pos, neg, warn, series[]`.
@@ -78,6 +81,25 @@ fixed-point marker. Compute once per parameter change; cache; redraw cheaply.
 g.frame({x:[0,N], y:[lo,hi], xlabel:'trial', ylabel:'value'});
 const k=Math.floor(ui.head); g.line(seq.slice(0,k+1)); g.marker(k, seq[k]);
 ```
+
+### Process pipeline (step through a model's internal stages)
+For *"see each process in sequence"* models, declare `stages` (not `anim`) on the model:
+```js
+stages: () => [ {key:'prior',name:'Prior',about:'…'}, {key:'encode',name:'Encoding',about:'…'}, … ],
+```
+The toolbox turns the playhead into a discrete stepper (◀ ▶ + a stage-named readout). One view
+draws the **pipeline overview**; the others reveal their panel when the stage is reached:
+```js
+{ title:'Process', draw:(g,d,ui)=> g.flow(ui.stages, ui.stage) },           // the strip
+{ title:'Likelihood', draw:(g,d,ui)=>{ g.frame({…});
+    g.line(prior);                                  // earlier stages stay drawn
+    if(ui.stage>=3) g.line(likelihood);             // reveal at the 'likelihood' stage
+    if(ui.stage>=4){ g.band(posterior); g.line(posterior); }
+}},
+```
+Gate by `ui.stage` (index) or `switch(ui.stageKey)`. Use `ui.frac` (0→1 within a stage) to fade
+a panel in. Compute everything once in `simulate`; the stages only choose what to *show*. See
+the `efficient`, `causal`, `wm` models in `engine.js` for full worked pipelines.
 
 ## Layout & animation notes
 - Views auto-fit a responsive grid; 1–4 per model reads best. Each view is independent —
