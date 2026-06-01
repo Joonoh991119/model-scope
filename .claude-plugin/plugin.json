@@ -1,6 +1,6 @@
 {
   "name": "model-scope",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Turn ANY parameterised model into an interactive explorer: move a slider per parameter and watch the simulation update, shown in views the MODEL defines — no fixed graphic or axis. A Bayesian observer draws prior/likelihood/posterior + a central-tendency curve; a neuron draws a trace + raster + f–I curve; a decision model animates a trajectory + RT histogram; a POMDP/saccade/RL/population model draws whatever fits. Two animation idioms: a continuous playhead AND a process-mode STAGE stepper that walks a model's internal pipeline (stimulus → encoding → likelihood → posterior → estimate) step by step. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step. Includes a modelbook of canonical families (Bayesian/efficient-coding observers, causal inference, working memory, decision circuits, neurons, RL, psychophysics) grounded in real open source, plus a reusable code library.",
   "author": { "name": "Joonoh Park", "email": "joonop99@snu.ac.kr" },
   "license": "MIT",

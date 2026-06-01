@@ -6,8 +6,10 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 
 ## The `g` API (see plot.js)
 
-- `g.frame({x:[lo,hi], y:[lo,hi], xlabel?, ylabel?, title?, xticks?, yticks?, margin?})`
-  — grid + ticks + labels + title; sets the data→pixel scales. Call first.
+- `g.frame({x:[lo,hi], y:[lo,hi], xlabel?, ylabel?, title?, xticks?, yticks?, xticklabels?, margin?})`
+  — grid + ticks + labels + title; sets the data→pixel scales. Call first. `xticklabels:[…]`
+  draws **categorical** labels at integer x positions (for bar charts) instead of numeric ticks.
+  Call `frame` twice with different `margin` to stack two panels in one view (e.g. input + rate).
 - `g.X(v)`, `g.Y(v)` — data→pixel (for custom drawing via `g.ctx`). `g.frameRect()` →
   `{px,py,pw,ph,x,y}`. `g.clip()/g.unclip()` — clip to the frame.
 - `g.line(pts,{color,width,dash})` — polyline of `[x,y]`.
@@ -15,9 +17,13 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 - `g.points(pts,{color,r})`, `g.marker(x,y,{color,stroke,r,label})`.
 - `g.vline(x,{color,dash,label})`, `g.hline(y,{color,dash,label})`.
 - `g.bars(hist,{dir:'up'|'down', baseY, color, max, height})` — `hist` from `Plot.histify`.
-- `g.heat(nx,ny,(i,j)=>t∈[0,1], (t)=>[r,g,b])` — fills the frame with a colour map.
+- `g.heat(nx,ny,(i,j)=>value, (value)=>[r,g,b])` — fills the frame with a colour map (the value
+  can be raw, e.g. Hz, if your cmap maps it; return a background colour for "not yet" cells).
+- `g.colorbar(vmin,vmax,cmap,{ticks:[{v,label}],label,x,y,w,h})` — a vertical colour scale; pass the
+  **same** cmap. **Give every heatmap a colorbar** (reserve right margin); labels auto-flip left if they'd clip.
 - `g.raster(rows,{color,width})` — `rows[i]` = array of event x-positions → lane of ticks.
-- `g.text(x,y,str,{color,font,align})`, `g.legend([{label,color}],{x})`, `g.note(str)` (centred placeholder).
+- `g.text(x,y,str,{color,size,font,align})`, `g.legend([{label,color}],{x,y})` (draws a translucent
+  panel; its height auto-clamps to the frame), `g.note(str)` (centred placeholder).
 - `g.flow(stages, active, {y,h,pad,gap,caption})` — a **process pipeline** strip (PIXEL space,
   needs no `frame`): ordered stage boxes with arrows, the `active` one highlighted, earlier
   ones marked done; `stages[active].about` renders as a caption. Pass `ui.stages, ui.stage`.
@@ -27,6 +33,21 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 
 Theme is light/eye-friendly and DPR-correct already. Extend `plot.js` (a violin, a
 contour, a vector field) rather than working around it.
+
+**Text size.** Fonts, frame margins and label offsets all scale with `window.__plotFontScale`
+(the toolbox's "Text size" control), so larger text keeps its own space instead of overlapping the
+graphics — never hard-code pixel offsets that assume one font size.
+
+**Readability conventions — make every plot self-interpretable:**
+- Label every axis **with units**; give every heatmap a **colorbar** (`g.colorbar`).
+- **Never put two different units on one y-axis.** To show, say, input (model units) and rate (Hz)
+  together, use two stacked panels (`g.frame` twice with `margin`) — and put a threshold line only on
+  the axis it belongs to. A shared "a.u." axis that mixes currents and firing rates *will* be misread.
+- Use **categorical tick labels** (`frame({xticklabels})`) for bars over categories, not numeric ticks.
+- Encode meaning **redundantly** — colour **and** dash/width/label — never colour alone (colourblind safety).
+- Keep captions in **reserved headroom** (widen the y-range a little), not over the data; keep them short.
+- A figure should answer "what am I looking at, in what units?" without the prose. Then explain the
+  *idea* in one short caption; leave the details to the model's `note`/README.
 
 ## Recipes
 

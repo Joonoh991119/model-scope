@@ -142,8 +142,15 @@ These compose — a model can mix static curves and an animated view in the same
 ## Theme & legibility
 
 Light, eye-friendly (off-white page, muted non-fluorescent colours, no glow); the helper
-already enforces it and is DPR-correct. Give each view a clear title, axis labels, and
-units. Let views breathe — the grid auto-fits; 1–4 views is typical.
+already enforces it and is DPR-correct. Make every plot **self-interpretable**: a clear title,
+axis labels **with units**, a **colorbar** on every heatmap (`g.colorbar`), **categorical tick
+labels** for category bars, and **redundant** encoding (colour + dash/width/label, never colour
+alone). **Never mix two units on one y-axis** — stack two panels (`g.frame` twice with `margin`)
+and keep a threshold line on the axis it belongs to. Put captions in reserved headroom, kept short;
+the toolbox's **Text size** control scales all plot fonts, so don't hard-code offsets that assume
+one size. Explain each panel's *idea* in one plain line at the right moment; leave the rest to the
+model's `note`/README. Let views breathe — the grid auto-fits; 1–4 views is typical. See
+`references/plotting.md` for the full conventions.
 
 ## Model families — the modelbook
 

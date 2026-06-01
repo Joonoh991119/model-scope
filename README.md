@@ -35,6 +35,10 @@ single-neuron dynamics who want to *understand* a model by tuning it.
   `index.html`, or read the source top to bottom (the UI font is a webfont with a system
   fallback). The *same* `engine.js` is re-checked by a Node validation gate, so the math you
   read is the math that runs.
+- **Readable by default.** The plotting helper carries the conventions that make a figure
+  self-interpretable — axis labels with units, a colorbar on every heatmap, categorical ticks,
+  legends that don't occlude data, and a **Text size** control that scales every label (handy for
+  talks). It never mixes two units on one axis.
 - **Grounded, not invented.** A *modelbook* of canonical families distilled from real
   open-source computational-neuroscience ecosystems, plus a small reusable code library
   (`mslib.js`) to compose from.

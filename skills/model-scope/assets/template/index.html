@@ -59,6 +59,10 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
       <div class="block"><div class="lbl">Run</div>
         <div class="field"><div class="row"><label for="seedInput">RNG seed</label></div><div class="seed"><input id="seedInput" type="text" value="model-scope" spellcheck="false"/><button class="dice" id="diceBtn" title="Randomise">⚂</button></div></div>
         <div class="actions"><button class="btn primary" id="runBtn">↻ Re-simulate</button><button class="btn" id="resetBtn">⨯ Reset</button></div>
+        <div class="field" style="margin-top:12px">
+          <div class="row"><label for="fontScale">Text size</label><span id="fontScaleVal" style="font-family:var(--mono);font-size:11px;color:var(--ink-dim)">100%</span></div>
+          <input id="fontScale" type="range" min="0.8" max="1.8" step="0.05" value="1" aria-label="Text size in the plots"/>
+        </div>
       </div>
     </aside>
     <div class="right">
@@ -165,6 +169,7 @@ $('#stepBackBtn').onclick=()=>{ pause(); const cur=Math.min(S.maxHead,Math.floor
 $('#stepFwdBtn').onclick=()=>{ pause(); const cur=Math.min(S.maxHead,Math.floor(S.head)); S.head=clamp(cur+1,0,S.maxHead); drawAll(); readout(); };
 $('#scrub').addEventListener('input',()=>{ pause(); S.head=clamp(+$('#scrub').value,0,S.maxHead); drawAll(); readout(); });
 $('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; });
+$('#fontScale').addEventListener('input',()=>{ window.__plotFontScale=+$('#fontScale').value; $('#fontScaleVal').textContent=Math.round(window.__plotFontScale*100)+'%'; drawAll(); });
 let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(drawAll,90); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
 

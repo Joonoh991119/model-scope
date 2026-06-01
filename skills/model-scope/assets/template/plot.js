@@ -4,7 +4,9 @@
  * to set up whatever axes it wants, then draws primitives in data coordinates.
  *
  * Classic script → window.Plot = { make, setup, TH, histify }.
- * Theme matches index.html (light, eye-friendly). DPR-correct.
+ * Text size scales with window.__plotFontScale (the app's "Text size" control):
+ * fonts, frame margins and label offsets all grow together so larger text still
+ * gets its own space and never overlaps the graphics. Theme is light; DPR-correct.
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -21,32 +23,37 @@
     return (Math.round(t*1000)/1000).toString(); };
   function roundRect(ctx,x,y,w,h,r){ r=Math.min(r,h/2,w/2); ctx.beginPath(); ctx.moveTo(x+r,y);
     ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
-  function wrap2(ctx,str,maxw){ const words=String(str).split(/\s+/), lines=[]; let cur='';   // greedy wrap to ≤2 lines
-    for(let k=0;k<words.length;k++){ const wd=words[k], t=cur?cur+' '+wd:wd;
-      if(ctx.measureText(t).width<=maxw||!cur){ cur=t; } else { lines.push(cur); cur=wd; if(lines.length===2){ cur=''; break; } } }
-    if(cur&&lines.length<2) lines.push(cur);
-    for(let i=0;i<lines.length;i++){ let s=lines[i]; if(ctx.measureText(s).width>maxw){ while(s.length>1&&ctx.measureText(s+'…').width>maxw) s=s.slice(0,-1); lines[i]=s+'…'; } }
-    return lines.length?lines:['']; }
 
   function make(cv){
     const {ctx,w,h}=setup(cv); let sx=v=>v, sy=v=>v, fr=null;
-    const g = { ctx, w, h, TH,
-      frame(o){ const M=o.margin||{l:48,r:14,t:o.title?24:12,b:o.xlabel?42:26};
+    const FS=Math.max(0.75, Math.min(1.9, (global.__plotFontScale||1)));         // global text-size scale (bounded so labels never crowd out the data area)
+    const MONO=px=>`${(px*FS).toFixed(1)}px "IBM Plex Mono",monospace`;
+    const SANS=(px,wt)=>`${wt?wt+' ':''}${(px*FS).toFixed(1)}px "IBM Plex Sans",system-ui,sans-serif`;
+    function wrap2(str,maxw){ const words=String(str).split(/\s+/), lines=[]; let cur='';   // greedy wrap to ≤2 lines
+      for(let k=0;k<words.length;k++){ const wd=words[k], t=cur?cur+' '+wd:wd;
+        if(ctx.measureText(t).width<=maxw||!cur){ cur=t; } else { lines.push(cur); cur=wd; if(lines.length===2){ cur=''; break; } } }
+      if(cur&&lines.length<2) lines.push(cur);
+      for(let i=0;i<lines.length;i++){ let s=lines[i]; if(ctx.measureText(s).width>maxw){ while(s.length>1&&ctx.measureText(s+'…').width>maxw) s=s.slice(0,-1); lines[i]=s+'…'; } }
+      return lines.length?lines:['']; }
+    const g = { ctx, w, h, TH, FS,
+      frame(o){ const M=o.margin||{l:Math.round(48*FS), r:Math.round(14*FS), t:Math.round((o.title?26:12)*FS), b:Math.round((o.xlabel?44:26)*FS)};
         const px=M.l, py=M.t, pw=Math.max(2,w-M.l-M.r), ph=Math.max(2,h-M.t-M.b);
         fr={px,py,pw,ph,x:o.x,y:o.y};
         sx=v=>px+(v-o.x[0])/((o.x[1]-o.x[0])||1)*pw; sy=v=>py+ph*(1-(v-o.y[0])/((o.y[1]-o.y[0])||1));
-        ctx.strokeStyle=TH.grid; ctx.lineWidth=1; ctx.font='11px "IBM Plex Mono",monospace'; ctx.fillStyle=TH.dim;
+        ctx.strokeStyle=TH.grid; ctx.lineWidth=1; ctx.font=MONO(11); ctx.fillStyle=TH.dim;
         const nx=o.xticks||5, ny=o.yticks||4;
-        for(let i=0;i<=nx;i++){ const t=o.x[0]+(o.x[1]-o.x[0])*i/nx, X=sx(t);
+        if(o.xticklabels){ ctx.textAlign='center'; for(let i=0;i<o.xticklabels.length;i++){ const X=sx(i);     // categorical ticks at integer positions
+            ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke(); ctx.fillText(o.xticklabels[i],X,py+ph+13*FS); } }
+        else for(let i=0;i<=nx;i++){ const t=o.x[0]+(o.x[1]-o.x[0])*i/nx, X=sx(t);
           ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke();
-          ctx.textAlign='center'; if(!(i===nx && (px+pw) > w-26)) ctx.fillText(fmtTick(t),X,py+ph+13); }  // skip last tick only if it would clip the edge
+          ctx.textAlign='center'; if(!(i===nx && (px+pw) > w-26*FS)) ctx.fillText(fmtTick(t),X,py+ph+13*FS); }  // skip last tick only if it would clip the edge
         for(let j=0;j<=ny;j++){ const t=o.y[0]+(o.y[1]-o.y[0])*j/ny, Y=sy(t);
           ctx.beginPath(); ctx.moveTo(px,Y); ctx.lineTo(px+pw,Y); ctx.stroke();
-          ctx.textAlign='right'; ctx.fillText(fmtTick(t),px-6,Y+3); }
+          ctx.textAlign='right'; ctx.fillText(fmtTick(t),px-6*FS,Y+3.2*FS); }
         ctx.fillStyle=TH.dim;
-        if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31); }            // own line below the ticks (no overlap)
-        if(o.ylabel){ ctx.save(); ctx.translate(px-37,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
-        if(o.title){ ctx.textAlign='left'; ctx.font='600 11px "IBM Plex Sans",system-ui,sans-serif'; ctx.fillText(o.title,px,py-9); }
+        if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31*FS); }            // own line below the ticks (no overlap)
+        if(o.ylabel){ ctx.save(); ctx.translate(px-37*FS,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
+        if(o.title){ ctx.textAlign='left'; ctx.font=SANS(11,'600'); ctx.fillText(o.title,px,py-10*FS); }
         return g; },
       X:v=>sx(v), Y:v=>sy(v), frameRect:()=>fr,
       clip(){ ctx.save(); ctx.beginPath(); ctx.rect(fr.px,fr.py,fr.pw,fr.ph); ctx.clip(); return g; },
@@ -61,32 +68,48 @@
       points(pts,o={}){ ctx.fillStyle=o.color||TH.accent; const r=o.r||2.6; for(const p of pts){ ctx.beginPath(); ctx.arc(sx(p[0]),sy(p[1]),r,0,7); ctx.fill(); } return g; },
       marker(x,y,o={}){ const X=sx(x),Y=sy(y); ctx.fillStyle=o.color||TH.ink; ctx.strokeStyle=o.stroke||'#fff'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,o.r||4,0,7); ctx.fill(); if(o.stroke)ctx.stroke();
-        if(o.label){ ctx.fillStyle=o.color||TH.ink; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText(o.label,X,Y-7); } return g; },
+        if(o.label){ ctx.fillStyle=o.color||TH.ink; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,X,Y-7*FS); } return g; },
       vline(x,o={}){ ctx.strokeStyle=o.color||TH.dim; ctx.lineWidth=o.width||1.2; if(o.dash!==null)ctx.setLineDash(o.dash||[4,3]);
         ctx.beginPath(); ctx.moveTo(sx(x),fr.py); ctx.lineTo(sx(x),fr.py+fr.ph); ctx.stroke(); ctx.setLineDash([]);
-        if(o.label){ ctx.fillStyle=o.color||TH.dim; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText(o.label,sx(x),fr.py-2); } return g; },
+        if(o.label){ ctx.fillStyle=o.color||TH.dim; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,sx(x),fr.py-3*FS); } return g; },
       hline(y,o={}){ ctx.strokeStyle=o.color||TH.dim; ctx.lineWidth=o.width||1.2; if(o.dash!==null)ctx.setLineDash(o.dash||[4,3]);
         ctx.beginPath(); ctx.moveTo(fr.px,sy(y)); ctx.lineTo(fr.px+fr.pw,sy(y)); ctx.stroke(); ctx.setLineDash([]);
-        if(o.label){ ctx.fillStyle=o.color||TH.dim; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='left'; ctx.fillText(o.label,fr.px+4,sy(y)-3); } return g; },
-      // bars from a histify() result {edges,counts,binW}; dir 'up' grows from baseY upward, 'down' downward
+        if(o.label){ ctx.fillStyle=o.color||TH.dim; ctx.font=MONO(10); ctx.textAlign='left'; ctx.fillText(o.label,fr.px+4*FS,sy(y)-3.5*FS); } return g; },
       bars(hist,o={}){ const dir=o.dir||'up', baseY=o.baseY!==undefined?o.baseY:0, col=o.color||TH.accent, mx=o.max||Math.max(1,...hist.counts);
         ctx.fillStyle=col; const yb=sy(baseY); for(let i=0;i<hist.counts.length;i++){ const x0=sx(hist.edges[i]), x1=sx(hist.edges[i]+hist.binW), hpx=(hist.counts[i]/mx)*(o.height||(dir==='up'?(yb-fr.py):(fr.py+fr.ph-yb)))*0.96;
         if(hpx<=0)continue; const wpx=Math.max(1,x1-x0-0.7); if(dir==='up') ctx.fillRect(x0+0.35,yb-hpx,wpx,hpx); else ctx.fillRect(x0+0.35,yb,wpx,hpx); } return g; },
-      // heatmap over the frame: val(i,j)∈[0,1] on an nx×ny grid; cmap(t)→[r,g,b]
       heat(nx,ny,val,cmap){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), img=oc.createImageData(nx,ny);
         for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), o=((ny-1-j)*nx+i)*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
         oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=true; ctx.drawImage(off,fr.px,fr.py,fr.pw,fr.ph); return g; },
-      // spike raster: rows = array of arrays of event-x; each row a horizontal lane
       raster(rows,o={}){ const col=o.color||TH.ink, n=rows.length, lane=fr.ph/Math.max(1,n);
         ctx.strokeStyle=col; ctx.lineWidth=o.width||1; for(let r=0;r<n;r++){ const y0=fr.py+r*lane+lane*0.15, y1=fr.py+(r+1)*lane-lane*0.15; for(const x of rows[r]){ const X=sx(x); ctx.beginPath(); ctx.moveTo(X,y0); ctx.lineTo(X,y1); ctx.stroke(); } } return g; },
-      text(x,y,str,o={}){ ctx.fillStyle=o.color||TH.dim; ctx.font=o.font||'10px "IBM Plex Mono",monospace'; ctx.textAlign=o.align||'left'; ctx.fillText(str,sx(x),sy(y)); return g; },
-      legend(items,o={}){ let yy=fr.py+8; const xx=o.x!==undefined?o.x:fr.px+fr.pw-8; ctx.textAlign='right'; ctx.font='10px "IBM Plex Mono",monospace';
-        for(const it of items){ ctx.fillStyle=it.color; ctx.fillRect(xx-2,yy-7,8,8); ctx.fillStyle=TH.dim; ctx.fillText(it.label,xx-14,yy); yy+=14; } return g; },
-      note(str){ ctx.fillStyle=TH.faint; ctx.font='11px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText(str, w/2, h/2); return g; },
-      // process pipeline (PIXEL space — needs no frame): an ordered strip of stage boxes
-      // with arrows; the active stage is highlighted, earlier ones marked done. Use it as a
-      // "process overview" view so the whole sequence is visible while you step the playhead.
-      // stages=[{key,name,about}]; active=index; o:{y,h,pad,gap,caption}. about → caption line.
+      text(x,y,str,o={}){ ctx.fillStyle=o.color||TH.dim; ctx.font=o.font||MONO(o.size||10); ctx.textAlign=o.align||'left'; ctx.fillText(str,sx(x),sy(y)); return g; },
+      // legend with a translucent panel behind it, so it stays readable over the data
+      legend(items,o={}){ ctx.font=MONO(10); const sw=8*FS, pad=6*FS;
+        let lh=14*FS; const maxH=(fr?fr.ph:h)*0.94; if(items.length*lh+pad>maxH) lh=Math.max(9, (maxH-pad)/items.length);  // clamp so a big-font legend can't exceed the frame
+        let maxw=0; for(const it of items) maxw=Math.max(maxw, ctx.measureText(it.label).width);
+        const boxW=maxw+sw+pad*2+6*FS, boxH=items.length*lh+pad;
+        const xR=(o.x!==undefined?o.x:fr.px+fr.pw-6*FS), x0=xR-boxW, y0=(o.y!==undefined?o.y:fr.py+6*FS);
+        ctx.fillStyle='rgba(255,255,255,.82)'; roundRect(ctx,x0,y0,boxW,boxH,6*FS); ctx.fill();
+        ctx.strokeStyle=TH.edge; ctx.lineWidth=1; ctx.stroke();
+        let yy=y0+pad+lh*0.5; ctx.textBaseline='middle';
+        for(const it of items){ ctx.fillStyle=it.color; ctx.fillRect(x0+pad, yy-sw/2, sw, sw); ctx.fillStyle=TH.dim; ctx.textAlign='left'; ctx.fillText(it.label, x0+pad+sw+5*FS, yy); yy+=lh; }
+        ctx.textBaseline='alphabetic'; return g; },
+      note(str){ ctx.fillStyle=TH.faint; ctx.font=MONO(11); ctx.textAlign='center'; ctx.fillText(str, w/2, h/2); return g; },
+      // vertical colour scale for a heatmap. cmap(value)→[r,g,b] (same fn the heat() used).
+      // o:{x,y,w,h} pixel rect (defaults to a strip just right of the current frame), label, ticks:[{v,label}].
+      colorbar(vmin,vmax,cmap,o={}){ const bw=o.w||10*FS, x=o.x!==undefined?o.x:(fr?fr.px+fr.pw+8*FS:w-bw-30*FS),
+          y=o.y!==undefined?o.y:(fr?fr.py:10), bh=o.h!==undefined?o.h:(fr?fr.ph:h-20), steps=o.steps||64;
+        for(let s=0;s<steps;s++){ const v=vmin+(vmax-vmin)*(s/(steps-1)), c=cmap(v);
+          ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`; ctx.fillRect(x, y+bh*(1-(s+1)/steps), bw, bh/steps+1); }
+        ctx.strokeStyle=TH.edge; ctx.lineWidth=1; ctx.strokeRect(x,y,bw,bh);
+        ctx.fillStyle=TH.dim; ctx.font=MONO(9); ctx.textBaseline='middle';
+        const ticks=o.ticks||[{v:vmin},{v:vmax}]; let maxW=0;
+        for(const tk of ticks) maxW=Math.max(maxW, ctx.measureText((tk.label!=null?tk.label:Math.round(tk.v)).toString()).width);
+        const left=(x+bw+4*FS+maxW)>(w-2); ctx.textAlign=left?'right':'left';   // flip labels to the left if they'd run off the canvas
+        for(const tk of ticks){ const yy=y+bh*(1-(tk.v-vmin)/((vmax-vmin)||1));
+          ctx.fillText((tk.label!=null?tk.label:Math.round(tk.v)).toString(), left?x-4*FS:x+bw+3*FS, yy); }
+        ctx.textBaseline='alphabetic'; if(o.label){ ctx.fillText(o.label, left?x-4*FS:x+bw+3*FS, y-5*FS); } return g; },
       flow(stages,active,o={}){ if(!stages||!stages.length) return g; const n=stages.length;
         const pad=o.pad||12, gap=o.gap||9, bh=o.h||46, hasCap=o.caption!==false;
         const top=o.y!==undefined?o.y:Math.round(hasCap? h*0.30 : h/2-bh/2);
@@ -98,14 +121,14 @@
             ctx.beginPath(); ctx.moveTo(x-1,ay); ctx.lineTo(x-5,ay-3); ctx.lineTo(x-5,ay+3); ctx.closePath(); ctx.fill(); }
           ctx.fillStyle=cur?TH.accent:(done?'rgba(74,122,147,.12)':'#fff'); roundRect(ctx,x,top,bw,bh,8); ctx.fill();
           ctx.lineWidth=cur?1.5:1; ctx.strokeStyle=cur?TH.accent:TH.edge; ctx.stroke();
-          ctx.font='600 9px "IBM Plex Mono",monospace'; ctx.textAlign='left'; ctx.fillStyle=cur?'rgba(255,255,255,.85)':TH.faint; ctx.fillText(String(i+1),x+6,top+9);
-          ctx.font='600 10.5px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='center'; ctx.fillStyle=cur?'#fff':(done?TH.accent:TH.dim);
-          const lines=wrap2(ctx,stages[i].name,bw-12), lh=12, y0=top+bh/2-(lines.length-1)*lh/2; lines.forEach((ln,li)=>ctx.fillText(ln,x+bw/2,y0+li*lh)); }
+          ctx.font=SANS(9,'600'); ctx.textAlign='left'; ctx.fillStyle=cur?'rgba(255,255,255,.85)':TH.faint; ctx.fillText(String(i+1),x+6,top+9);
+          ctx.font=SANS(10.5,'600'); ctx.textAlign='center'; ctx.fillStyle=cur?'#fff':(done?TH.accent:TH.dim);
+          const lines=wrap2(stages[i].name,bw-12), lh=12*FS, y0=top+bh/2-(lines.length-1)*lh/2; lines.forEach((ln,li)=>ctx.fillText(ln,x+bw/2,y0+li*lh)); }
         if(hasCap && active!=null && stages[active] && stages[active].about){ ctx.textBaseline='top'; ctx.textAlign='center';
-          ctx.font='11px "IBM Plex Sans",system-ui,sans-serif'; ctx.fillStyle=TH.dim;
+          ctx.font=SANS(11); ctx.fillStyle=TH.dim;
           const maxw=w-2*pad, words=String(stages[active].about).split(/\s+/), L=[]; let line='';
           for(const wd of words){ const t=line?line+' '+wd:wd; if(ctx.measureText(t).width>maxw&&line){ L.push(line); line=wd; if(L.length===3)break; } else line=t; }
-          if(line&&L.length<3) L.push(line); let cy=top+bh+13; for(const ln of L){ ctx.fillText(ln,w/2,cy); cy+=15; } }
+          if(line&&L.length<3) L.push(line); let cy=top+bh+13; for(const ln of L){ ctx.fillText(ln,w/2,cy); cy+=15*FS; } }
         ctx.restore(); return g; },
     };
     return g;

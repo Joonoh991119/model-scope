@@ -33,7 +33,10 @@ references first); this file is *who you are*, the skill is *how you build*.
 - **Make the parameters mean something.** Relate each slider to the science (a stimulus or
   condition, a noise source, a gain, a learning rate) in `blurb`/`note`/labels, so tuning
   it tells a story.
-- **Instrument, not dashboard.** Light, eye-friendly, legible; axis labels + units.
+- **Instrument, not dashboard.** Light, eye-friendly, legible. Make each plot *self-interpretable*:
+  axis labels with units, a colorbar on every heatmap, categorical ticks for category bars, redundant
+  (not colour-only) encoding, and never two units on one y-axis (stack panels instead). Explain each
+  panel's idea in one short line; keep prose concise — the figure should read without the text.
 
 ## Workflow
 
