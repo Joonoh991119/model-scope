@@ -48,6 +48,13 @@ Text-size control reflows fonts/margins — larger text is where overlap shows u
 - [ ] Panels are numbered (①②③…) and `blurb`/`note` reference them by number.
 - [ ] The paper's thesis is visible: what's held **fixed** looks fixed; what **varies**, varies.
 
+**Levels (if the model declares `lenses`):**
+- [ ] The level switch (⚛ Step · ◷ Trial · ∑ Simulation) shows and each lens binds its own views.
+- [ ] Step lens decomposes ONE update into named contributions (signal/leak/noise), **zoomed** so
+      they're comparable — and reads as input → transform → output.
+- [ ] Trial lens replays the atom to an output; Sim lens shows the statistic building up.
+- [ ] Switching lens is instant (no recompute) and never leaves a stale playhead or overlay.
+
 *How to capture:* a Preview / browser MCP, or `python3 -m http.server` + a headless screenshot.
 Trigger a heavy screen and watch the overlay fill then clear; drag a slider fast and confirm no
 flicker of stale data.

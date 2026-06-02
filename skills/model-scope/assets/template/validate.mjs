@@ -22,8 +22,10 @@ console.log('\n=== model-scope template models ===\n');
 for (const id of SIM.MODEL_ORDER) {
   const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
   let data, threw = null; try { data = m.simulate(p, env('v-'+id)); } catch (e) { threw = e; }
-  const viewsOk = Array.isArray(m.views) && m.views.length >= 1 && m.views.every(v => typeof v.draw === 'function');
-  console.log(`  ${m.name.padEnd(28)} simulate=${threw?'\x1b[31mthrew\x1b[0m':'ok'}  views=${m.views.length}  [${ok(!threw && data && viewsOk)}]`);
+  const specs = m.lenses ? Object.values(m.lenses) : [m];   // a lens model carries its views per lens
+  const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
+  const nv = specs.reduce((a,s)=>a+((s.views&&s.views.length)||0),0);
+  console.log(`  ${m.name.padEnd(28)} simulate=${threw?'\x1b[31mthrew\x1b[0m':'ok'}  views=${nv}${m.lenses?` (${specs.length} lenses)`:''}  [${ok(!threw && data && viewsOk)}]`);
   if (threw) console.log('    ' + threw.message);
 }
 

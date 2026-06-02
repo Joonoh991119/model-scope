@@ -52,6 +52,13 @@
   function ddmPath(pp, seed, k){ const rng=trialRng(seed,k); let x=0,t=0,st=0; const ms=Math.round(20/pp.dt), out=[[0,0]];
     while(st<ms){ x+=pp.A*pp.dt+pp.c*Math.sqrt(pp.dt)*gaussian(rng); t+=pp.dt; st++; out.push([t,x]); if(x>=pp.z){return {pts:out,outcome:1};} if(x<=-pp.z){return {pts:out,outcome:2};} }
     return {pts:out, outcome:0}; }
+  // ATOMIC decomposition of one trial: each step's update split into its drift (signal) and noise contributions.
+  // steps[i] = {i, t, x, drift, noise, dx, xNext, cross?} — the atom the step-lens animates and the trial-lens replays.
+  function ddmSteps(pp, seed, k){ const rng=trialRng(seed,k), ms=Math.round(20/pp.dt), steps=[]; let x=0, t=0;
+    for(let st=0; st<ms; st++){ const drift=pp.A*pp.dt, noise=pp.c*Math.sqrt(pp.dt)*gaussian(rng), xn=x+drift+noise;
+      const s={ i:st, t, x, drift, noise, dx:drift+noise, xNext:xn }; t+=pp.dt;
+      if(xn>=pp.z) s.cross=1; else if(xn<=-pp.z) s.cross=2; steps.push(s); x=xn; if(s.cross) break; }
+    return steps; }
 
   const MODELS = {
 
@@ -325,10 +332,10 @@
     /* ---- A drift-diffusion decision: animate one trial's evidence, accumulate RTs. ---- */
     ddm: {
       id:'ddm', name:'Drift-diffusion decision',
-      blurb:'Evidence x integrates a drift A plus Gaussian noise until it reaches +z (correct) or −z (error). Watch each trial accumulate; the response-time histogram builds up trial by trial.',
-      note:'Larger drift A → faster & more accurate; larger boundary z → slower & more accurate; larger noise c → noisier. The classic decision / first-passage recipe.',
+      blurb:'A pure evidence accumulator — the atom of decision models. Each timestep adds a fixed DRIFT (the signal) plus a random NOISE kick; repeat the atom and evidence random-walks to a bound (+z correct / −z error). Use the LEVEL switch (top) to zoom: one update → one trial → the whole distribution.',
+      note:'Step: x′ = x + A·dt + c·√dt·ξ — signal vs noise made explicit. Trial: that atom repeated until a bound is hit = one choice and its RT. Simulation: thousands of trials → the choice proportions and RT histogram the model predicts (what you compare to data). Larger A → faster & more accurate; larger z → slower & more accurate; larger c → noisier.',
       params:[
-        {name:'A', label:'Drift A', min:0, max:3, step:0.01, default:1},
+        {name:'A', label:'Drift A (signal)', min:0, max:3, step:0.01, default:1},
         {name:'c', label:'Noise c', min:0.1, max:2, step:0.01, default:1},
         {name:'z', label:'Boundary z', min:0.2, max:2.5, step:0.01, default:1},
         {name:'dt',label:'dt', min:0.002, max:0.03, step:0.001, default:0.01, unit:'s'},
@@ -338,31 +345,70 @@
         for(let k=0;k<n;k++){ const rng=trialRng(env.seed,k); let x=0,t=0,st=0,o=0; while(st<ms){ x+=p.A*p.dt+p.c*Math.sqrt(p.dt)*gaussian(rng); t+=p.dt; st++; if(x>=p.z){o=1;break;} if(x<=-p.z){o=2;break;} } out[k]=o; rt[k]=t; }
         const dec=[]; for(let k=0;k<n;k++) if(out[k]) dec.push(rt[k]); dec.sort((a,b)=>a-b);
         const rtMax=dec.length?Math.min(20,dec[Math.floor(0.99*(dec.length-1))]*1.08):1;
-        return { n, out, rt, rtMax, pp:{A:p.A,c:p.c,z:p.z,dt:p.dt}, seed:env.seed }; },
-      views:[
-        { title:'This trial', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n-1,Math.floor(ui.head)), frac=ui.playing?(ui.head-Math.floor(ui.head)):1;
-          const path=ddmPath(d.pp, d.seed, k), z=d.pp.z, tView=Math.max(0.2,d.rtMax*1.05);
-          g.frame({x:[0,tView], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:`evidence x(t) — trial ${k+1}`});
-          g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
-          const nshow=Math.max(2,Math.floor(path.pts.length*frac)), done=nshow>=path.pts.length&&path.outcome;
-          g.clip().line(path.pts.slice(0,nshow),{color:done?(path.outcome===1?T.pos:T.neg):'#6b675d',width:2}).unclip();
-          const tip=path.pts[nshow-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:done?(path.outcome===1?T.pos:T.neg):T.ink,r:3.2});
-        }},
-        { title:'Response-time distribution', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head)); const cor=[],err=[];
-          for(let i=0;i<k;i++){ if(d.out[i]===1)cor.push(d.rt[i]); else if(d.out[i]===2)err.push(d.rt[i]); }
-          const hc=HIST(cor,52,0,d.rtMax,d.pp.dt), he=HIST(err,52,0,d.rtMax,d.pp.dt), mx=Math.max(hc.max,he.max,1);
-          g.frame({x:[0,d.rtMax], y:[-mx,mx], xlabel:'RT (s)', yticks:4, title:'correct ↑   ·   error ↓'});
-          g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
-          g.bars(hc,{dir:'up',baseY:0,color:'rgba(46,139,122,.78)',max:mx,height:g.Y(0)-g.frameRect().py});
-          g.bars(he,{dir:'down',baseY:0,color:'rgba(194,91,66,.78)',max:mx,height:g.frameRect().py+g.frameRect().ph-g.Y(0)});
-          const dec=cor.length+err.length, er=dec?100*err.length/dec:0;
-          g.text(d.rtMax*0.02, mx*0.92, `${dec.toLocaleString()} trials · error ${er.toFixed(1)}%`, {color:T.dim});
-        }},
-      ],
-      anim:{ length:(p)=>Math.round(p.nTrials) },
+        const pp={A:p.A,c:p.c,z:p.z,dt:p.dt}, steps0=ddmSteps(pp, env.seed, 0), stepCap=Math.min(steps0.length, 48);
+        return { n, out, rt, rtMax, pp, seed:env.seed, steps0, stepCap }; },
+      // THREE LENSES over the same data — step (one atomic update) · trial (one decision) · simulation (the statistics)
+      lenses:{
+        step:{ label:'⚛ Step', about:'one atomic update: evidence ← evidence + drift (signal) + noise',
+          anim:{ length:(p,d)=>d.stepCap },
+          views:[
+            { title:'one update: x′ = x + drift + noise', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), s=d.steps0[k];
+              const inc=Math.max(Math.abs(s.drift), Math.abs(s.noise), 0.01), pad=inc*2.6+0.015, lo=Math.min(s.x,s.xNext)-pad, hi=Math.max(s.x,s.xNext)+pad;   // zoom to the ATOM so drift vs noise are comparable
+              g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'evidence x (zoomed to this step)', title:`one update — step ${k+1}: signal vs noise`});
+              if(z<=hi&&z>=lo) g.vline(z,{color:T.pos,dash:[5,4],label:'+z'}); if(-z>=lo&&-z<=hi) g.vline(-z,{color:T.neg,dash:[5,4],label:'−z'}); if(0>=lo&&0<=hi) g.vline(0,{color:'rgba(80,75,65,.16)',dash:[2,3]});
+              const gl=(xv,y0,y1)=>g.line([[xv,y0],[xv,y1]],{color:'rgba(80,75,65,.16)',dash:[2,3],width:1});
+              gl(s.x,3,2); gl(s.x+s.drift,2,1); gl(s.xNext,1,0);
+              g.text(lo,3,'x',{color:T.dim,size:10}); g.marker(s.x,3,{color:T.ink,r:4.5,label:s.x.toFixed(3)});
+              g.text(lo,2,'+ drift',{color:T.dim,size:10}); g.arrow(s.x,2,s.x+s.drift,2,{color:T.accent,label:`A·dt +${s.drift.toFixed(3)}`});
+              g.text(lo,1,'+ noise',{color:T.dim,size:10}); g.arrow(s.x+s.drift,1,s.xNext,1,{color:s.noise>=0?T.warn:T.neg,label:`${s.noise>=0?'+':''}${s.noise.toFixed(3)}`});
+              g.text(lo,0,'x′',{color:T.dim,size:10}); g.marker(s.xNext,0,{color:s.cross?(s.cross===1?T.pos:T.neg):T.ink,r:4.5,label:s.xNext.toFixed(3)});
+              if(s.cross) g.text((lo+hi)/2,-0.45,s.cross===1?'✓ crossed +z → correct':'✗ crossed −z → error',{color:s.cross===1?T.pos:T.neg,size:10,align:'center'});
+            }},
+            { title:'…repeat the atom → a trajectory', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), tWin=Math.max(0.05,d.stepCap*d.pp.dt);
+              g.frame({x:[0,tWin], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:`first ${d.stepCap} steps`});
+              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
+              const pts=[[0,0]]; for(let i=0;i<=k;i++) pts.push([d.steps0[i].t+d.pp.dt, d.steps0[i].xNext]);
+              g.clip().line(pts,{color:T.accent,width:2}).unclip(); const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:T.ink,r:3.2});
+            }},
+          ] },
+        trial:{ label:'◷ Trial', about:'one trial: the atom repeated until evidence hits a bound — a choice and its RT',
+          anim:{ length:(p,d)=>d.steps0.length },
+          views:[
+            { title:'one trial: evidence random-walks to a bound', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.steps0.length-1,Math.floor(ui.head)), tView=Math.max(0.2,d.rtMax*1.05);
+              g.frame({x:[0,tView], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:'evidence x(t) — trial 1'});
+              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z (correct)'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z (error)'});
+              const pts=[[0,0]]; for(let i=0;i<=k;i++) pts.push([d.steps0[i].t+d.pp.dt, d.steps0[i].xNext]);
+              const last=d.steps0[k], done=!!last.cross && k>=d.steps0.length-1;
+              g.clip().line(pts,{color:done?(last.cross===1?T.pos:T.neg):'#6b675d',width:2}).unclip();
+              const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:done?(last.cross===1?T.pos:T.neg):T.ink,r:3.4});
+              if(done) g.text(tip[0],(last.cross===1?1:-1)*z*1.34,`${last.cross===1?'✓ correct':'✗ error'} · RT ${(last.t+d.pp.dt).toFixed(2)} s`,{color:last.cross===1?T.pos:T.neg,size:10,align:'right'});
+            }},
+          ] },
+        sim:{ label:'∑ Simulation', about:'thousands of trials → the choice proportions & RT histogram the model predicts',
+          anim:{ length:(p)=>Math.round(p.nTrials) },
+          views:[
+            { title:'each trial flashes by', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n-1,Math.floor(ui.head)), frac=ui.playing?(ui.head-Math.floor(ui.head)):1;
+              const path=ddmPath(d.pp,d.seed,k), z=d.pp.z, tView=Math.max(0.2,d.rtMax*1.05);
+              g.frame({x:[0,tView], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:`trial ${k+1} of ${d.n.toLocaleString()}`});
+              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
+              const nshow=Math.max(2,Math.floor(path.pts.length*frac)), done=nshow>=path.pts.length&&path.outcome;
+              g.clip().line(path.pts.slice(0,nshow),{color:done?(path.outcome===1?T.pos:T.neg):'#6b675d',width:1.6}).unclip();
+            }},
+            { title:'response-time distribution (building up)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head)); const cor=[],err=[];
+              for(let i=0;i<k;i++){ if(d.out[i]===1)cor.push(d.rt[i]); else if(d.out[i]===2)err.push(d.rt[i]); }
+              const hc=HIST(cor,52,0,d.rtMax,d.pp.dt), he=HIST(err,52,0,d.rtMax,d.pp.dt), mx=Math.max(hc.max,he.max,1);
+              g.frame({x:[0,d.rtMax], y:[-mx,mx], xlabel:'RT (s)', yticks:4, title:'correct ↑   ·   error ↓'});
+              g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
+              g.bars(hc,{dir:'up',baseY:0,color:'rgba(46,139,122,.78)',max:mx,height:g.Y(0)-g.frameRect().py});
+              g.bars(he,{dir:'down',baseY:0,color:'rgba(194,91,66,.78)',max:mx,height:g.frameRect().py+g.frameRect().ph-g.Y(0)});
+              const dec=cor.length+err.length, er=dec?100*err.length/dec:0;
+              g.text(d.rtMax*0.02, mx*0.92, `${dec.toLocaleString()} trials · error ${er.toFixed(1)}%`, {color:T.dim});
+            }},
+          ] },
+      },
     },
   };
   const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm'];
 
-  global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, runChunks, MODELS, MODEL_ORDER };
+  global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

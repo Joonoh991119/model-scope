@@ -181,6 +181,16 @@ this shape works:
 | **Reach for it when** | trials accumulate, evidence drifts, a value updates | you want to *see each computation in sequence* |
 | **Example** | drift-diffusion; the Bayesian observer's prior updating | the efficient-coding, causal-inference & working-memory pipelines |
 
+### Decompose the process — the three levels (`lenses`)
+
+The point isn't to pixel-match a paper's figure; it's to make the **mechanism** legible —
+*given an input, what transformation produces what output* — decomposed to the **atomic level**.
+A model can declare `lenses` and the toolbox shows a **level switch** that zooms the same
+simulation three ways: **⚛ Step** (ONE update split into its contributions — signal, leak/decay,
+noise — → the new state), **◷ Trial** (that atom repeated over time → an output), **∑ Simulation**
+(many trials → the statistics you'd compare to data). The template's **drift-diffusion** model is
+the worked exemplar; see [`references/levels.md`](skills/model-scope/references/levels.md).
+
 ### Scaling to a whole paper — screens, conditions, a claim map
 
 A whole paper isn't one grid: each entry in `MODEL_ORDER` is a **top tab (a screen)**, so you
@@ -309,6 +319,7 @@ model-scope/
     ├── references/
     │   ├── architecture.md      the model contract + runtime, in detail
     │   ├── plotting.md          the g API + view recipes + readability conventions
+    │   ├── levels.md            the three-level (step·trial·simulation) method + atomic-step recipe
     │   ├── gui-qc.md            the QC pipeline: static gate + visual checklist + review
     │   └── modelbook/           one file per canonical family + INDEX.md
     └── assets/template/         the app you copy & extend

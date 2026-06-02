@@ -18,6 +18,12 @@ header.topbar{display:flex; align-items:center; justify-content:space-between; g
 .models{display:flex; gap:4px; padding:4px; border:1px solid var(--edge); border-radius:12px; background:var(--surface-2)}
 .models button{font-family:var(--sans); font-size:12.5px; font-weight:500; color:var(--ink-dim); background:transparent; border:0; padding:7px 13px; border-radius:8px; cursor:pointer; white-space:nowrap}
 .models button:hover{color:var(--ink); background:rgba(0,0,0,.04)} .models button[aria-pressed="true"]{color:#fff; background:var(--accent); font-weight:600}
+.lenses{display:flex; gap:5px; align-items:center}
+.lenses .ll{font-family:var(--mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-faint); margin-right:3px}
+.lenses button{font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge-2); padding:6px 12px; border-radius:7px; cursor:pointer; white-space:nowrap}
+.lenses button:hover{color:var(--ink); border-color:var(--ink-faint)} .lenses button[aria-pressed="true"]{color:#fff; background:var(--accent); border-color:var(--accent); font-weight:600}
+.tbar .transport{display:flex; align-items:center; gap:12px; flex:1; min-width:0}
+.tbar .sep{width:1px; align-self:stretch; background:var(--edge); margin:2px 2px}
 .tip{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); max-width:300px; text-align:right}
 .layout{display:grid; grid-template-columns:330px minmax(0,1fr); min-height:0}
 aside.console{border-right:1px solid var(--edge); overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:18px; background:var(--surface)}
@@ -73,18 +79,22 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
     </aside>
     <div class="right">
       <div class="tbar hidden" id="tbar">
-        <div class="tctrl">
-          <button id="toStartBtn" title="Restart"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="2" height="10"/><path d="M13 3l-7 5 7 5z"/></svg></button>
-          <button id="playBtn" title="Play / pause"><svg id="playIcon" viewBox="0 0 16 16"><path d="M4 3l9 5-9 5z"/></svg></button>
-          <button id="toEndBtn" title="Fast-forward to end"><svg viewBox="0 0 16 16"><path d="M3 3l7 5-7 5z"/><rect x="11" y="3" width="2" height="10"/></svg></button>
+        <div class="lenses" id="lensSwitch" style="display:none"></div>
+        <div class="sep" id="lensSep" style="display:none"></div>
+        <div class="transport" id="transport">
+          <div class="tctrl">
+            <button id="toStartBtn" title="Restart"><svg viewBox="0 0 16 16"><rect x="3" y="3" width="2" height="10"/><path d="M13 3l-7 5 7 5z"/></svg></button>
+            <button id="playBtn" title="Play / pause"><svg id="playIcon" viewBox="0 0 16 16"><path d="M4 3l9 5-9 5z"/></svg></button>
+            <button id="toEndBtn" title="Fast-forward to end"><svg viewBox="0 0 16 16"><path d="M3 3l7 5-7 5z"/><rect x="11" y="3" width="2" height="10"/></svg></button>
+          </div>
+          <div class="tctrl" id="stepCtrl" style="display:none">
+            <button id="stepBackBtn" title="Previous step"><svg viewBox="0 0 16 16"><path d="M11 3v10L4 8z"/></svg></button>
+            <button id="stepFwdBtn" title="Next step"><svg viewBox="0 0 16 16"><path d="M5 3v10l7-5z"/></svg></button>
+          </div>
+          <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Step"/>
+          <span class="tread" id="tread">0 / 0</span>
+          <div class="spd">speed<input type="range" id="spd" min="1" max="800" step="1" value="12"/></div>
         </div>
-        <div class="tctrl" id="stepCtrl" style="display:none">
-          <button id="stepBackBtn" title="Previous stage"><svg viewBox="0 0 16 16"><path d="M11 3v10L4 8z"/></svg></button>
-          <button id="stepFwdBtn" title="Next stage"><svg viewBox="0 0 16 16"><path d="M5 3v10l7-5z"/></svg></button>
-        </div>
-        <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Step"/>
-        <span class="tread" id="tread">0 / 0</span>
-        <div class="spd">speed<input type="range" id="spd" min="1" max="800" step="1" value="12"/></div>
       </div>
       <div class="views" id="views"></div>
       <div id="loading"><div class="ttl">computing…</div><div class="barwrap"><div class="bar" id="loadingBar"></div></div><div class="sub" id="loadingSub"></div></div>
@@ -102,11 +112,23 @@ const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const reduceMotion = matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:'model-scope', data:null, model:null,
   views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
-  stageMode:false, stageList:null };
+  stageMode:false, stageList:null, lens:null, lensKeys:null };
+// a model may declare lenses:{step,trial,sim,…} — three zoom LEVELS over the SAME simulate() data.
+// activeSpec() is the object that supplies views/anim/stages right now: the active lens, or the model itself.
+function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 
 function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
   SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId); b.onclick=()=>setModel(id); nav.appendChild(b); }); }
+function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.innerHTML='';
+  if(!S.lensKeys){ box.style.display='none'; sep.style.display='none'; return; }
+  box.style.display='flex'; sep.style.display='block';
+  const lab=document.createElement('span'); lab.className='ll'; lab.textContent='level'; box.appendChild(lab);
+  S.lensKeys.forEach(k=>{ const L=S.model.lenses[k], b=document.createElement('button'); b.textContent=L.label||k;
+    b.setAttribute('aria-pressed',k===S.lens); b.title=L.about||''; b.onclick=()=>switchLens(k); box.appendChild(b); }); }
+function switchLens(k){ if(k===S.lens) return; S.lens=k; stopAll();
+  [...$('#lensSwitch').querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed', b.textContent===(S.model.lenses[k].label||k)));
+  bindLens(); }   // same data, different zoom level — no re-simulate
 function makeField(spec,obj,onChange){ const wrap=document.createElement('div'); wrap.className='field';
   const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=spec.label||spec.name; lab.htmlFor='f_'+spec.name;
   const num=document.createElement('input'); num.className='num'; num.type='number'; num.min=spec.min; num.max=spec.max; num.step=spec.step; num.id='f_'+spec.name;
@@ -120,26 +142,30 @@ function makeField(spec,obj,onChange){ const wrap=document.createElement('div');
   num.addEventListener('blur',()=>apply(parseFloat(num.value)||spec.default)); apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
 function setModel(id){ S.suppress=true; stopAll(); S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
   [...$('#modelTabs').children].forEach(b=>b.setAttribute('aria-pressed',b.textContent===m.name));
-  $('#blurb').textContent=m.blurb||''; $('#note').textContent=m.note||''; $('#tip').textContent=m.stages?'move a slider · ▶ or ◀ ▶ to step through each process stage':m.anim?'move a slider · ▶ to watch it build':'move a slider · watch the views update';
+  S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? S.lensKeys[0] : null; buildLensSwitch();
+  $('#blurb').textContent=m.blurb||''; $('#note').textContent=m.note||'';
   const box=$('#paramFields'); box.innerHTML=''; S.params={}; (m.params||[]).forEach(p=>S.params[p.name]=p.default); (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
-  // build view cards
-  S.views=m.views||[]; const vc=$('#views'); vc.innerHTML=''; S.canvases=S.views.map(()=>{ const d=document.createElement('div'); d.className='plot'; const cv=document.createElement('canvas'); d.appendChild(cv); vc.appendChild(d); return cv; });
-  $('#tbar').classList.toggle('hidden', !(m.anim||m.stages));
-  $('#stepCtrl').style.display = m.stages ? 'flex' : 'none';
-  const spd=$('#spd'); if(m.stages){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; }   // stages step slowly, trials fast
   S.suppress=false; recompute(); }
 function onChange(){ if(!S.suppress) schedule(); }
+function buildCards(){ const vc=$('#views'); vc.innerHTML=''; S.canvases=S.views.map(()=>{ const d=document.createElement('div'); d.className='plot'; const cv=document.createElement('canvas'); d.appendChild(cv); vc.appendChild(d); return cv; }); }
 
-/* ---- simulate + render ---- */
+/* ---- simulate (shared by all lenses), then bind the active lens ---- */
 function recompute(){ clearTimeout(rt); stopAll(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
   const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} };
   try{ S.data=S.model.simulate({...S.params}, env); }catch(e){ S.data=null; console.error(e); }
-  if(myGen!==S.gen) return;
-  S.stageList = S.model.stages ? ((typeof S.model.stages==='function') ? S.model.stages(S.params, S.data) : S.model.stages) : null;
-  S.stageMode = !!(S.stageList && S.stageList.length);
-  S.length = S.stageMode ? S.stageList.length : (S.model.anim ? Math.max(1, S.model.anim.length(S.params, S.data)) : 1);
-  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;   // stages: head ∈ [0,length-1] (one unit per stage); continuous: [0,length]
-  const seq = S.stageMode || !!S.model.anim;
+  if(myGen!==S.gen) return; bindLens(); }
+// bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
+function bindLens(){ const spec=activeSpec(); S.views=spec.views||[]; buildCards();
+  $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'move a slider · ▶ or ◀ ▶ to step through each stage':spec.anim?'move a slider · ▶ to watch it build':'move a slider · watch the views update');
+  S.stageList = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(S.params, S.data) : spec.stages) : null;
+  S.stageMode = !!(S.stageList && S.stageList.length); S.anim = spec.anim || null;
+  S.length = S.stageMode ? S.stageList.length : (S.anim ? Math.max(1, S.anim.length(S.params, S.data)) : 1);
+  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;   // stages: head∈[0,len-1] (one unit/stage); continuous: [0,len]
+  const seq = S.stageMode || !!S.anim;
+  $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));    // keep the bar (for the lens switch) even if THIS lens is static
+  $('#transport').style.display = seq ? 'flex' : 'none';
+  $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
+  const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; }
   S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
   readout(); if(seq && !reduceMotion){ play(); } else { drawAll(); } }
 function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, Math.floor(S.head))) : null;

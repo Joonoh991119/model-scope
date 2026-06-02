@@ -70,6 +70,12 @@
       marker(x,y,o={}){ const X=sx(x),Y=sy(y); ctx.fillStyle=o.color||TH.ink; ctx.strokeStyle=o.stroke||'#fff'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,o.r||4,0,7); ctx.fill(); if(o.stroke)ctx.stroke();
         if(o.label){ ctx.fillStyle=o.color||TH.ink; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,X,Y-7*FS); } return g; },
+      // arrow in DATA coords (x0,y0)→(x1,y1) with a head + optional centred label — for atomic input→transform views
+      arrow(x0,y0,x1,y1,o={}){ const X0=sx(x0),Y0=sy(y0),X1=sx(x1),Y1=sy(y1); ctx.strokeStyle=o.color||TH.ink; ctx.fillStyle=o.color||TH.ink; ctx.lineWidth=o.width||2;
+        ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X1,Y1); ctx.stroke();
+        const a=Math.atan2(Y1-Y0,X1-X0), hd=(o.head||6)*FS, dist=Math.hypot(X1-X0,Y1-Y0);
+        if(dist>1){ ctx.beginPath(); ctx.moveTo(X1,Y1); ctx.lineTo(X1-hd*Math.cos(a-0.42),Y1-hd*Math.sin(a-0.42)); ctx.lineTo(X1-hd*Math.cos(a+0.42),Y1-hd*Math.sin(a+0.42)); ctx.closePath(); ctx.fill(); }
+        if(o.label){ ctx.font=MONO(9.5); ctx.textAlign='center'; ctx.fillText(o.label,(X0+X1)/2,Math.min(Y0,Y1)-5*FS); } return g; },
       vline(x,o={}){ ctx.strokeStyle=o.color||TH.dim; ctx.lineWidth=o.width||1.2; if(o.dash!==null)ctx.setLineDash(o.dash||[4,3]);
         ctx.beginPath(); ctx.moveTo(sx(x),fr.py); ctx.lineTo(sx(x),fr.py+fr.ph); ctx.stroke(); ctx.setLineDash([]);
         if(o.label){ ctx.fillStyle=o.color||TH.dim; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,sx(x),fr.py-3*FS); } return g; },

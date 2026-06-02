@@ -33,6 +33,51 @@ helper. The decision-model "evidence trajectory + RT histogram" is just *one* re
 Implement the model's math **exactly** as given (never re-derive from memory). Surface any
 ambiguity instead of guessing. Aim for a clean instrument, not a dashboard.
 
+## The philosophy: decompose the process, don't reproduce the figure
+
+The goal is **not** to pixel-match a paper's figures. It is to make the *mechanism* legible:
+**given an input, what transformation does it go through, to produce what output** — shown at
+whatever granularity makes that click. Decompose the model's architecture and process to the
+**atomic level** (the single update / one stage of the pipeline), then build understanding up
+through three zoom levels:
+
+- **Step (atomic).** ONE update, fully decomposed: the current state + this step's inputs →
+  each additive/transforming contribution (signal, leak/decay, recurrent term, noise, gain) →
+  the new state. This is where the reader *sees* where evidence accumulates and where it decays.
+- **Trial.** That atom **repeated over time** until the model produces an output (a decision, a
+  report, a crossing) — one trial's dynamics from input onset to result.
+- **Simulation.** The trial **repeated many times** → the statistics that emerge (choice
+  proportions, an RT/error distribution, a tuning/psychometric curve) — what you'd actually
+  compare to data.
+
+Every model should be expressible this way. Reproducing a specific figure is at most a *check*,
+never the point — the point is the chain input → transformation → output, made visible.
+
+## The three levels as first-class UI — `lenses`
+
+A model can declare these three levels as **lenses**; the toolbox renders a **level switch**
+(⚛ Step · ◷ Trial · ∑ Simulation) and swaps the active views + playhead per lens, all over the
+**same `simulate()` data** (no recompute on switch):
+
+```js
+lenses: {
+  step:  { label:'⚛ Step',  about:'one atomic update: state ← state + Σ(contributions)',
+           anim:{length:(p,d)=>d.stepCap}, views:[ /* decompose ONE update with g.arrow */ ] },
+  trial: { label:'◷ Trial', about:'one trial over time → an output',
+           anim:{length:(p,d)=>d.nSteps}, views:[ /* the trajectory to a bound/readout */ ] },
+  sim:   { label:'∑ Simulation', about:'many trials → the statistics',
+           anim:{length:(p)=>p.nTrials}, views:[ /* histogram / curve building up */ ] },
+}
+```
+
+Each lens is just a `{label, about, views, anim?|stages?}` bundle — the same view/anim/stages
+contract below, scoped to that zoom level. `simulate()` computes everything all lenses need
+once (e.g. the decomposed steps of trial 0 **and** the batch outcomes). A model may still use a
+single top-level `views`/`anim` when one level suffices — `lenses` is opt-in and fully
+back-compatible. See `references/levels.md` for the full method and the atomic-step recipe; the
+template's **drift-diffusion** model is the worked exemplar. Use lenses to zoom into ONE
+process; use separate **screens** (models-as-tabs) for different conditions or parts of a paper.
+
 ## Architecture — 4 files, no build step
 
 Copy the bundled template (`assets/template/`). It opens by double-clicking `index.html`
@@ -78,6 +123,8 @@ mymodel: {
   anim: { length:(p,data)=> N },     // continuous: head runs 0..N; views read ui.head
   // OPTIONAL (instead of anim): PROCESS MODE — step through the model's internal pipeline.
   stages: (p,data)=> [ {key,name,about}, … ],  // ◀ ▶ stepper; views read ui.stage/ui.stageKey
+  // OPTIONAL (instead of top-level views/anim/stages): THREE LEVELS — a level switch over the same data.
+  lenses: { step:{label,about,views,anim?|stages?}, trial:{…}, sim:{…} },   // see "The three levels" above
 }
 ```
 

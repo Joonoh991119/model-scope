@@ -17,6 +17,8 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 - `g.band(pts,{color,base})` — filled area between the curve and `base` (default y-min).
 - `g.points(pts,{color,r})`, `g.marker(x,y,{color,stroke,r,label})`.
 - `g.vline(x,{color,dash,label})`, `g.hline(y,{color,dash,label})`.
+- `g.arrow(x0,y0,x1,y1,{color,width,head,label})` — arrow in data coords with a head + centred label;
+  the building block for the **atomic ⚛ Step view** (state → +contribution → +contribution → state′).
 - `g.bars(hist,{dir:'up'|'down', baseY, color, max, height})` — `hist` from `Plot.histify`.
 - `g.heat(nx,ny,(i,j)=>value, (value)=>[r,g,b])` — fills the frame with a colour map (the value
   can be raw, e.g. Hz, if your cmap maps it; return a background colour for "not yet" cells).
@@ -106,6 +108,11 @@ g.heat(80,80,(i,j)=>rank[i][j], t => yellowToBlue(t));   // rank = percentile of
 wash the structure to one colour, and map **low V → yellow (attractor/valley), high → blue
 (ridge)**. Overlay the vector field (`g.line` short arrows), thresholds, and the
 fixed-point marker. Compute once per parameter change; cache; redraw cheaply.
+
+### Atomic step decomposition (the ⚛ Step lens — input → transform → output)
+Lay one update's contributions out as a waterfall of `g.arrow`s (state → +signal → +noise → state′),
+**zoomed to the step** so signal and noise are comparable in size. See the full recipe + the three-level
+(`lenses`) method in [`levels.md`](levels.md); the template's drift-diffusion model is the worked example.
 
 ### Sequence / learning (RL value, POMDP belief, prior update)
 ```js

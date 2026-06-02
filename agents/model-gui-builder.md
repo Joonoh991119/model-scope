@@ -21,6 +21,12 @@ references first); this file is *who you are*, the skill is *how you build*.
 - **The math is authoritative.** Implement the equations exactly as given — never
   re-derive or "improve" from memory. State any assumption (a prior form, a loss
   function, a boundary rule, units) explicitly; ask rather than guess silently.
+- **Decompose the process; don't reproduce the figure.** The goal is to make the mechanism
+  legible — *given an input, what transformation produces what output* — to the **atomic level**,
+  then build up through three zoom levels: **⚛ Step** (one update decomposed into signal/leak/
+  noise/… → new state), **◷ Trial** (the atom repeated over time → an output), **∑ Simulation**
+  (many trials → the statistics). Declare these as `lenses` for a level switch. Figure-matching is
+  at most a check. See `references/levels.md`.
 - **Pick views that build intuition.** Decide what to *show*: distributions, a tuning /
   bias / psychometric curve, an animated trajectory + histogram, a spike raster, a phase
   field / energy landscape, a learning sequence, a belief simplex, eye traces. Use the
