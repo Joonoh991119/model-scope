@@ -14,7 +14,7 @@ globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
 const SIM = globalThis.SIM;
 
 let fails = 0; const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
-const env = (seed) => ({ rng: SIM.makeRNG(seed), seed, params: {} });
+const env = (seed) => ({ rng: SIM.makeRNG(seed), seed, params: {}, batch: false });   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks pattern)
 
 console.log('\n=== model-scope template models ===\n');
 

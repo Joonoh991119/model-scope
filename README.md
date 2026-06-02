@@ -181,10 +181,22 @@ this shape works:
 | **Reach for it when** | trials accumulate, evidence drifts, a value updates | you want to *see each computation in sequence* |
 | **Example** | drift-diffusion; the Bayesian observer's prior updating | the efficient-coding, causal-inference & working-memory pipelines |
 
+### Scaling to a whole paper — screens, conditions, a claim map
+
+A whole paper isn't one grid: each entry in `MODEL_ORDER` is a **top tab (a screen)**, so you
+build the paper as a few screens that tell the story in order — **mechanism** (one trial: where
+input accumulates and decays) → **condition comparisons** (sweep one experimental condition at
+fixed model parameters) → the **key prediction**. Keep **experimental conditions** (swept across
+fixed levels) separate from **model parameters** (sliders), and make the paper's
+**claim↔mechanism** mapping visible — show *why* the data look that way rather than re-plotting
+the figure. Heavy comparison screens stream their trials via `SIM.runChunks` behind a loading
+overlay. See the skill's "Scaling to a whole paper" and [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md).
+
 See [`references/plotting.md`](skills/model-scope/references/plotting.md) for the full `g`
-API and worked view recipes, and
+API and worked view recipes,
 [`references/architecture.md`](skills/model-scope/references/architecture.md) for the model
-contract and runtime in detail.
+contract and runtime, and [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md) for
+the GUI QC pipeline (static gate + visual checklist + two-axis review) every build passes.
 
 ---
 
@@ -270,6 +282,12 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   `1/(1 + e^{2Az/c²})`. It then sanity-checks the `mslib.js` building blocks (an *f–I* curve
   that increases monotonically, a Wong–Wang unit winning at positive coherence,
   Rescorla–Wagner converging, and more). It must pass before a model is "done".
+- **GUI QC pipeline.** Beyond the static gate, every build walks
+  [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md): a **visual checklist**
+  (no clipped/overlapping text, ceiling/chance reference lines, accuracy clamped to `[chance,1]`,
+  units on every axis, legends off the data, a colorbar on every heatmap, a loading overlay on
+  heavy screens) and a **two-axis review pass** (scientific-plot readability + concept clarity) —
+  fix and re-verify.
 
 ```bash
 node skills/model-scope/assets/template/validate.mjs   # → ✓ ALL CHECKS PASSED
@@ -290,7 +308,8 @@ model-scope/
     ├── SKILL.md                 the method (auto-loaded when you ask to build a model GUI)
     ├── references/
     │   ├── architecture.md      the model contract + runtime, in detail
-    │   ├── plotting.md          the g API + view recipes
+    │   ├── plotting.md          the g API + view recipes + readability conventions
+    │   ├── gui-qc.md            the QC pipeline: static gate + visual checklist + review
     │   └── modelbook/           one file per canonical family + INDEX.md
     └── assets/template/         the app you copy & extend
         ├── README.md            quick-start for the copied app

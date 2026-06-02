@@ -7,7 +7,8 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 ## The `g` API (see plot.js)
 
 - `g.frame({x:[lo,hi], y:[lo,hi], xlabel?, ylabel?, title?, xticks?, yticks?, xticklabels?, margin?})`
-  — grid + ticks + labels + title; sets the data→pixel scales. Call first. `xticklabels:[…]`
+  — grid + ticks + labels + title; sets the data→pixel scales. Call first. The `title`
+  auto-ellipsises to the canvas width (never clips) — so put the **key word first**. `xticklabels:[…]`
   draws **categorical** labels at integer x positions (for bar charts) instead of numeric ticks.
   Call `frame` twice with different `margin` to stack two panels in one view (e.g. input + rate).
 - `g.X(v)`, `g.Y(v)` — data→pixel (for custom drawing via `g.ctx`). `g.frameRect()` →
@@ -22,8 +23,9 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 - `g.colorbar(vmin,vmax,cmap,{ticks:[{v,label}],label,x,y,w,h})` — a vertical colour scale; pass the
   **same** cmap. **Give every heatmap a colorbar** (reserve right margin); labels auto-flip left if they'd clip.
 - `g.raster(rows,{color,width})` — `rows[i]` = array of event x-positions → lane of ticks.
-- `g.text(x,y,str,{color,size,font,align})`, `g.legend([{label,color}],{x,y})` (draws a translucent
-  panel; its height auto-clamps to the frame), `g.note(str)` (centred placeholder).
+- `g.text(x,y,str,{color,size,font,align})`, `g.legend([{label,color}],{x,y} | {corner:'tl'|'tr'|'bl'|'br'})`
+  (translucent panel; height auto-clamps to the frame; `corner` anchors it to a frame corner so you can
+  keep it **off the data**), `g.note(str)` (centred placeholder).
 - `g.flow(stages, active, {y,h,pad,gap,caption})` — a **process pipeline** strip (PIXEL space,
   needs no `frame`): ordered stage boxes with arrows, the `active` one highlighted, earlier
   ones marked done; `stages[active].about` renders as a caption. Pass `ui.stages, ui.stage`.
@@ -48,6 +50,14 @@ graphics — never hard-code pixel offsets that assume one font size.
 - Keep captions in **reserved headroom** (widen the y-range a little), not over the data; keep them short.
 - A figure should answer "what am I looking at, in what units?" without the prose. Then explain the
   *idea* in one short caption; leave the details to the model's `note`/README.
+- **Number the panels** (`①②③…` in the title) and reference them by number in `blurb`/`note`, so the
+  prose and the figures line up.
+- **Accuracy / probability:** draw a **ceiling (1.0)** line and a **chance** line (1/nAlt), and **clamp**
+  the plotted value to `[chance, 1]` — below chance is sampling noise, not signal. If a condition
+  saturates at ceiling, say so in the title and point to the panel that carries the effect.
+- **Legends off the data:** `g.legend(..,{corner})`; pick the empty corner (rising ramps → `'tl'`).
+- **Heavy screens:** return `{loading:true}` and fill via `SIM.runChunks` (loading overlay + progressive
+  redraw + supersede-guard); views draw a placeholder until the data arrives. See `gui-qc.md`.
 
 ## Recipes
 

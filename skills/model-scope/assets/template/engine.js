@@ -26,6 +26,28 @@
   const TH = ()=> (global.Plot ? global.Plot.TH : {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91'});
   const HIST = (v,b,lo,hi,q)=> global.Plot.histify(v,b,lo,hi,q);
 
+  /* runChunks — for HEAVY screens (e.g. many trials per condition for a clean estimate).
+     Runs doItem(0..total-1) in async frames so the UI never freezes, shows the toolbox
+     loading overlay, and BAILS if a newer run supersedes this one (window.__simGen).
+     Pattern inside simulate():
+       const d = { perCond:[…], loading:true };           // views show a placeholder while loading
+       const acc = …;                                      // mutable accumulators
+       const doItem = k => { … ; Object.assign(d.perCond[i], summarise(acc[i])); };  // update progressively
+       if (env.batch===false) { for(let k=0;k<total;k++) doItem(k); d.loading=false; } // sync for validate.mjs / Node
+       else runChunks(total, doItem, 'sweeping conditions');
+       return d;                                           // returns immediately; chunks fill it in + call __redraw
+     In Node (no rAF) it runs synchronously. */
+  function runChunks(total, doItem, label){
+    if(typeof window==='undefined' || !window.requestAnimationFrame){ for(let k=0;k<total;k++) doItem(k); return; }
+    const myGen=window.__simGen, chunk=Math.max(1, Math.round(total/60)); let k=0;
+    const step=()=>{ if(window.__simGen!==myGen) return;                       // a newer slider move / model switch superseded us
+      const end=Math.min(total, k+chunk); for(; k<end; k++) doItem(k);
+      const done=k>=total, prog=total?k/total:1;
+      if(window.__setLoading) window.__setLoading(!done, prog, label);
+      if(done){ if(window.__redraw) window.__redraw(); } else window.requestAnimationFrame(step); };
+    step();
+  }
+
   // regenerate one drift-diffusion trial's path (for the animated "this trial" view)
   function ddmPath(pp, seed, k){ const rng=trialRng(seed,k); let x=0,t=0,st=0; const ms=Math.round(20/pp.dt), out=[[0,0]];
     while(st<ms){ x+=pp.A*pp.dt+pp.c*Math.sqrt(pp.dt)*gaussian(rng); t+=pp.dt; st++; out.push([t,x]); if(x>=pp.z){return {pts:out,outcome:1};} if(x<=-pp.z){return {pts:out,outcome:2};} }
@@ -342,5 +364,5 @@
   };
   const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm'];
 
-  global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, MODELS, MODEL_ORDER };
+  global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

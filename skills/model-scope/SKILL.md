@@ -180,7 +180,61 @@ equations, and compose the small `MSLIB` functions rather than copying a whole r
 (don't overfit to one paper's parameterisation). Adding a family = a new `MSLIB`
 sub-object + a `modelbook/<family>.md` + an INDEX row (see INDEX.md's "Adding a family").
 
-## Validation
+## Scaling to a whole paper — screens, conditions, and the claim map
+
+When the target is a whole **paper** (not a lone equation), don't cram everything into one
+view grid. Use the structure the toolbox already gives you — **each entry in `MODEL_ORDER`
+is a top tab, i.e. a SCREEN.** Organise a paper as a few screens that tell the story in order:
+
+1. **Mechanism** — the circuit/equations and how *one trial* unfolds: where input enters,
+   how the slow variable **accumulates** and **decays**, how the decision/readout forms.
+   Expose the model parameters as sliders here; use `anim` (watch one trial build) or
+   `stages` (step the pipeline).
+2. **Condition comparisons** — one screen per experimental condition the paper manipulates:
+   hold the model parameters at the paper's defaults and **sweep that condition across a few
+   fixed levels**, showing the summary curves (accuracy, RT, gain, error pattern…).
+3. **Predictions / signatures** — the paper's key testable prediction or headline figure (a
+   specific error structure, a regime boundary, an optimum).
+
+**Conditions vs parameters — keep them separate and say which is which** (in `blurb`/labels):
+- **Experimental conditions** = what the experimenter sets (stimulus strength, set size,
+  contrast, number of options). On comparison screens these are *swept across fixed levels*,
+  not offered as free sliders (offer only a re-seed / trial #).
+- **Model parameters** = the circuit's mechanism (gains, time constants, noise, a threshold).
+  Sliders on the mechanism screen; held at paper defaults on the comparison screens.
+
+**Map the paper's claims — don't just re-plot figures.** For each key empirical observation
+the paper explains, find the MECHANISM it attributes the effect to, and build a panel that
+makes that link visible; state the mapping in `note`. The goal is *"the reader sees WHY the
+data look that way,"* not a pixel-match of the figure. If the thesis is "X is held fixed; the
+effect comes from Y," make **X visibly fixed and Y visibly varying** across the panels.
+
+**Mechanism → trial → accumulation.** The most convincing arc: (1) at the unit level, show
+where evidence enters and how the slow variable integrates/decays; (2) at the trial level,
+show one trial reaching the decision; (3) across trials, show the summary statistic building
+up over repeated simulations. Order the screens that way.
+
+**Be honest about a reduction.** A reduced/mean-field version reproduces *qualitative
+mechanism*, not exact numbers — disclose it (README + in-plot, e.g. "model Hz"), and **measure
+robustly**: pick a summary that reflects the real trend rather than an artifact (a *peak*
+slope, not a fixed-window slope that an easy condition saturates past). Never tune a panel to
+fake a trend the model doesn't produce; show what it does and state the gap. If a condition
+saturates (e.g. accuracy at ceiling), say so and point to the panel that does carry the effect.
+
+**Heavy screens.** A comparison screen running many trials per level will freeze the UI.
+Return data immediately with `loading:true`, run the batch with `SIM.runChunks(total, doItem,
+label)` (it shows the loading overlay, repaints progressively via `window.__redraw`, and bails
+when a newer run supersedes it via `window.__simGen`), and have views draw a placeholder until
+the data fills in. Keep the mechanism screen instant.
+
+## Validation & GUI QC
+
+Before calling it done, run the QC pipeline in `references/gui-qc.md`: the **static gate**
+(`node validate.mjs`), the **visual checklist** (no clipped or overlapping text; ceiling/chance
+reference lines; accuracy clamped to `[chance, 1]`; units on every axis; legends off the data
+via `g.legend(..,{corner})`; a colorbar on every heatmap; numbered panels; a loading overlay on
+heavy screens), and a **two-axis review pass** (scientific-plot readability + concept clarity) —
+then fix and re-verify.
 
 `validate.mjs` reuses `engine.js` (and sanity-checks `modules/mslib.js`). Minimum gate: each model's `simulate()` runs without
 throwing and returns data, and every view is a function. Add a per-model analytic check
@@ -200,6 +254,10 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 3. **Connect to the science**: in `blurb`/`note` and labels, relate parameters to what
    they mean for the researcher (a stimulus/condition, a noise source, a learning rate, a
    gain), so moving a slider tells a story.
-4. **Validate** (`node validate.mjs`) and **open** `index.html`.
+4. **For a whole paper**, add several models as **screens** (mechanism → condition comparisons
+   → predictions); separate experimental conditions from model parameters; make the paper's
+   claim↔mechanism mapping visible (see "Scaling to a whole paper" above).
+5. **Validate & QC**: `node validate.mjs`, open `index.html`, then run the GUI QC pipeline
+   (`references/gui-qc.md`) — visual checklist + a two-axis review pass — before declaring done.
 
 The `model-gui-builder` agent can take a model description end-to-end.

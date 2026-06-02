@@ -53,7 +53,8 @@
         ctx.fillStyle=TH.dim;
         if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31*FS); }            // own line below the ticks (no overlap)
         if(o.ylabel){ ctx.save(); ctx.translate(px-37*FS,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
-        if(o.title){ ctx.textAlign='left'; ctx.font=SANS(11,'600'); ctx.fillText(o.title,px,py-10*FS); }
+        if(o.title){ ctx.textAlign='left'; ctx.font=SANS(11,'600'); let tt=String(o.title); const tmax=w-px-6*FS;   // single-line title, ellipsised so it never clips the canvas edge
+          if(ctx.measureText(tt).width>tmax){ while(tt.length>1&&ctx.measureText(tt+'…').width>tmax) tt=tt.slice(0,-1); tt+='…'; } ctx.fillText(tt,px,py-10*FS); }
         return g; },
       X:v=>sx(v), Y:v=>sy(v), frameRect:()=>fr,
       clip(){ ctx.save(); ctx.beginPath(); ctx.rect(fr.px,fr.py,fr.pw,fr.ph); ctx.clip(); return g; },
@@ -89,7 +90,9 @@
         let lh=14*FS; const maxH=(fr?fr.ph:h)*0.94; if(items.length*lh+pad>maxH) lh=Math.max(9, (maxH-pad)/items.length);  // clamp so a big-font legend can't exceed the frame
         let maxw=0; for(const it of items) maxw=Math.max(maxw, ctx.measureText(it.label).width);
         const boxW=maxw+sw+pad*2+6*FS, boxH=items.length*lh+pad;
-        const xR=(o.x!==undefined?o.x:fr.px+fr.pw-6*FS), x0=xR-boxW, y0=(o.y!==undefined?o.y:fr.py+6*FS);
+        let x0, y0; const mrg=6*FS;            // o.corner:'tl'|'tr'|'bl'|'br' anchors the box to a frame corner (place it away from the data)
+        if(o.corner){ x0 = o.corner[1]==='l' ? fr.px+mrg : fr.px+fr.pw-boxW-mrg; y0 = o.corner[0]==='b' ? fr.py+fr.ph-boxH-mrg : fr.py+mrg; }
+        else { const xR=(o.x!==undefined?o.x:fr.px+fr.pw-6*FS); x0=xR-boxW; y0=(o.y!==undefined?o.y:fr.py+6*FS); }
         ctx.fillStyle='rgba(255,255,255,.82)'; roundRect(ctx,x0,y0,boxW,boxH,6*FS); ctx.fill();
         ctx.strokeStyle=TH.edge; ctx.lineWidth=1; ctx.stroke();
         let yy=y0+pad+lh*0.5; ctx.textBaseline='middle';

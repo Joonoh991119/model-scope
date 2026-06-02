@@ -61,15 +61,26 @@ stages stay drawn, the current one is emphasised. The playhead auto-advances slo
    cached; `length = anim?anim.length(...):1`; reset `head`; redraw all views.
 3. If `anim`, a `requestAnimationFrame` loop advances `head` by `speed/60` per frame while
    playing; ⏭ jumps to the end; the scrubber sets `head`; views read `ui.head`.
-4. A generation counter (`S.gen`, bumped on every (re)start) makes superseded async work
-   bail — so rapid slider drags or model switches never interleave stale state.
+4. A generation counter (`S.gen`, bumped on every (re)start, mirrored to `window.__simGen`)
+   makes superseded async work bail — so rapid slider drags or model switches never interleave
+   stale state.
+5. For **heavy** screens it exposes a loading overlay: `window.__setLoading(on,prog,label)`,
+   `window.__redraw()` (repaint), and `window.__simGen` (the live generation). `SIM.runChunks`
+   in `engine.js` uses all three — a `simulate()` returns `{loading:true}` immediately and the
+   batch fills in across frames. In Node (no rAF) `runChunks` runs synchronously, so the same
+   code validates.
 
-You normally never touch `index.html` — adding a model is purely an `engine.js` edit.
+**Multiple models = screens.** Each `MODEL_ORDER` entry is a top tab. A whole paper is built
+as a few screens (mechanism → condition comparisons → prediction), each its own `MODELS` entry
+— see the skill's "Scaling to a whole paper". You normally never touch `index.html` — adding a
+screen is purely an `engine.js` edit.
 
 ## Keep `simulate` honest & fast
 - Implement the equations exactly; if a coarse step (Euler `dt`) biases a result, say so
   (the bias is usually `O(√dt)` and vanishes as `dt→0`) rather than hiding it.
-- It runs on every slider move, so keep it light; for very large batches, the toolbox can
-  chunk, but most models (curves, a few thousand trials) are instant.
+- It runs on every slider move, so keep it light; for very large batches (many trials per
+  condition on a comparison screen), use `SIM.runChunks(total, doItem, label)` — async chunks +
+  loading overlay + supersede-guard — instead of blocking. Most models (curves, a few thousand
+  trials) are instant and need none.
 - No DOM, no globals beyond the exported helpers — pure functions only, so the same code
   validates in Node.

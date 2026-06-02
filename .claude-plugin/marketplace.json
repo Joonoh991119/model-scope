@@ -9,8 +9,8 @@
     {
       "name": "model-scope",
       "source": "./",
-      "description": "Turn ANY parameterised model into an interactive explorer: move a slider and watch the simulation update, shown in views the MODEL defines (no fixed graphic/axis) — Bayesian/ideal-observer, efficient-coding & sequential observers, causal inference, working memory, neuron, decision (drift-diffusion), RL, POMDP, saccade, population, or any Monte-Carlo process. A continuous playhead OR a process-mode stage stepper that walks the model's internal pipeline. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step. Includes a modelbook of canonical model families (grounded in real open source) + a reusable code library (mslib.js).",
-      "version": "1.4.0",
+      "description": "Turn ANY parameterised model into an interactive explorer: move a slider and watch the simulation update, shown in views the MODEL defines (no fixed graphic/axis) — Bayesian/ideal-observer, efficient-coding & sequential observers, causal inference, working memory, neuron, decision (drift-diffusion), RL, POMDP, saccade, population, or any Monte-Carlo process. A continuous playhead OR a process-mode stage stepper that walks the model's internal pipeline. Build a whole paper as a few screens (mechanism → condition comparisons → prediction), separating conditions from parameters and surfacing the claim↔mechanism mapping; heavy screens stream via runChunks + a loading overlay. Schema-driven sliders + a simulate()→views contract + a small plotting helper, no build step. Includes a modelbook of canonical model families (grounded in real open source), a reusable code library (mslib.js), and a GUI QC pipeline.",
+      "version": "1.5.0",
       "author": { "name": "Joonoh Park" },
       "keywords": ["simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "psychophysics", "drift-diffusion", "bayesian-observer", "working-memory", "causal-inference"],
       "category": "data-and-visualization"
