@@ -22,6 +22,13 @@ single-neuron dynamics who want to *understand* a model by tuning it.
 
 ## At a glance
 
+- **Hand it a paper, get a simulator.** `/model-scope:from-paper <paper>` reads the reference,
+  **interviews** you about the visualisation purpose and what you want (purpose · scope · which
+  levels · which conditions), then builds the GUI and **starts a verified local URL** — with an
+  optional shareable tunnel or permanent deploy when the tooling's available. You only supply the
+  reference material.
+- **Decompose the process, don't reproduce the figure.** Show *input → transformation → output* at
+  three zoom levels — ⚛ Step (one atomic update) · ◷ Trial · ∑ Simulation — via a level switch.
 - **Bring your own equations.** Adding a model is *one* declarative entry —
   `params` + `simulate() → data` + `views[]`. The sliders, the animation transport, and
   the redraw loop are generated for you; you never wire up a control by hand.
@@ -232,8 +239,22 @@ git clone https://github.com/Joonoh991119/model-scope
 
 ## Use
 
-Just describe the model in plain language — the `model-scope` skill triggers and the
-`model-gui-builder` agent can take it end to end:
+**Hand it a paper (the autonomous flow).** Give it *only* the reference material — it interviews
+you about what you want, then builds the GUI and starts a verified local URL, with an optional
+shareable tunnel or permanent deploy when the tooling is available:
+
+```
+/model-scope:from-paper ./furman-wang-2008.pdf
+```
+
+The `paper-to-sim` skill reads the reference, runs a short `AskUserQuestion` interview (purpose ·
+scope · which levels ⚛◷∑ · which conditions · constraints) with defaults drawn from the paper,
+then drives the build + QC and verifies the local URL before reporting it. It
+also triggers on plain language — *“turn this paper into an interactive sim”*, *“interview me and
+build a simulator from these equations.”*
+
+**Or describe a model directly.** The `model-scope` skill triggers and the `model-gui-builder`
+agent can take it end to end:
 
 > *“Build me a GUI to explore a leaky integrate-and-fire neuron as I vary the input current
 > and the noise.”*
@@ -313,7 +334,10 @@ model-scope/
 ├── agents/
 │   └── model-gui-builder.md     the subagent that builds an explorer end-to-end
 ├── commands/
-│   └── scaffold.md              /model-scope:scaffold <dir> [model idea]
+│   ├── scaffold.md              /model-scope:scaffold <dir> [model idea]
+│   └── from-paper.md            /model-scope:from-paper <paper> — interview → build → serve
+├── skills/paper-to-sim/
+│   └── SKILL.md                 the autonomous flow: ingest reference → interview → build → serve
 └── skills/model-scope/
     ├── SKILL.md                 the method (auto-loaded when you ask to build a model GUI)
     ├── references/
