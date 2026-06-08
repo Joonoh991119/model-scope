@@ -53,11 +53,32 @@ through three zoom levels:
 Every model should be expressible this way. Reproducing a specific figure is at most a *check*,
 never the point — the point is the chain input → transformation → output, made visible.
 
-## The three levels as first-class UI — `lenses`
+## Perspectives as first-class UI — `lenses`
 
-A model can declare these three levels as **lenses**; the toolbox renders a **level switch**
-(⚛ Step · ◷ Trial · ∑ Simulation) and swaps the active views + playhead per lens, all over the
-**same `simulate()` data** (no recompute on switch):
+A model declares its **perspectives** as **lenses**; the toolbox renders a **level switch** and
+swaps the active views + playhead per lens, all over the **same `simulate()` data** (no recompute on
+switch). The lens *keys/labels are free* — pick the perspectives that fit the model's structure (ask:
+what's the INPUT, what TRANSFORMS it, what's the OUTPUT, what EMERGES over many runs):
+
+- **Time/trial models** (decision, dynamical, RL): the canonical trio **⚛ Step · ◷ Trial ·
+  ∑ Simulation** (one atomic update → one trial → the statistics).
+- **Sensory/image models** (no time axis): **🖼 Input · 🧱 Transform · 🎯 Readout** — the input
+  image → how each channel/feature-map re-represents it → the decoded readout (the template's
+  **early-vision** model is the worked example; each lens is static, driven by live sliders).
+- **Inference models**: the pipeline as a `stages` walk (prior → likelihood → posterior → estimate).
+
+The canonical time/trial trio in code:
+
+```js
+lenses: {
+  step:  { label:'⚛ Step',  about:'one atomic update: state ← state + Σ(contributions)',
+           anim:{length:(p,d)=>d.stepCap}, views:[ /* decompose ONE update with g.arrow */ ] },
+  trial: { label:'◷ Trial', about:'one trial over time → an output',
+           anim:{length:(p,d)=>d.nSteps}, views:[ /* the trajectory to a bound/readout */ ] },
+  sim:   { label:'∑ Simulation', about:'many trials → the statistics',
+           anim:{length:(p)=>p.nTrials}, views:[ /* histogram / curve building up */ ] },
+}
+```
 
 ```js
 lenses: {
@@ -290,11 +311,11 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 
 ## How to start
 
-1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs,
-   with five worked examples spanning both idioms — *continuous* anim (a Bayesian observer
-   with prior updating; a drift-diffusion decision with an RT histogram) and *process mode*
-   `stages` (an efficient-coding observer, a causal-inference observer, and a working-memory
-   mixture model that each step through their pipeline).
+1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs, with
+   six worked examples spanning every idiom — the **lens switch** (a drift-diffusion model zoomed
+   ⚛ Step · ◷ Trial · ∑ Simulation; an **early-vision** image model zoomed 🖼 Input · 🧱 Transform ·
+   🎯 Readout), *continuous* anim (a Bayesian observer with prior updating), and *process mode*
+   `stages` (efficient-coding, causal-inference, and working-memory pipelines).
 2. **Add the model**: pin the equations/parameters, then write ONE `MODELS` entry — its
    `params`, a `simulate` that returns the data the model is about, and a `views` list
    that draws what's intuitive. Add `anim` only if it's sequential.

@@ -20,6 +20,37 @@ single-neuron dynamics who want to *understand* a model by tuning it.
 
 ---
 
+## How it works
+
+**The easy way — hand it a paper.** You give *only* the reference; it interviews you briefly, then
+builds and serves the GUI:
+
+```mermaid
+flowchart LR
+    P["📄 paper / equations"] --> I["💬 short interview<br/>purpose · scope ·<br/>perspectives · conditions"]
+    I --> B["🛠 build<br/>(model-scope)"]
+    B --> Q["✓ validate +<br/>visual QC"]
+    Q --> W["🌐 interactive GUI<br/>at a local URL"]
+```
+
+**What you get — one model, several perspectives.** The point isn't to copy a figure; it's to *see
+the mechanism*: what the **input** is, what **transforms** it, what comes **out**, and what
+**emerges** over many runs. A **level switch** lets you zoom each perspective, and every slider is
+live, so you understand the model by playing with it:
+
+```mermaid
+flowchart LR
+    IN["INPUT<br/>stimulus · image ·<br/>evidence · reward"] --> TR["TRANSFORM<br/>one update · filter<br/>channels · inference"]
+    TR --> OUT["OUTPUT<br/>decision · decoded<br/>feature · estimate"]
+    OUT --> EM["EMERGES<br/>over many runs:<br/>RT/choice · tuning ·<br/>learning curve"]
+```
+
+The lenses adapt to the model class: a decision/trial model zooms **⚛ Step → ◷ Trial →
+∑ Simulation**; a sensory/image model zooms **🖼 Input → 🧱 Transform → 🎯 Readout**. (See
+[the perspectives catalogue](skills/model-scope/references/levels.md).)
+
+---
+
 ## At a glance
 
 - **Hand it a paper, get a simulator.** `/model-scope:from-paper <paper>` reads the reference,
@@ -35,9 +66,10 @@ single-neuron dynamics who want to *understand* a model by tuning it.
 - **The model picks the picture.** Each view sets its own axes and draws whatever is
   intuitive: distributions, tuning / psychometric curves, rasters, phase portraits,
   energy landscapes, belief simplices, learning curves.
-- **Two ways to animate.** A *continuous* playhead (watch trials accumulate, evidence
-  drift, a prior update) **or** a *process-mode* ◀ ▶ stepper that walks the model's
-  internal pipeline stage by stage (stimulus → encoding → likelihood → posterior → estimate).
+- **Switch perspective, not just play.** A **level switch** zooms one model between the
+  perspectives that fit it — ⚛ Step · ◷ Trial · ∑ Simulation for a decision model, 🖼 Input ·
+  🧱 Transform · 🎯 Readout for an image model — each driven by a *continuous* playhead **or** a
+  *process-mode* ◀ ▶ stepper that walks an internal pipeline stage by stage.
 - **No build step, no `npm install`, runs from `file://`.** Plain `<script>` tags — open
   `index.html`, or read the source top to bottom (the UI font is a webfont with a system
   fallback). The *same* `engine.js` is re-checked by a Node validation gate, so the math you
@@ -54,12 +86,14 @@ single-neuron dynamics who want to *understand* a model by tuning it.
 
 ## What you can build — the examples that ship
 
-The bundled template runs five worked models that span both animation idioms:
+The bundled template runs six worked models spanning every idiom — a continuous playhead, a
+process-mode stepper, and the perspective **level switch**:
 
 | Model | Idiom | What you watch |
 |---|---|---|
+| **Drift-diffusion decision** | level switch (⚛◷∑) | ⚛ one update = drift + noise → new evidence · ◷ one trial walks to a bound · ∑ the RT histogram builds up — the worked 3-perspective example |
+| **Early vision — orientation** | level switch (🖼🧱🎯) | 🖼 a noisy grating image · 🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle — an **image-input** model |
 | **Bayesian observer** | continuous | prior · likelihood · posterior on a stimulus axis; an estimate-vs-true *central-tendency* curve (±SD ribbon); trial-to-trial prior updating |
-| **Drift-diffusion decision** | continuous | an animated evidence trajectory + an accumulating correct ↑ / error ↓ RT histogram |
 | **Efficient-coding observer** — Wei & Stocker | process mode | prior → warped encoding *F(θ)* → measurement → skewed likelihood → posterior → estimate → bias & discriminability |
 | **Causal inference** — Körding et al. | process mode | cues → per-hypothesis likelihoods → p(common cause) → branch estimates → combine, with the N-shaped ventriloquism bias |
 | **Working-memory recall** — Bays & Husain | process mode | allocate → encode on a feature wheel → probe → recall → error histogram → target / swap / guess decomposition |
@@ -88,7 +122,7 @@ flowchart TB
       CMD["Command · /model-scope:scaffold<br/>copies the template"]
     end
 
-    TPL["Template — no-build app<br/>4 core files + mslib.js · 5 worked examples"]
+    TPL["Template — no-build app<br/>4 core files + mslib.js · 6 worked examples"]
     EDIT["Add ONE entry to the MODELS registry:<br/>params + a simulate() function + views"]
     VAL{"node validate.mjs<br/>passes?"}
     APP["Interactive explorer — open index.html"]

@@ -62,9 +62,10 @@ reference already settles:
 2. **Scope** — one mechanism in depth, or the whole paper as several **screens** (mechanism →
    condition comparisons → key prediction)? If the paper has multiple models, name the
    recommended one(s) as options.
-3. **Emphasis** — which zoom **lenses** to expose (⚛ Step · ◷ Trial · ∑ Simulation; default all
-   three for a dynamical/trial model, fewer for a static curve) and which condition/prediction to
-   feature — phrased as concrete options from the brief.
+3. **Perspectives & emphasis** — which **lenses** fit this model's class (a time/trial model →
+   ⚛ Step · ◷ Trial · ∑ Simulation; a **sensory/image** model → 🖼 Input · 🧱 Transform · 🎯 Readout;
+   an inference model → the pipeline stages) and which condition/prediction to feature — phrased as
+   concrete options from the brief (see `skills/model-scope/references/levels.md` for the catalogue).
 4. **Constraints & delivery** — any must-have panel/aesthetic; acceptable reduction & performance
    (are heavy many-trial screens OK behind a loading screen?); the target app dir/name; and the
    URL kind wanted (local only, a shareable tunnel, or a permanent deploy).

@@ -1,20 +1,40 @@
-# The three levels — decompose the process, don't reproduce the figure
+# Perspectives (lenses) — decompose the process, don't reproduce the figure
 
 The model-scope philosophy: make the **mechanism** legible — *given an input, what transformation
-does it undergo to produce what output* — by decomposing the model to the **atomic level** and
-building understanding up through three zoom levels. Reproducing a paper figure is at most a
-*check*, never the goal.
+does it undergo to produce what output* — by decomposing a model into the **perspectives** that fit
+its structure, and letting the user switch between them and manipulate the model live. Reproducing a
+paper figure is at most a *check*, never the goal.
 
-## The three levels
+A **perspective (lens)** answers one question about the model. For ANY model, ask the same four and
+pick the lenses that fit: **What is the INPUT? What TRANSFORMS it? What is the OUTPUT/readout? What
+EMERGES over many runs?** The right set depends on the model class:
 
-| Level | What it shows | Playhead (`ui.head`) | Typical views |
+## Perspectives by model class
+
+| Model class | INPUT | TRANSFORM | OUTPUT / readout | EMERGES (many runs) |
+|---|---|---|---|---|
+| **Decision / accumulator** (DDM, race) | the evidence/stimulus | ⚛ one update = signal + noise → new state | ◷ a trial: walk to a bound | ∑ choice & RT distributions |
+| **Sensory / image** (vision, RFs) | 🖼 the image/stimulus | 🧱 filter/feature-map channels re-represent it | 🎯 pooled tuning → decoded feature | ∑ tuning/accuracy across stimuli |
+| **Bayesian / inference** | stimulus + measurement | prior → likelihood → posterior (a stage walk) | the estimate (loss-dependent) | bias & variability across stimuli |
+| **Dynamical / network** (attractor, ring) | external drive | per-unit update + recurrent coupling | population state / winner | behaviour across conditions |
+| **Learning / RL** | reward / outcome | one value update (prediction error) | policy / choice | the learning curve over episodes |
+
+The default trio for a **time/trial-based** model is the canonical arc **⚛ Step → ◷ Trial →
+∑ Simulation** (mechanism → one outcome → what it predicts). A **sensory/image** model has no time
+axis, so its trio is **🖼 Input → 🧱 Transform → 🎯 Readout** instead. Lens *keys and labels are
+free* — choose them to name the model's own perspectives; the harness just renders a switch.
+
+### The canonical trio (time/trial models)
+
+| Lens | What it shows | Playhead (`ui.head`) | Typical views |
 |---|---|---|---|
-| **⚛ Step** | ONE atomic update, fully decomposed into its contributions (signal, leak/decay, recurrent, noise, gain) → new state | a step index within one trial | the update decomposed (arrows/waterfall) + a running mini-trace |
+| **⚛ Step** | ONE atomic update, decomposed into its contributions (signal, leak/decay, recurrent, noise, gain) → new state | a step index within one trial | the update decomposed (arrows/waterfall) + a running mini-trace |
 | **◷ Trial** | the atom **repeated over time** until the model emits an output | time within one trial | the trajectory to a bound / the readout forming |
 | **∑ Simulation** | the trial **repeated many times** → the emergent statistics | a trial index | a histogram / curve building up; the current trial flashing by |
 
-The arc is **mechanism → trial → accumulation**: first see *where evidence enters and where it
-decays* (step), then *one outcome* (trial), then *what the model predicts* (simulation).
+The template's **drift-diffusion** model is the worked example of this trio; the **early-vision**
+model is the worked example of the 🖼/🧱/🎯 sensory trio (a static lens per perspective — no playhead,
+just live sliders). Both are in `assets/template/engine.js`.
 
 ## Declaring lenses
 

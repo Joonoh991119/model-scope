@@ -46,6 +46,14 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  DDM: sim ER=${(100*ER).toFixed(2)}%  theory=${(100*th).toFixed(2)}%   [${ok(Math.abs(ER-th)/th < 0.12)}]`);
 }
 
+// Early-vision: a high-contrast, low-noise grating decodes back to its true orientation (circular error small)
+{
+  const m = SIM.MODELS.vision, p = {}; m.params.forEach(s => p[s.name] = s.default); p.contrast = 1; p.noise = 0.02;
+  let worst = 0; for (const th of [20, 60, 110, 150]) { const d = m.simulate({ ...p, ori: th }, env('vis'+th));
+    const e = Math.abs(((d.dec - th + 90) % 180) - 90); if (e > worst) worst = e; }
+  console.log(`  vision: worst orientation decode error = ${worst.toFixed(1)}° (clean grating)   [${ok(worst < 25)}]`);
+}
+
 // ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {

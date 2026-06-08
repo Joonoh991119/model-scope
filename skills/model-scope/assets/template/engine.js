@@ -60,6 +60,21 @@
       if(xn>=pp.z) s.cross=1; else if(xn<=-pp.z) s.cross=2; steps.push(s); x=xn; if(s.cross) break; }
     return steps; }
 
+  // ---- early-vision helpers (an IMAGE-input exemplar): grating → Gabor energy channels → readout ----
+  function visScene(N, ori, sf, contrast, noiseAmp, seed){   // a noisy oriented grating, N×N (signed intensities)
+    const rng=makeRNG(seed+'#scene'), img=new Float64Array(N*N), th=ori*Math.PI/180, kx=Math.cos(th), ky=Math.sin(th), f=sf*2*Math.PI/N;
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++) img[y*N+x]=contrast*Math.sin(f*((x-N/2)*kx+(y-N/2)*ky)) + noiseAmp*gaussian(rng);
+    return img; }
+  function gaborKernel(ori, sf, sigma, phase, N){           // zero-mean Gabor, radius from sigma
+    const R=Math.max(3,Math.round(sigma*2.4)), sz=2*R+1, k=new Float64Array(sz*sz), th=ori*Math.PI/180, ct=Math.cos(th), st=Math.sin(th), f=sf*2*Math.PI/N;
+    let s=0; for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ const xp=i*ct+j*st, yp=-i*st+j*ct, g=Math.exp(-(xp*xp+yp*yp)/(2*sigma*sigma))*Math.cos(f*xp+phase); k[(j+R)*sz+(i+R)]=g; s+=g; }
+    const m=s/(sz*sz); for(let t=0;t<k.length;t++) k[t]-=m; return {k,R,sz}; }
+  function conv2(img, N, ker){ const {k,R,sz}=ker, out=new Float64Array(N*N);
+    for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let a=0; for(let j=-R;j<=R;j++){ const yy=y+j; if(yy<0||yy>=N)continue; for(let i=-R;i<=R;i++){ const xx=x+i; if(xx<0||xx>=N)continue; a+=img[yy*N+xx]*k[(j+R)*sz+(i+R)]; } } out[y*N+x]=a; }
+    return out; }
+  const VGRAY=(v,lim)=>{ const t=Math.max(0,Math.min(1,(v/(lim||1)+1)/2)), c=Math.round(20+225*t); return [c,c,c]; };       // signed → gray
+  const VHOT =(v,mx)=>{ const t=Math.max(0,Math.min(1,v/(mx||1))); return [Math.round(34+221*Math.sqrt(t)), Math.round(30+165*t), Math.round(92*(1-t))]; }; // energy → warm
+
   const MODELS = {
 
     /* ---- A Bayesian observer: estimate a stimulus θ from a noisy measurement m,
@@ -407,8 +422,56 @@
           ] },
       },
     },
+
+    /* ---- An IMAGE-input exemplar (a different model class): early-vision orientation readout.
+       Perspectives are chosen to fit a sensory model — 🖼 input image → 🧱 channel transform →
+       🎯 readout — instead of step/trial/simulation. Shows the harness generalises to image models. */
+    vision: {
+      id:'vision', name:'Early vision — orientation',
+      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the LEVEL switch to change perspective: 🖼 the input image → 🧱 how each channel re-represents it → 🎯 the orientation readout. Move the sliders and watch all three update.',
+      note:'Each channel is a quadrature Gabor pair (energy = even² + odd²) tuned to one orientation, so the image becomes one energy map per channel. Pooled energy across channels is an orientation tuning curve whose population-vector peak is the decoded orientation. Higher contrast / lower noise → sharper tuning and a more accurate read-out. A different model class from the trial-based models (no time axis) — same harness, perspectives chosen to fit.',
+      params:[
+        {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:45, unit:'°'},
+        {name:'sf', label:'Spatial frequency', min:1, max:8, step:0.1, default:3, unit:'cyc/img'},
+        {name:'contrast', label:'Contrast', min:0, max:1, step:0.01, default:0.8},
+        {name:'noise', label:'Pixel noise', min:0, max:1, step:0.01, default:0.25},
+      ],
+      simulate:(p, env)=>{ const N=40, K=6, oris=[]; for(let k=0;k<K;k++) oris.push(k*180/K);
+        const img=visScene(N, p.ori, p.sf, p.contrast, p.noise, env.seed), sigma=N/12;
+        let imgLim=1e-6; for(let t=0;t<img.length;t++) imgLim=Math.max(imgLim, Math.abs(img[t]));
+        const maps=[], pooled=[]; let emax=1e-9;
+        for(let k=0;k<K;k++){ const ev=conv2(img,N,gaborKernel(oris[k],p.sf,sigma,0,N)), od=conv2(img,N,gaborKernel(oris[k],p.sf,sigma,Math.PI/2,N)), en=new Float64Array(N*N);
+          let s=0; for(let t=0;t<N*N;t++){ const e=ev[t]*ev[t]+od[t]*od[t]; en[t]=e; if(e>emax)emax=e; s+=e; } maps.push(en); pooled.push(s/(N*N)); }
+        let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=pooled[k]*Math.cos(a); sy+=pooled[k]*Math.sin(a); }   // orientation is π-periodic → decode on 2θ
+        let dec=Math.atan2(sy,sx)*90/Math.PI; dec=((dec%180)+180)%180;
+        return { N, K, oris, img, imgLim, maps, pooled, dec, emax, pmax:Math.max(...pooled,1e-9), ori:p.ori };
+      },
+      lenses:{
+        input:{ label:'🖼 Input', about:'the stimulus image — a noisy grating at orientation θ (all the model sees)',
+          views:[ { title:'input image', draw:(g,d)=>{ const N=d.N;
+            g.frame({x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ · frequency · contrast · noise)`});
+            g.heat(N,N,(i,j)=> d.img[j*N+i], v=>VGRAY(v,d.imgLim));
+            g.colorbar(-d.imgLim, d.imgLim, v=>VGRAY(v,d.imgLim), {ticks:[{v:-d.imgLim,label:'−'},{v:0,label:'0'},{v:d.imgLim,label:'+'}], label:'intensity'});
+          }} ] },
+        transform:{ label:'🧱 Transform', about:'each oriented channel re-represents the image as an energy map',
+          views:[ { title:'oriented Gabor energy maps — one per channel', draw:(g,d)=>{ const N=d.N, K=d.K, cols=3, rows=Math.ceil(K/cols);
+            g.frame({x:[0,cols*N], y:[0,rows*N], xticks:1, yticks:1, title:'how each orientation channel re-represents the image'});
+            g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?[244,243,238]:VHOT(v,d.emax));
+            for(let k=0;k<K;k++){ const col=k%cols, row=Math.floor(k/cols), cx=(col+0.5)*N, cy=(rows-1-row)*N + N*0.9, hit=Math.abs(((d.oris[k]-d.ori+90)%180)-90)<16;
+              g.text(cx, cy, d.oris[k].toFixed(0)+'°', {color: hit?'#fff':'rgba(255,255,255,.82)', size:9.5, align:'center'}); }
+            g.colorbar(0, d.emax, v=>VHOT(v,d.emax), {label:'energy'});
+          }} ] },
+        readout:{ label:'🎯 Readout', about:'pool the channels → orientation tuning curve → decoded orientation',
+          views:[ { title:'orientation tuning (pooled energy) → decoded θ̂', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[-12,180], y:[0, d.pmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`readout: tuning peak = decoded θ̂ = ${d.dec.toFixed(0)}° (true ${d.ori}°)`});
+            const pts=d.oris.map((o,k)=>[o,d.pooled[k]]); g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:4});
+            g.vline(d.ori,{color:'rgba(80,75,65,.5)',dash:[4,3],label:'true θ'});
+            g.vline(d.dec,{color:T.pos,dash:[5,4],label:'decoded θ̂'});
+          }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','vision'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);
