@@ -172,6 +172,39 @@ never leave stale state on screen. You normally touch only `engine.js`.
 
 ---
 
+## Why a harness — not just a prompt?
+
+You *could* ask a chatbot "write me a simulator for model X" and paste the code back. That result
+is a **one-off**: regenerated from scratch each time, unverified, and different on every run.
+model-scope is a **harness** instead — it fixes the stable machinery and constrains each model to a
+small, validated contract, so the unreliable part (an LLM writing code) is channelled into the one
+place that *should* vary: the model's math and its views.
+
+**What's fixed vs. what varies.** The toolbox (`index.html`), the plotting helper (`plot.js`), the
+seedable RNG, the transport / lens UI, and the loading + QC machinery are all **fixed and reused**.
+The only thing written per model is **one declarative `MODELS` entry** (`params` + `simulate()` +
+`views`). There is far less surface to get wrong, and the plumbing can't regress because it is never
+rewritten.
+
+**How that structure buys reliability — versus asking a chatbot each time:**
+
+| | ad-hoc "write me a simulator" | a model-scope harness |
+|---|---|---|
+| **Reproducibility** | non-deterministic; re-runs differ | a seedable per-trial RNG → same seed, same result; any trial is addressable by index |
+| **Correctness** | rarely checked; errors ship silently | `node validate.mjs` re-runs the *same* `engine.js` the browser runs, plus analytic checks tied to the science, before it's "done" |
+| **Separation of concerns** | math, UI, controls tangled in one blob | pure math (`engine.js`, no DOM) · rendering (`plot.js`) · toolbox (`index.html`) — edit one, the rest is already proven |
+| **Consistency** | every request reinvents controls, axes, layout | every model gets the same sliders, readability conventions, perspectives, and QC for free |
+| **Stable change** | adding a feature regenerates the whole app → fresh bugs | adding a model is one entry; the battle-tested toolbox is untouched |
+| **Accumulation** | starts from zero each time | a *modelbook* of canonical families + a reusable `mslib.js` to compose from |
+| **Bounded LLM** | free-form code, easy to hallucinate scaffolding | the skill/agent work *inside* the contract + the GUI-QC pipeline — freedom goes to the science, not the plumbing |
+
+In short, a harness turns a stochastic code generator into a **dependable producer** by (1) fixing
+the plumbing, (2) constraining output to a validated contract, (3) gating with deterministic checks,
+and (4) accumulating reusable parts. It's the same reason engineers reach for a framework + tests
+instead of hand-rolling every app: the variance is confined to one small, checked place.
+
+---
+
 ## The model contract — add your own model in one entry
 
 A model is a pure, DOM-free object you append to the `MODELS` registry in `engine.js`
