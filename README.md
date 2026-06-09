@@ -2,6 +2,8 @@
 
 **Turn any parameterised model into an interactive explorer you can think with.**
 
+![model-scope — graphical abstract: reference → interview → harness build → interactive GUI, and the input→transform→output→emerges perspectives](docs/graphical-abstract.png)
+
 `model-scope` is a [Claude Code](https://docs.claude.com/en/docs/claude-code) marketplace
 plugin that builds a self-contained web app for *your* model: one slider per parameter (an
 integer parameter acts as a discrete condition selector), and the simulation re-runs live —
