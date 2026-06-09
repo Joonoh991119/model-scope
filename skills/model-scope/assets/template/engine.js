@@ -423,6 +423,74 @@
       },
     },
 
+    /* ---- COMPARISON exemplar: two decision strategies sharing the same signal/noise, switched by a
+       TOGGLE — drift-diffusion (integrate to a bound) vs a single-sample observer. Showcases comparing
+       a model CHOICE + PARAMETERS via sliders/toggles, a 2-D metric HEATMAP, and several METRICS. Analytic. */
+    compare: {
+      id:'compare', name:'Decision: integrate vs one sample',
+      blurb:'Two 2-alternative strategies with the SAME signal (drift A) and noise c — toggle between them: a drift-diffusion model INTEGRATES evidence to a bound ±z (variable time), or a single-sample observer takes ONE noisy reading over a fixed time T and reports its sign. ① overlays their speed–accuracy frontiers · ② maps the chosen metric over the (drift × noise) plane · ③ compares accuracy/speed/reward at the operating point · ④ shows the mechanism.',
+      note:'Same A, c — only the mechanism differs. DDM: accuracy 1/(1+e^(−2Az/c²)), mean decision time (z/A)·tanh(Az/c²) — raising the bound z buys accuracy but costs time, so reward rate is NON-monotonic in z. Single-sample: a FIXED accuracy Φ(A√T/c) and a flat tradeoff (it can only trade by observing longer). Integration dominates when the signal is strong; they converge at low noise. The toggle re-skins ②/③; the Metric selector swaps the surface in ②. (Bogacz et al. 2006; Gold & Shadlen 2007.)',
+      params:[
+        {name:'A', label:'Drift A (signal)', min:0, max:3, step:0.01, default:1.0},
+        {name:'c', label:'Noise c', min:0.2, max:2.5, step:0.01, default:1.0},
+        {name:'z', label:'DDM bound z', min:0.2, max:2.5, step:0.01, default:1.0},
+        {name:'T', label:'Single-sample obs. time T', min:0.05, max:2.0, step:0.01, default:0.5, unit:'s'},
+        {name:'Ter', label:'Non-decision time', min:0, max:0.6, step:0.01, default:0.2, unit:'s'},
+        {name:'metric', label:'Heatmap metric: accuracy / RT / reward', min:0, max:2, step:1, default:0, int:true},
+        {name:'useDDM', label:'Model: single-sample ⟷ DDM', type:'bool', default:true},
+      ],
+      simulate:(p, env)=>{ const Phi=global.MSLIB.sde.normcdf, c2=p.c*p.c;
+        const accDDM=(A,z,cc2)=>1/(1+Math.exp(-2*A*z/cc2)), dtDDM=(A,z,cc2)=>Math.abs(A)<1e-6? z*z/cc2 : (z/A)*Math.tanh(A*z/cc2);
+        const accD=accDDM(p.A,p.z,c2), dtD=dtDDM(p.A,p.z,c2), accS=Phi(p.A*Math.sqrt(p.T)/p.c), dtS=p.T;
+        const rrD=accD/(dtD+p.Ter), rrS=accS/(dtS+p.Ter);
+        const NB=60, satDDM=[], satSS=[]; for(let i=0;i<=NB;i++){ const zz=0.15+(2.6-0.15)*i/NB; satDDM.push([dtDDM(p.A,zz,c2)+p.Ter, accDDM(p.A,zz,c2)]);
+          const TT=0.03+(2.2-0.03)*i/NB; satSS.push([TT+p.Ter, Phi(p.A*Math.sqrt(TT)/p.c)]); }
+        const tMax=Math.max(satDDM[NB][0], satSS[NB][0])*1.04;
+        const NX=44, NY=44, Amin=0, Amax=3, cmin=0.2, cmax=2.5, grid=new Float64Array(NX*NY); let gmin=Infinity, gmax=-Infinity;
+        for(let i=0;i<NX;i++){ const A=Amin+(Amax-Amin)*i/(NX-1);
+          for(let j=0;j<NY;j++){ const cc=cmin+(cmax-cmin)*j/(NY-1), cc2=cc*cc; let v;
+            if(p.useDDM){ const a=accDDM(A,p.z,cc2), t=dtDDM(A,p.z,cc2)+p.Ter; v=p.metric===0?a:p.metric===1?t:a/t; }
+            else { const a=Phi(A*Math.sqrt(p.T)/cc), t=p.T+p.Ter; v=p.metric===0?a:p.metric===1?t:a/t; }
+            grid[j*NX+i]=v; if(v<gmin)gmin=v; if(v>gmax)gmax=v; } }
+        const metricName=['accuracy','mean RT (s)','reward rate (1/s)'][p.metric];
+        return { accD, dtD, accS, dtS, rrD, rrS, satDDM, satSS, tMax, grid, NX, NY, Amin, Amax, cmin, cmax, gmin, gmax, metric:p.metric, metricName, useDDM:p.useDDM, A:p.A, c:p.c, z:p.z, T:p.T, Ter:p.Ter }; },
+      views:[
+        { title:'① speed–accuracy: integrate-to-bound vs one sample', draw:(g,d)=>{ const T=TH();
+          g.frame({x:[0,d.tMax], y:[0.46,1.02], xlabel:'time to decision (s)', ylabel:'accuracy', title:'DDM trades time for accuracy along the bound; one sample is flat'});
+          g.hline(1,{color:'rgba(80,75,65,.28)',dash:[2,3],label:'ceiling'}); g.hline(0.5,{color:'rgba(80,75,65,.3)',dash:[4,3],label:'chance'});
+          const clip=a=>a.map(q=>[q[0],Math.max(0.5,Math.min(1,q[1]))]);
+          g.line(clip(d.satDDM),{color:T.accent,width:d.useDDM?2.6:1.3,dash:d.useDDM?null:[4,3]});
+          g.line(clip(d.satSS),{color:T.neg,width:d.useDDM?1.3:2.6,dash:d.useDDM?[4,3]:null});
+          g.marker(d.dtD+d.Ter, Math.max(0.5,Math.min(1,d.accD)), {color:T.accent,stroke:'#fff',r:5,label:'DDM'});
+          g.marker(d.T+d.Ter, Math.max(0.5,Math.min(1,d.accS)), {color:T.neg,stroke:'#fff',r:5,label:'1-sample'});
+          g.legend([{label:'DDM (sweep bound z)',color:T.accent},{label:'1-sample (sweep T)',color:T.neg}],{corner:'br'}); }},
+        { title:'② metric over (drift × noise) — heatmap', draw:(g,d)=>{ const T=TH();
+          const cmap=v=>{ const t=Math.max(0,Math.min(1,(v-d.gmin)/((d.gmax-d.gmin)||1))); return [Math.round(246-150*t), Math.round(241-78*t), Math.round(228-92*t)]; };
+          g.frame({x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM · ':'1-sample · ')+d.metricName+' over (A × c)'});
+          g.heat(d.NX, d.NY, (i,j)=>d.grid[j*d.NX+i], cmap);
+          const fmt=v=>d.metric===0?v.toFixed(2):v.toFixed(2); g.colorbar(d.gmin, d.gmax, cmap, {ticks:[{v:d.gmin,label:fmt(d.gmin)},{v:(d.gmin+d.gmax)/2,label:fmt((d.gmin+d.gmax)/2)},{v:d.gmax,label:fmt(d.gmax)}], label:d.metricName});
+          g.marker(d.A, d.c, {color:'#fff', stroke:T.ink, r:5, label:'now'}); }},
+        { title:'③ this operating point — DDM vs 1-sample', draw:(g,d)=>{ const T=TH(), ctx=g.ctx;
+          const groups=[{name:'accuracy',dv:d.accD,sv:d.accS,f:x=>x.toFixed(2)},{name:'speed (1/s)',dv:1/(d.dtD+d.Ter),sv:1/(d.T+d.Ter),f:x=>x.toFixed(1)},{name:'reward (1/s)',dv:d.rrD,sv:d.rrS,f:x=>x.toFixed(2)}];
+          g.frame({x:[-0.5,2.5], y:[0,1.18], yticks:2, xticklabels:groups.map(q=>q.name), title:'each group normalised to its larger bar — taller = better'});
+          const bw=0.17, aD=d.useDDM?1:0.4, aS=d.useDDM?0.4:1;
+          groups.forEach((q,i)=>{ const norm=Math.max(q.dv,q.sv,1e-9), hD=q.dv/norm, hS=q.sv/norm, y0=g.Y(0);
+            ctx.fillStyle='rgba(74,122,147,'+aD+')'; ctx.fillRect(g.X(i-bw*1.05)-1, g.Y(hD), g.X(i)-g.X(i-bw*1.05), y0-g.Y(hD));
+            ctx.fillStyle='rgba(194,91,66,'+aS+')'; ctx.fillRect(g.X(i+0.02), g.Y(hS), g.X(i+bw*1.05)-g.X(i+0.02), y0-g.Y(hS));
+            ctx.fillStyle=T.dim; ctx.font=(9*(g.FS||1)).toFixed(1)+'px "IBM Plex Mono",monospace'; ctx.textAlign='center';
+            ctx.fillText(q.f(q.dv), g.X(i-bw*0.52), g.Y(hD)-4); ctx.fillText(q.f(q.sv), g.X(i+bw*0.54), g.Y(hS)-4); });
+          g.legend([{label:'DDM',color:T.accent},{label:'1-sample',color:T.neg}],{corner:'tr'}); }},
+        { title:'④ mechanism: walk-to-bound vs single draw', draw:(g,d)=>{ const T=TH();
+          g.frame({x:[0,d.tMax], y:[-d.z*1.7,d.z*1.7], xlabel:'time (s)', ylabel:'evidence', title:'DDM integrates to ±z · 1-sample draws once at T, decides sign'});
+          g.hline(d.z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-d.z,{color:T.neg,dash:[5,4],label:'−z'}); g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
+          g.line([[0,0],[d.dtD, Math.min(d.z, d.A*d.dtD)]],{color:T.accent,width:2.4}); g.vline(d.dtD+d.Ter,{color:T.accent,dash:[3,3],label:'mean DT'});
+          const yMu=Math.max(-d.z*1.7,Math.min(d.z*1.7, d.A*d.T)), sd=d.c*Math.sqrt(d.T);
+          g.line([[d.T, Math.max(-d.z*1.7,yMu-sd)],[d.T, Math.min(d.z*1.7,yMu+sd)]],{color:T.neg,width:3}); g.marker(d.T, yMu,{color:T.neg,stroke:'#fff',r:4,label:'one draw ±SD'});
+          g.vline(d.T+d.Ter,{color:T.neg,dash:[3,3]});
+          g.legend([{label:'DDM drift→bound',color:T.accent},{label:'1-sample @ T',color:T.neg}],{corner:'bl'}); }},
+      ],
+    },
+
     /* ---- An IMAGE-input exemplar (a different model class): early-vision orientation readout.
        Perspectives are chosen to fit a sensory model — 🖼 input image → 🧱 channel transform →
        🎯 readout — instead of step/trial/simulation. Shows the harness generalises to image models. */
@@ -557,7 +625,7 @@
       },
     },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','vision','lif','rl'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

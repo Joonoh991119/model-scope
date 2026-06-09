@@ -72,6 +72,17 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  RW: time-averaged V → reward prob (mean=${meanV.toFixed(2)} vs p=${d.pRew})   [${ok(Math.abs(meanV - d.pRew) < 0.1)}]`);
 }
 
+// Decision comparison: both models reduce to chance with no signal; DDM accuracy is monotonic in the bound
+{
+  const m = SIM.MODELS.compare, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const z0 = m.simulate({ ...p, A: 0 }, env('cmp0'));
+  const chance = Math.abs(z0.accD - 0.5) < 1e-6 && Math.abs(z0.accS - 0.5) < 1e-6;
+  const d = m.simulate(p, env('cmp'));
+  const mono = d.satDDM.every((q,i)=> i===0 || q[1] >= d.satDDM[i-1][1] - 1e-9);   // accuracy ↑ with the bound
+  let inb = true; for (const v of d.grid) if (v < 0.5 - 1e-6 || v > 1 + 1e-6) inb = false;   // metric=0 → accuracy in [0.5,1]
+  console.log(`  compare: chance@A=0 [${ok(chance)}]   DDM accuracy monotonic in bound [${ok(mono)}]   accuracy heatmap∈[0.5,1] [${ok(inb)}]`);
+}
+
 // ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {
