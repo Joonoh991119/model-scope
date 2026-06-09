@@ -120,16 +120,16 @@ One harness, many control + view types — every plot is live, so you build intu
 
 <table>
 <tr>
-<td width="50%"><img src="docs/ddm-step.png" alt="atomic step decomposition with sliders"><br/><b>Sliders + atomic step.</b> One update split into signal + noise; every parameter is a live slider (⚛ Step lens).</td>
-<td width="50%"><img src="docs/vision-transform.png" alt="oriented filter energy maps"><br/><b>Colormaps + representation level.</b> An input image re-represented as oriented-filter energy maps (early vision, 🧱 Transform lens).</td>
+<td width="50%"><img src="docs/shots/ddm-step.png" alt="atomic step decomposition with sliders"><br/><b>Sliders + atomic step.</b> One update split into signal + noise; every parameter is a live slider (⚛ Step lens).</td>
+<td width="50%"><img src="docs/shots/vision-transform.png" alt="oriented filter energy maps"><br/><b>Colormaps + representation level.</b> An input image re-represented as oriented-filter energy maps (early vision, 🧱 Transform lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/lif-fI.png" alt="LIF f-I curve with a refractory toggle"><br/><b>Toggles + condition sliders.</b> A boolean toggle (refractory on/off) beside sliders; the f–I transfer curve (LIF, ⌁ lens).</td>
-<td width="50%"><img src="docs/lif-raster.png" alt="LIF spike raster"><br/><b>Spike raster.</b> Repeats stack into a raster with the mean firing rate (LIF neuron, ∑ Raster lens).</td>
+<td width="50%"><img src="docs/shots/lif-fI.png" alt="LIF f-I curve with a refractory toggle"><br/><b>Toggles + condition sliders.</b> A boolean toggle (refractory on/off) beside sliders; the f–I transfer curve (LIF, ⌁ lens).</td>
+<td width="50%"><img src="docs/shots/lif-raster.png" alt="LIF spike raster"><br/><b>Spike raster.</b> Repeats stack into a raster with the mean firing rate (LIF neuron, ∑ Raster lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay + legend.</b> Learning curves across learning rates α (reinforcement learning, ∑ Rate-sweep lens).</td>
-<td width="50%"><img src="docs/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram builds up, correct ↑ / error ↓ (drift-diffusion, ∑ Simulation lens).</td>
+<td width="50%"><img src="docs/shots/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay + legend.</b> Learning curves across learning rates α (reinforcement learning, ∑ Rate-sweep lens).</td>
+<td width="50%"><img src="docs/shots/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram builds up, correct ↑ / error ↓ (drift-diffusion, ∑ Simulation lens).</td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/shots/compare.png" alt="comparing two decision models via a toggle"><br/><b>Compare models via a toggle.</b> Switch DDM ⟷ single-sample; an overlay, a metric <b>heatmap</b> over (drift × noise), and accuracy/speed/reward <b>bars</b>.</td>
