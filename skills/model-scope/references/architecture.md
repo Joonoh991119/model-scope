@@ -33,7 +33,7 @@ deterministic). `npdf(x,μ,σ)` (normal pdf) is also exported for distribution v
 | `views[]` | ✓ | `[{title, draw(g,data,ui)}]` — each panel draws its own axes/graphics |
 | `anim` | – | `{length:(p,data)=>N}` → **continuous** sequential: play/scrub, `ui.head∈[0,N]` (a trial index, a time, an iteration) |
 | `stages` | – | `(p,data)=>[{key,name,about}]` (or a static array) → **process mode**: the playhead steps through the model's named pipeline stages; views switch on `ui.stage`/`ui.stageKey` to reveal each computation in turn |
-| `lenses` | – | `{step,trial,sim,…}` — three ZOOM LEVELS over the same `simulate()` data; each is `{label,about,views,anim?\|stages?}`. The toolbox shows a level switch and binds the active lens's views + playhead (no recompute on switch). Use instead of top-level `views`/`anim`/`stages`. See the skill's "The three levels" + `references/levels.md` |
+| `lenses` | – | `{angleA,angleB,…}` — several ANGLES on the same `simulate()` data (keys are free); each is `{label,about,views,anim?\|stages?}`. The toolbox shows a level switch and binds the active lens's views + playhead (no recompute on switch). Use instead of top-level `views`/`anim`/`stages`. See the skill's "Angles as first-class UI" + `references/levels.md` |
 
 `ui = { head, playing, params, frac, stage, stageKey, stages, nStages }`. `head` is the
 continuous playhead (∈[0,length]); `frac = head−⌊head⌋` is within-step progress (use it to

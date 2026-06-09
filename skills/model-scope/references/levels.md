@@ -1,116 +1,98 @@
-# Perspectives (lenses) — decompose the process, don't reproduce the figure
+# Angles and lenses — replicate, illuminate from many angles, compare
 
-The model-scope philosophy: make the **mechanism** legible — *given an input, what transformation
-does it undergo to produce what output* — by decomposing a model into the **perspectives** that fit
-its structure, and letting the user switch between them and manipulate the model live. Reproducing a
-paper figure is at most a *check*, never the goal.
+The goal of model-scope: **replicate a model faithfully, illuminate it from the angles natural to its
+class, and let the user see — by moving sliders and switching models — what qualitative and
+quantitative differences arise from the parameter and model choices.** It is not about reproducing a
+paper figure, and there is no single universal pipeline: each model class has its own angles, and a
+model with structure (a network's wiring, a CNN's architecture) shows that **structure first**, then
+how an input drives it.
 
-A **perspective (lens)** answers one question about the model. For ANY model, ask the same four and
-pick the lenses that fit: **What is the INPUT? What TRANSFORMS it? What is the OUTPUT/readout? What
-EMERGES over many runs?** The right set depends on the model class:
+The harness reasons about a model's *design purpose* and offers the angles that reveal it. The
+**lens switch** presents several angles over the same `simulate()` data; **parameter sweeps** (and a
+**model toggle**) are how the user compares.
 
-## Perspectives by model class
+## Angles by model class
 
-| Model class | INPUT | TRANSFORM | OUTPUT / readout | EMERGES (many runs) |
-|---|---|---|---|---|
-| **Decision / accumulator** (DDM, race) | the evidence/stimulus | ⚛ one update = signal + noise → new state | ◷ a trial: walk to a bound | ∑ choice & RT distributions |
-| **Sensory / image** (vision, RFs) | 🖼 the image/stimulus | 🧱 filter/feature-map channels re-represent it | 🎯 pooled tuning → decoded feature | ∑ tuning/accuracy across stimuli |
-| **Bayesian / inference** | stimulus + measurement | prior → likelihood → posterior (a stage walk) | the estimate (loss-dependent) | bias & variability across stimuli |
-| **Dynamical / network** (attractor, ring) | external drive | ⚛ one pool's recurrent update (self-excite − cross-inhibit + drive) | ◷ Dynamics: pools race to a winner | ⎇ Landscape: the state-space basins |
-| **Population / field / macro** (SIR, Wilson–Cowan, neural field) | initial condition / drive | per-site update + coupling/diffusion | 🗺 the field state in space×time (kymograph) | ⎇ regimes across R₀ / a bifurcation |
-| **Learning / RL** | reward / outcome | one value update (prediction error) | policy / choice | the learning curve over episodes |
-
-The default trio for a **time/trial-based** model is the canonical arc **⚛ Step → ◷ Trial →
-∑ Simulation** (mechanism → one outcome → what it predicts). A **sensory/image** model has no time
-axis, so its trio is **🖼 Input → 🧱 Transform → 🎯 Readout** instead. Lens *keys and labels are
-free* — choose them to name the model's own perspectives; the harness just renders a switch.
-
-### The canonical trio (time/trial models)
-
-| Lens | What it shows | Playhead (`ui.head`) | Typical views |
+| Model class | Show first | Angles to illuminate | Compare by |
 |---|---|---|---|
-| **⚛ Step** | ONE atomic update, decomposed into its contributions (signal, leak/decay, recurrent, noise, gain) → new state | a step index within one trial | the update decomposed (arrows/waterfall) + a running mini-trace |
-| **◷ Trial** | the atom **repeated over time** until the model emits an output | time within one trial | the trajectory to a bound / the readout forming |
-| **∑ Simulation** | the trial **repeated many times** → the emergent statistics | a trial index | a histogram / curve building up; the current trial flashing by |
+| **Process / observer** (Bayesian) | the generative + inference rule | *process*: measurement, likelihood, posterior (for the given params/constraints); *trial*: the input-to-output map; *simulation*: Var(θ), bias(θ), θ̂(θ) over many trials | sweep a parameter → coloured curves |
+| **Decision** (DDM, race) | the accumulator | *one trial*: evidence accumulates to a bound; *simulation*: RT, accuracy, correct-vs-error-RT histograms, by coherence | parameter sweep; model choice |
+| **Single neuron** | the modelled channels / receptors | short-window traces (concentration, conductance, potential); spike pattern | f-I curve; parameter sweep |
+| **Network** | connectivity, E/I, plasticity rule | single-cell and population activity from an input; representation across trials; attractor dynamics / energy landscape | parameter sweep; model choice |
+| **Vision / CNN** | the architecture | how the input image is transformed layer by layer | parameters, connectivity tuning, bipolar / horizontal cells, receptive-field properties |
+| **Other** (RL, MDP/POMDP, causal DAG, oscillation, transformer, connectivity) | the relevant structure | the angles that reveal the model's purpose | parameter sweep; model choice |
 
-The template's **drift-diffusion** model is the worked example of this trio; the **early-vision**
-model is the worked example of the 🖼/🧱/🎯 sensory trio (static lenses — no playhead, just live
-sliders). For other scales the template ships **`attractor`** (a network: Step decomposes one pool's
-recurrent input, Dynamics races the pools, Landscape maps the (S₁,S₂) basins) and **`sir`** (a
-field/macro model: a space×time kymograph + an R₀ threshold). All in `assets/template/engine.js`.
+Lens *keys and labels are free* — name them for the model's own angles (a process model's
+`process / trial / simulation`; a network's `structure / activity / representation / landscape`; a
+vision model's `architecture / layers`). The point is not the names but covering the angles that make
+the model's behaviour, and its dependence on parameters and model choice, legible.
 
-**Atomic step for a COUPLED system.** For a network/field the "atom" is *one unit's update at fixed
-neighbour state*: decompose its net input — self-excitation, cross-inhibition, external drive, noise —
-as a `g.arrow` waterfall → the unit's rate → its Δstate (see the `attractor` model's ⚛ Step lens).
+## What the template ships as worked examples
+
+- **drift-diffusion** — one trial (evidence to a bound) and the RT / accuracy histogram over many trials.
+- **early-vision** — the input image, the oriented-filter channels that re-represent it, the decoded readout (static angles driven by sliders).
+- **attractor** (network) — the recurrent input to one pool, the pools racing to a winner, and the (S₁,S₂) energy landscape.
+- **sir** (macro / field) — a space-time kymograph of a spreading epidemic, the S/I/R curves, and peak-vs-R₀.
+- **compare** — a model toggle (integrate vs one sample), a metric heatmap over a parameter grid, and metric bars: the comparison idiom itself.
 
 ## Declaring lenses
 
-A model exposes the levels by declaring `lenses`; the toolbox shows a level switch and binds the
-active lens's views + playhead over the **same `simulate()` data** (switching is instant — no
-recompute):
+A model exposes its angles by declaring `lenses`; the toolbox shows a level switch and binds the
+active lens's views + playhead over the **same `simulate()` data** (switching is instant — no recompute):
 
 ```js
 mymodel: {
   id, name, blurb, note, params,
-  simulate: (p, env) => {            // compute EVERYTHING all lenses need, once:
-    const steps0 = atomicSteps(p, env.seed, 0);   //   the decomposed steps of trial 0 (step + trial lenses)
-    const batch  = runTrials(p, env.seed);        //   the many-trial outcomes (sim lens)
+  simulate: (p, env) => {            // compute EVERYTHING the angles need, once
     return { steps0, stepCap: Math.min(steps0.length, 48), ...batch };
   },
   lenses: {
-    step:  { label:'⚛ Step',  about:'one atomic update: state ← state + Σ(contributions)',
+    step:  { label:'Step',  about:'one update of the model',
              anim:{ length:(p,d)=>d.stepCap }, views:[ stepDecompView, runningTraceView ] },
-    trial: { label:'◷ Trial', about:'one trial over time → an output',
+    trial: { label:'Trial', about:'one trial over time',
              anim:{ length:(p,d)=>d.steps0.length }, views:[ trajectoryView ] },
-    sim:   { label:'∑ Simulation', about:'many trials → the statistics',
+    sim:   { label:'Simulation', about:'many trials → the statistics',
              anim:{ length:(p)=>p.nTrials }, views:[ currentTrialView, histogramView ] },
   },
 }
 ```
 
-Each lens is a `{label, about, views, anim?|stages?}` bundle — the ordinary view/anim/stages
-contract, scoped to one zoom level. A lens may use `stages` instead of `anim` when the atom is a
-*pipeline* of named computations rather than a time/step sweep. `about` becomes the toolbar hint.
-Lenses are **opt-in**: a model with a single top-level `views`/`anim` keeps working unchanged.
+Each lens is a `{label, about, views, anim?|stages?}` bundle — the ordinary view/anim/stages contract,
+scoped to one angle. A lens may use `stages` instead of `anim` when an angle is a *pipeline* of named
+computations rather than a time/step sweep. `about` becomes the toolbar hint. Lenses are **opt-in**:
+a model with a single top-level `views`/`anim` keeps working unchanged.
 
-**Lenses vs screens.** Use **lenses** to zoom into ONE process (step ↔ trial ↔ simulation of the
-same model). Use separate **screens** (models-as-tabs, see the skill's "Scaling to a whole paper")
-for different experimental conditions or different parts of a paper.
+**Lenses vs screens.** Use **lenses** to view ONE model from several angles. Use separate **screens**
+(models-as-tabs, see the skill's "Scaling to a whole paper") for different conditions or parts of a paper.
 
-## The atomic-step recipe (the ⚛ Step lens)
+## A step-level angle — decomposing one update
 
-The step lens is where the decomposition lives: take one update and lay its contributions out so
-the reader sees *signal vs noise vs leak*. Use `g.arrow(x0,y0,x1,y1,{color,label})` as a
-waterfall — start at the current state, add each contribution as a labelled arrow, land on the
-new state:
+For a time/trial model, one useful angle is the *mechanism level*: take a single update and lay its
+contributions out so the reader sees, say, signal vs noise vs leak. Use `g.arrow(x0,y0,x1,y1,{color,label})`
+as a waterfall — start at the current state, add each contribution as a labelled arrow, land on the new state:
 
 ```js
-{ title:'one update: state ← state + Σ(contributions)', draw:(g,d,ui)=>{ const T=g.TH, k=Math.floor(ui.head), s=d.steps0[k];
-    // zoom to THIS step so the contributions are comparable in size (don't force the whole axis)
+{ title:'one update of the accumulator', draw:(g,d,ui)=>{ const T=g.TH, k=Math.floor(ui.head), s=d.steps0[k];
     const inc=Math.max(Math.abs(s.drift),Math.abs(s.noise),0.01), pad=inc*2.6+0.015, lo=Math.min(s.x,s.xNext)-pad, hi=Math.max(s.x,s.xNext)+pad;
-    g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'state (zoomed to this step)', title:`one update — step ${k+1}`});
-    g.text(lo,3,'state',{size:10}); g.marker(s.x,3,{color:T.ink,r:4.5,label:s.x.toFixed(3)});           // before
+    g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'state (zoomed to this step)', title:`step ${k+1}`});
+    g.text(lo,3,'state',{size:10}); g.marker(s.x,3,{color:T.ink,r:4.5,label:s.x.toFixed(3)});
     g.text(lo,2,'+ signal',{size:10}); g.arrow(s.x,2,s.x+s.drift,2,{color:T.accent,label:`+${s.drift.toFixed(3)}`});
     g.text(lo,1,'+ noise',{size:10});  g.arrow(s.x+s.drift,1,s.xNext,1,{color:T.warn,label:`${s.noise>=0?'+':''}${s.noise.toFixed(3)}`});
-    g.text(lo,0,'state′',{size:10}); g.marker(s.xNext,0,{color:T.ink,r:4.5,label:s.xNext.toFixed(3)});   // after
+    g.text(lo,0,'state after',{size:10}); g.marker(s.xNext,0,{color:T.ink,r:4.5,label:s.xNext.toFixed(3)});
 } }
 ```
 
 Guidelines:
-- **Zoom to the atom.** Scale the axis to the step's own contributions so signal and noise are
-  visually comparable — don't force the full state range (that makes every kick look like zero).
-  Mark a bound/target only when it falls inside the zoomed window.
-- **One contribution per row** (or one arrow per term), labelled with its numeric value, in a
-  fixed order (state → +signal → +leak → +noise → state′). Keep colours consistent across lenses
-  (signal = accent, noise = warn/neg, leak = a third hue).
-- **Pair it with a running trace** so the reader sees the same atom, repeated, *becoming* the
-  trajectory — that hands off to the trial lens.
+- **Zoom to the step** so the contributions are comparable; don't force the full state range. Mark a
+  bound/target only when it falls inside the window.
+- **One contribution per row**, labelled with its value, in a fixed order; keep colours consistent.
+- For a **coupled system** (network/field) the "atom" is one unit's update at fixed neighbour state —
+  decompose its net input (self-excitation, cross-inhibition, drive, noise); see the `attractor` model.
 
 ## Checklist
 
-- [ ] `simulate()` returns the decomposed steps of one trial AND the many-trial batch (one pass).
-- [ ] Step lens decomposes a single update into named contributions (signal/leak/noise/…), zoomed.
-- [ ] Trial lens replays the atom over time to the output (bound/readout), marking the result.
-- [ ] Sim lens shows the statistic building up over trials (fix axes from the full result).
-- [ ] Each lens has a one-line `about`; colours/labels are consistent across the three.
-- [ ] The model still validates and passes GUI QC (`references/gui-qc.md`).
+- [ ] The model is **replicated faithfully** (equations as given); any reduction is disclosed.
+- [ ] It is shown from **the angles that fit its class** (structure first where there is structure).
+- [ ] The user can **compare**: a parameter sweep (coloured curves / a heatmap) and, where useful, a model toggle.
+- [ ] Each lens has a one-line `about`; switching is instant; axes are fixed from the full result.
+- [ ] The model validates and passes GUI QC (`references/gui-qc.md`).

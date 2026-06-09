@@ -19,9 +19,10 @@ build and serve the interactive GUI. Four phases: **Ingest → Interview → Bui
 `model-scope` skill (the build mechanics) and `skills/model-scope/references/levels.md`,
 `skills/model-scope/references/gui-qc.md`, `skills/model-scope/references/modelbook/INDEX.md` before phase 3.
 
-Guiding philosophy (from model-scope): **don't reproduce the paper's figures — decompose the
-process to the atomic level and show input → transformation → output** at the **step / trial /
-simulation** levels. The interview decides scope; the philosophy decides shape.
+Guiding philosophy (from model-scope): **don't reproduce the paper's figures — replicate the model
+faithfully, illuminate it from the angles that fit its class (structure first where there is
+structure), and let the user compare what changes across parameter sweeps and model choices.** The
+interview decides scope; the philosophy decides shape. See `skills/model-scope/references/levels.md`.
 
 ---
 
@@ -62,10 +63,11 @@ reference already settles:
 2. **Scope** — one mechanism in depth, or the whole paper as several **screens** (mechanism →
    condition comparisons → key prediction)? If the paper has multiple models, name the
    recommended one(s) as options.
-3. **Perspectives & emphasis** — which **lenses** fit this model's class (a time/trial model →
-   ⚛ Step · ◷ Trial · ∑ Simulation; a **sensory/image** model → 🖼 Input · 🧱 Transform · 🎯 Readout;
-   an inference model → the pipeline stages) and which condition/prediction to feature — phrased as
-   concrete options from the brief (see `skills/model-scope/references/levels.md` for the catalogue).
+3. **Angles & emphasis** — which **angles** fit this model's class (process model: process / trial /
+   simulation; decision: one trial + the histograms by condition; network: structure / activity /
+   representation / landscape; vision: architecture / layer transforms), and what to **compare**
+   (which parameter sweep or model toggle) — phrased as concrete options from the brief (see
+   `skills/model-scope/references/levels.md` for the per-class catalogue).
 4. **Constraints & delivery** — any must-have panel/aesthetic; acceptable reduction & performance
    (are heavy many-trial screens OK behind a loading screen?); the target app dir/name; and the
    URL kind wanted (local only, a shareable tunnel, or a permanent deploy).
@@ -88,11 +90,11 @@ ambiguity, ask one targeted follow-up rather than guessing.
 3. **Build** following the `model-scope` skill. If you delegate to the `model-gui-builder` agent,
    **pass it the full confirmed contract**: reference path(s) + exact equations with page/section
    anchors, the parameter table (defaults/ranges/units), the condition-vs-parameter split, the
-   reduction and its limits, the screens/lenses, the claim↔mechanism map, the interview decisions,
-   the target dir, and the serve mode — so it does not re-interview or lose the equations. Apply
-   the philosophy: decompose to the atomic step, expose the chosen **lenses**, keep **experimental
-   conditions** separate from **model parameters**, organise a paper as **screens**, make the
-   **claim↔mechanism** mapping visible, and **be honest about any reduction** (disclose limits
+   reduction and its limits, the screens/angles, the interview decisions, the target dir, and the
+   serve mode — so it does not re-interview or lose the equations. Apply the philosophy: replicate
+   the model, show it from the chosen **angles** (structure first where there is structure), make
+   the payoff a **comparison** across parameter sweeps and model choices, keep **experimental
+   conditions** separate from **model parameters**, organise a paper as **screens**, and **be honest about any reduction** (disclose limits
    in-plot + README; measure robustly; never fake a trend). Use `SIM.runChunks` + the loading
    overlay for heavy screens.
 

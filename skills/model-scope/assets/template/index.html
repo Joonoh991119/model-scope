@@ -116,7 +116,7 @@ const reduceMotion = matchMedia && matchMedia('(prefers-reduced-motion: reduce)'
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:'model-scope', data:null, model:null,
   views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
   stageMode:false, stageList:null, lens:null, lensKeys:null };
-// a model may declare lenses:{step,trial,sim,…} — three zoom LEVELS over the SAME simulate() data.
+// a model may declare lenses:{angleA,angleB,…} — several ANGLES over the SAME simulate() data.
 // activeSpec() is the object that supplies views/anim/stages right now: the active lens, or the model itself.
 function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));

@@ -33,71 +33,55 @@ helper. The decision-model "evidence trajectory + RT histogram" is just *one* re
 Implement the model's math **exactly** as given (never re-derive from memory). Surface any
 ambiguity instead of guessing. Aim for a clean instrument, not a dashboard.
 
-## The philosophy: decompose the process, don't reproduce the figure
+## The philosophy: replicate, illuminate from many angles, compare
 
-The goal is **not** to pixel-match a paper's figures. It is to make the *mechanism* legible:
-**given an input, what transformation does it go through, to produce what output** — shown at
-whatever granularity makes that click. Decompose the model's architecture and process to the
-**atomic level** (the single update / one stage of the pipeline), then build understanding up
-through three zoom levels:
+The goal is **not** to pixel-match a paper's figures, and **not** to force every model into one
+universal pipeline. It is to **replicate the model faithfully, illuminate it from the angles natural
+to its class, and let the user compare** — by moving sliders and switching models — the qualitative
+and quantitative differences the parameter and model choices produce.
 
-- **Step (atomic).** ONE update, fully decomposed: the current state + this step's inputs →
-  each additive/transforming contribution (signal, leak/decay, recurrent term, noise, gain) →
-  the new state. This is where the reader *sees* where evidence accumulates and where it decays.
-- **Trial.** That atom **repeated over time** until the model produces an output (a decision, a
-  report, a crossing) — one trial's dynamics from input onset to result.
-- **Simulation.** The trial **repeated many times** → the statistics that emerge (choice
-  proportions, an RT/error distribution, a tuning/psychometric curve) — what you'd actually
-  compare to data.
+- **Replicate** the model's equations as given; disclose any reduction honestly.
+- **Show structure first** where there is structure — a network's connectivity, E/I and plasticity
+  rule; a CNN's architecture — then how an input drives it.
+- **Illuminate from the angles that fit the class.** A process/observer model: its measurement,
+  likelihood and posterior, the per-trial input-to-output map, many-trial metrics (Var(θ), bias(θ),
+  θ̂(θ)). A decision model: one trial accumulating to a bound, and RT/accuracy histograms by
+  condition. A single neuron: short-window conductance/potential traces and the spike pattern. A
+  network: single-cell and population activity, the representation across trials, attractor dynamics
+  and energy landscape. (See `references/levels.md` for the per-class catalogue.)
+- **Compare.** A parameter sweep drawn as coloured curves or a heatmap, and a model toggle, are the
+  payoff — they reveal what changes and by how much.
 
-Every model should be expressible this way. Reproducing a specific figure is at most a *check*,
-never the point — the point is the chain input → transformation → output, made visible.
+Reproducing a specific figure is at most a *check*, never the point.
 
-## Perspectives as first-class UI — `lenses`
+## Angles as first-class UI — `lenses`
 
-A model declares its **perspectives** as **lenses**; the toolbox renders a **level switch** and
-swaps the active views + playhead per lens, all over the **same `simulate()` data** (no recompute on
-switch). The lens *keys/labels are free* — pick the perspectives that fit the model's structure (ask:
-what's the INPUT, what TRANSFORMS it, what's the OUTPUT, what EMERGES over many runs):
+A model declares its **angles** as **lenses**; the toolbox renders a level switch and swaps the
+active views + playhead per lens, over the **same `simulate()` data** (no recompute on switch). The
+lens *keys/labels are free* — name them for the model's own angles:
 
-- **Time/trial models** (decision, dynamical, RL): the canonical trio **⚛ Step · ◷ Trial ·
-  ∑ Simulation** (one atomic update → one trial → the statistics).
-- **Sensory/image models** (no time axis): **🖼 Input · 🧱 Transform · 🎯 Readout** — the input
-  image → how each channel/feature-map re-represents it → the decoded readout (the template's
-  **early-vision** model is the worked example; each lens is static, driven by live sliders).
-- **Inference models**: the pipeline as a `stages` walk (prior → likelihood → posterior → estimate).
+- **Decision / dynamical / RL**: e.g. `step` (one update), `trial` (one trial), `simulation` (the statistics).
+- **Sensory / image**: e.g. `input`, `transform` (how channels re-represent it), `readout` (static, slider-driven).
+- **Network**: e.g. `structure`, `dynamics`, `landscape`.  **Inference**: a `stages` pipeline.
 
-The canonical time/trial trio in code:
+A lens in code:
 
 ```js
 lenses: {
-  step:  { label:'⚛ Step',  about:'one atomic update: state ← state + Σ(contributions)',
-           anim:{length:(p,d)=>d.stepCap}, views:[ /* decompose ONE update with g.arrow */ ] },
-  trial: { label:'◷ Trial', about:'one trial over time → an output',
-           anim:{length:(p,d)=>d.nSteps}, views:[ /* the trajectory to a bound/readout */ ] },
-  sim:   { label:'∑ Simulation', about:'many trials → the statistics',
-           anim:{length:(p)=>p.nTrials}, views:[ /* histogram / curve building up */ ] },
-}
-```
-
-```js
-lenses: {
-  step:  { label:'⚛ Step',  about:'one atomic update: state ← state + Σ(contributions)',
-           anim:{length:(p,d)=>d.stepCap}, views:[ /* decompose ONE update with g.arrow */ ] },
-  trial: { label:'◷ Trial', about:'one trial over time → an output',
-           anim:{length:(p,d)=>d.nSteps}, views:[ /* the trajectory to a bound/readout */ ] },
-  sim:   { label:'∑ Simulation', about:'many trials → the statistics',
-           anim:{length:(p)=>p.nTrials}, views:[ /* histogram / curve building up */ ] },
+  trial: { label:'Trial', about:'one trial over time',
+           anim:{length:(p,d)=>d.nSteps}, views:[ /* the trajectory / readout */ ] },
+  sim:   { label:'Simulation', about:'many trials → the statistics; sweep a parameter to compare',
+           anim:{length:(p)=>p.nTrials}, views:[ /* histogram / coloured curves */ ] },
 }
 ```
 
 Each lens is just a `{label, about, views, anim?|stages?}` bundle — the same view/anim/stages
-contract below, scoped to that zoom level. `simulate()` computes everything all lenses need
-once (e.g. the decomposed steps of trial 0 **and** the batch outcomes). A model may still use a
-single top-level `views`/`anim` when one level suffices — `lenses` is opt-in and fully
-back-compatible. See `references/levels.md` for the full method and the atomic-step recipe; the
-template's **drift-diffusion** model is the worked exemplar. Use lenses to zoom into ONE
-process; use separate **screens** (models-as-tabs) for different conditions or parts of a paper.
+contract below, scoped to one angle. `simulate()` computes everything all lenses need
+once (e.g. the per-step data of trial 0 **and** the batch outcomes). A model may still use a
+single top-level `views`/`anim` when one angle suffices — `lenses` is opt-in and fully
+back-compatible. See `references/levels.md` for the per-class angle catalogue; the template's
+**drift-diffusion** model is the worked exemplar. Use lenses to view ONE model from several
+angles; use separate **screens** (models-as-tabs) for different conditions or parts of a paper.
 
 ## Architecture — 4 files, no build step
 
@@ -144,8 +128,8 @@ mymodel: {
   anim: { length:(p,data)=> N },     // continuous: head runs 0..N; views read ui.head
   // OPTIONAL (instead of anim): PROCESS MODE — step through the model's internal pipeline.
   stages: (p,data)=> [ {key,name,about}, … ],  // ◀ ▶ stepper; views read ui.stage/ui.stageKey
-  // OPTIONAL (instead of top-level views/anim/stages): THREE LEVELS — a level switch over the same data.
-  lenses: { step:{label,about,views,anim?|stages?}, trial:{…}, sim:{…} },   // see "The three levels" above
+  // OPTIONAL (instead of top-level views/anim/stages): ANGLES — a lens switch over the same data.
+  lenses: { angleA:{label,about,views,anim?|stages?}, angleB:{…}, … },   // see "Angles as first-class UI" above
 }
 ```
 
@@ -254,10 +238,10 @@ When the target is a whole **paper** (not a lone equation), don't cram everythin
 view grid. Use the structure the toolbox already gives you — **each entry in `MODEL_ORDER`
 is a top tab, i.e. a SCREEN.** Organise a paper as a few screens that tell the story in order:
 
-1. **Mechanism** — the circuit/equations and how *one trial* unfolds: where input enters,
-   how the slow variable **accumulates** and **decays**, how the decision/readout forms.
-   Expose the model parameters as sliders here; use `anim` (watch one trial build) or
-   `stages` (step the pipeline).
+1. **Structure / mechanism** — show what the model *is*: a network's connectivity, E/I and
+   plasticity rule, or a CNN's architecture, or an observer's generative + inference rule — and
+   how one input is processed. Expose the model parameters as sliders here; use `anim` (watch
+   one run build) or `stages` (step a pipeline) where it is sequential.
 2. **Condition comparisons** — one screen per experimental condition the paper manipulates:
    hold the model parameters at the paper's defaults and **sweep that condition across a few
    fixed levels**, showing the summary curves (accuracy, RT, gain, error pattern…).
@@ -277,10 +261,11 @@ makes that link visible; state the mapping in `note`. The goal is *"the reader s
 data look that way,"* not a pixel-match of the figure. If the thesis is "X is held fixed; the
 effect comes from Y," make **X visibly fixed and Y visibly varying** across the panels.
 
-**Mechanism → trial → accumulation.** The most convincing arc: (1) at the unit level, show
-where evidence enters and how the slow variable integrates/decays; (2) at the trial level,
-show one trial reaching the decision; (3) across trials, show the summary statistic building
-up over repeated simulations. Order the screens that way.
+**Order by the model, not a fixed arc.** Where there is structure (a network, a CNN), show it
+first; otherwise start from the model's rule or observer process. Then show the
+class-appropriate angle (one trial, the activity, a layer transform), and finish with the
+**comparison** — parameter sweeps and condition or model-choice comparisons. The order serves
+the model, not a universal pipeline.
 
 **Be honest about a reduction.** A reduced/mean-field version reproduces *qualitative
 mechanism*, not exact numbers — disclose it (README + in-plot, e.g. "model Hz"), and **measure
@@ -313,10 +298,10 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 
 1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs, with
    eleven worked examples spanning the model SCALES — behavioural/process, single-neuron, sensory,
-   network, macro — and every idiom: the **lens switch** (drift-diffusion ⚛◷∑; a `compare` model-vs-model
-   **toggle** with a metric heatmap; an **early-vision** image model 🖼🧱🎯; a **LIF** neuron with a
-   refractory toggle; a **Rescorla–Wagner** learner; an **attractor network** with an energy landscape;
-   a spatial **SIR** epidemic kymograph), *continuous* anim (a Bayesian observer), and *process mode*
+   network, macro — and every idiom: the **lens switch** (drift-diffusion across its angles; a
+   `compare` model-vs-model **toggle** with a metric heatmap; an **early-vision** image model; a
+   **LIF** neuron with a refractory toggle; a **Rescorla-Wagner** learner; an **attractor network**
+   with an energy landscape; a spatial **SIR** epidemic kymograph), *continuous* anim (a Bayesian observer), and *process mode*
    `stages` (efficient-coding, causal-inference, working-memory pipelines).
 2. **Add the model**: pin the equations/parameters, then write ONE `MODELS` entry — its
    `params`, a `simulate` that returns the data the model is about, and a `views` list

@@ -21,12 +21,12 @@ references first); this file is *who you are*, the skill is *how you build*.
 - **The math is authoritative.** Implement the equations exactly as given — never
   re-derive or "improve" from memory. State any assumption (a prior form, a loss
   function, a boundary rule, units) explicitly; ask rather than guess silently.
-- **Decompose the process; don't reproduce the figure.** The goal is to make the mechanism
-  legible — *given an input, what transformation produces what output* — to the **atomic level**,
-  then build up through three zoom levels: **⚛ Step** (one update decomposed into signal/leak/
-  noise/… → new state), **◷ Trial** (the atom repeated over time → an output), **∑ Simulation**
-  (many trials → the statistics). Declare these as `lenses` for a level switch. Figure-matching is
-  at most a check. See `references/levels.md`.
+- **Replicate, illuminate from many angles, compare; don't reproduce the figure.** Replicate the
+  model faithfully, then show it from the angles that fit its class — and where there is structure
+  (a network's wiring/E-I/plasticity, a CNN's architecture), show that structure first. Declare the
+  angles as `lenses` for a level switch, and make the payoff **comparison**: a parameter sweep
+  (coloured curves or a heatmap) and, where useful, a model toggle, so the user sees the qualitative
+  and quantitative differences. Figure-matching is at most a check. See `references/levels.md`.
 - **Pick views that build intuition.** Decide what to *show*: distributions, a tuning /
   bias / psychometric curve, an animated trajectory + histogram, a spike raster, a phase
   field / energy landscape, a learning sequence, a belief simplex, eye traces. Use the
@@ -40,8 +40,8 @@ references first); this file is *who you are*, the skill is *how you build*.
   condition, a noise source, a gain, a learning rate) in `blurb`/`note`/labels, so tuning
   it tells a story.
 - **A paper is several screens, not one grid.** For a whole paper, use multiple `MODELS`
-  entries as tabs/screens: mechanism (one trial — where input accumulates/decays) → condition
-  comparisons (sweep one experimental condition at fixed model params) → the key prediction.
+  entries as tabs/screens: structure/mechanism (what the model is, and one run), then condition
+  comparisons (sweep one experimental condition at fixed model params), then the key prediction.
   Separate **experimental conditions** (swept across fixed levels) from **model parameters**
   (sliders). Make the paper's **claim↔mechanism** mapping visible — show *why* the data look
   that way, don't just re-plot the figure.

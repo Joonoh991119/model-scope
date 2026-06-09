@@ -1,0 +1,33 @@
+<mxfile host="model-scope">
+  <diagram name="model-scope-architecture">
+    <mxGraphModel dx="980" dy="640" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1340" pageHeight="560" math="0" shadow="0" background="#f4f3ee">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="t1" value="&lt;b&gt;How it is built&lt;/b&gt;  —  adding a model is one declarative entry; everything else is generated" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=14;fontColor=#33312c;" vertex="1" parent="1"><mxGeometry x="30" y="20" width="1280" height="22" as="geometry"/></mxCell>
+
+        <mxCell id="b1" value="&lt;b&gt;The plugin&lt;/b&gt;&lt;br&gt;&lt;br&gt;skill, agent, commands&lt;br&gt;+ a modelbook of&lt;br&gt;canonical families" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="30" y="56" width="280" height="104" as="geometry"/></mxCell>
+        <mxCell id="b2" value="&lt;b&gt;Template (no build step)&lt;/b&gt;&lt;br&gt;&lt;br&gt;index.html, engine.js,&lt;br&gt;plot.js, validate.mjs&lt;br&gt;(+ mslib.js)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="380" y="56" width="280" height="104" as="geometry"/></mxCell>
+        <mxCell id="b3" value="&lt;b&gt;Add one MODELS entry&lt;/b&gt;&lt;br&gt;&lt;br&gt;params + simulate() + views&lt;br&gt;(+ lenses) — you edit&lt;br&gt;only engine.js" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#eef3f5;strokeColor=#b07d2a;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="730" y="56" width="280" height="104" as="geometry"/></mxCell>
+        <mxCell id="b4" value="&lt;b&gt;Interactive explorer&lt;/b&gt;&lt;br&gt;&lt;br&gt;open index.html&lt;br&gt;or serve it" style="rounded=1;whiteSpace=wrap;html=1;arcSize=10;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="1080" y="56" width="230" height="104" as="geometry"/></mxCell>
+        <mxCell id="e1" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;" edge="1" parent="1" source="b1" target="b2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;" edge="1" parent="1" source="b2" target="b3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="validate.mjs passes" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;fontSize=10;fontColor=#6f6b61;" edge="1" parent="1" source="b3" target="b4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="t2" value="&lt;b&gt;How it runs&lt;/b&gt;  —  every control re-runs the model and redraws the views" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=14;fontColor=#33312c;" vertex="1" parent="1"><mxGeometry x="30" y="220" width="1280" height="22" as="geometry"/></mxCell>
+
+        <mxCell id="r1" value="&lt;b&gt;Move a slider&lt;/b&gt;&lt;br&gt;or toggle, or step the playhead" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="30" y="256" width="280" height="84" as="geometry"/></mxCell>
+        <mxCell id="r2" value="&lt;b&gt;simulate(params, env)&lt;/b&gt;&lt;br&gt;returns the data (cached)" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="380" y="256" width="280" height="84" as="geometry"/></mxCell>
+        <mxCell id="r3" value="&lt;b&gt;Each view draws&lt;/b&gt;&lt;br&gt;its own axes via the plotting helper" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="730" y="256" width="280" height="84" as="geometry"/></mxCell>
+        <mxCell id="r4" value="&lt;b&gt;Canvas&lt;/b&gt;&lt;br&gt;you read the result" style="rounded=1;whiteSpace=wrap;html=1;arcSize=12;fillColor=#ffffff;strokeColor=#4a7a93;fontSize=12.5;fontColor=#33312c;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1"><mxGeometry x="1080" y="256" width="230" height="84" as="geometry"/></mxCell>
+        <mxCell id="re1" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;" edge="1" parent="1" source="r1" target="r2"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="re2" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;" edge="1" parent="1" source="r2" target="r3"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="re3" style="endArrow=block;html=1;rounded=1;strokeColor=#6f6b61;strokeWidth=2;" edge="1" parent="1" source="r3" target="r4"><mxGeometry relative="1" as="geometry"/></mxCell>
+
+        <mxCell id="note" value="The same engine.js is re-checked in Node by validate.mjs, so the math you read is the math that runs. A generation counter cancels superseded runs, so rapid changes never leave stale state." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11.5;fontColor=#6f6b61;" vertex="1" parent="1"><mxGeometry x="30" y="362" width="1280" height="40" as="geometry"/></mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

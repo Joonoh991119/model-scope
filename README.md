@@ -2,7 +2,7 @@
 
 **Turn any parameterised model into an interactive explorer you can think with.**
 
-![model-scope — graphical abstract: reference → interview → harness build → interactive GUI, and the input→transform→output→emerges perspectives](docs/graphical-abstract.png)
+![model-scope graphical abstract: replicate a model, illuminate it from the angles that fit its class, and compare what changes across parameters and model choices](docs/graphical-abstract.png)
 
 `model-scope` is a [Claude Code](https://docs.claude.com/en/docs/claude-code) marketplace
 plugin that builds a self-contained web app for *your* model: one slider per parameter (an
@@ -11,7 +11,7 @@ shown in views the **model itself defines**. There is no fixed graphic and no fi
 Move a slider, watch the result move, and build intuition by play instead of by re-reading
 the equations.
 
-> A **Bayesian observer** draws prior · likelihood · posterior and a central-tendency curve.
+> A **Bayesian observer** draws prior, likelihood, posterior and a central-tendency curve.
 > A **leaky integrate-and-fire neuron** draws a *V(t)* trace, a spike raster, and an *f–I* curve.
 > A **drift-diffusion** model animates an evidence trajectory and a response-time histogram.
 > A **causal-inference**, **working-memory**, **RL**, **POMDP**, **saccade**, or
@@ -24,54 +24,38 @@ single-neuron dynamics who want to *understand* a model by tuning it.
 
 ## How it works
 
-**The easy way — hand it a paper.** You give *only* the reference; it interviews you briefly, then
-builds and serves the GUI:
+Give it a paper and the autonomous flow takes over: it reads the reference, **interviews** you
+briefly (purpose, scope, which angles, what to compare), **replicates** the model as an interactive
+simulator, and chooses the angles that fit the model's class so you can **compare** what changes as
+you vary parameters or switch models.
 
-```mermaid
-flowchart LR
-    P["📄 paper / equations"] --> I["💬 short interview<br/>purpose · scope ·<br/>perspectives · conditions"]
-    I --> B["🛠 build<br/>(model-scope)"]
-    B --> Q["✓ validate +<br/>visual QC"]
-    Q --> W["🌐 interactive GUI<br/>at a local URL"]
-```
-
-**What you get — one model, several perspectives.** The point isn't to copy a figure; it's to *see
-the mechanism*: what the **input** is, what **transforms** it, what comes **out**, and what
-**emerges** over many runs. A **level switch** lets you zoom each perspective, and every slider is
-live, so you understand the model by playing with it:
-
-```mermaid
-flowchart LR
-    IN["INPUT<br/>stimulus · image ·<br/>evidence · reward"] --> TR["TRANSFORM<br/>one update · filter<br/>channels · inference"]
-    TR --> OUT["OUTPUT<br/>decision · decoded<br/>feature · estimate"]
-    OUT --> EM["EMERGES<br/>over many runs:<br/>RT/choice · tuning ·<br/>learning curve"]
-```
-
-The lenses adapt to the model class: a decision/trial model zooms **⚛ Step → ◷ Trial →
-∑ Simulation**; a sensory/image model zooms **🖼 Input → 🧱 Transform → 🎯 Readout**. (See
-[the perspectives catalogue](skills/model-scope/references/levels.md).)
+The model is replicated faithfully and shown from the **angles that fit its class** — and a model
+with structure (a network's wiring, a CNN's architecture) shows that structure first. Move a slider
+or switch the model and read off the qualitative and quantitative difference. (See the per-class
+angle catalogue in [`references/levels.md`](skills/model-scope/references/levels.md).)
 
 ---
 
 ## At a glance
 
 - **Hand it a paper, get a simulator.** `/model-scope:from-paper <paper>` reads the reference,
-  **interviews** you about the visualisation purpose and what you want (purpose · scope · which
-  levels · which conditions), then builds the GUI and **starts a verified local URL** — with an
+  **interviews** you about the visualisation purpose and what you want (purpose, scope, which
+  angles, what to compare), then builds the GUI and **starts a verified local URL** — with an
   optional shareable tunnel or permanent deploy when the tooling's available. You only supply the
   reference material.
-- **Decompose the process, don't reproduce the figure.** Show *input → transformation → output* at
-  three zoom levels — ⚛ Step (one atomic update) · ◷ Trial · ∑ Simulation — via a level switch.
+- **Replicate, illuminate, compare — don't reproduce the figure.** Replicate the model, show it from
+  the angles that fit its class (structure first where there is structure), and compare what changes
+  across parameter sweeps and model choices.
 - **Bring your own equations.** Adding a model is *one* declarative entry —
-  `params` + `simulate() → data` + `views[]`. The sliders, the animation transport, and
+  `params`, a `simulate()` that returns data, and `views[]`. The sliders, the animation transport, and
   the redraw loop are generated for you; you never wire up a control by hand.
 - **The model picks the picture.** Each view sets its own axes and draws whatever is
   intuitive: distributions, tuning / psychometric curves, rasters, phase portraits,
   energy landscapes, belief simplices, learning curves.
-- **Switch perspective, not just play.** A **level switch** zooms one model between the
-  perspectives that fit it — ⚛ Step · ◷ Trial · ∑ Simulation for a decision model, 🖼 Input ·
-  🧱 Transform · 🎯 Readout for an image model — each driven by a *continuous* playhead **or** a
-  *process-mode* ◀ ▶ stepper that walks an internal pipeline stage by stage.
+- **Switch angle, not just play.** A level switch shows one model from the angles that fit it: a
+  decision model gets one trial and the many-trial statistics; a network gets its structure, then
+  activity, representation, and landscape; an image/CNN model gets its architecture first, then the
+  layer-by-layer transforms — each driven by a continuous playhead or a step-by-step stepper.
 - **No build step, no `npm install`, runs from `file://`.** Plain `<script>` tags — open
   `index.html`, or read the source top to bottom (the UI font is a webfont with a system
   fallback). The *same* `engine.js` is re-checked by a Node validation gate, so the math you
@@ -94,17 +78,17 @@ process-mode stepper, and the perspective **level switch**):
 
 | Model | Domain / scale | Idiom | What you watch |
 |---|---|---|---|
-| **Drift-diffusion decision** | decision-making | level switch (⚛◷∑) | ⚛ one update = drift + noise → new evidence · ◷ one trial walks to a bound · ∑ the RT histogram builds up — the worked 3-perspective example |
-| **Decision: integrate vs one sample** | comparison | sliders + **toggle** | toggle two models; ① a speed–accuracy overlay · ② a metric **heatmap** over (drift × noise) · ③ accuracy/speed/reward **bars** · ④ the mechanism |
-| **Early vision — orientation** | sensory / image | level switch (🖼🧱🎯) | 🖼 a noisy grating image · 🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle — an **image-input** model |
-| **Attractor network — decision** | network | level switch (⚛◷⎇) | ⚛ one pool's recurrent input · ◷ the pools race (winner-take-all) · ⎇ the (S₁,S₂) energy **landscape** heatmap + trajectory |
-| **Epidemic (spatial SIR)** | macro / population | level switch (🗺〰⎇) | 🗺 a space×time **kymograph** of a travelling infection wave · 〰 the S/I/R curves · ⎇ peak vs R₀ (the epidemic threshold) |
-| **Spiking neuron (LIF)** | single-neuron biophysics | level switch (◷∑⌁) | ◷ a V(t) trace integrating to threshold · ∑ a spike raster over repeats · ⌁ the f–I transfer curve (+ a refractory **toggle**) |
-| **Reinforcement learning (RW)** | learning | level switch (⚛◷∑) | ⚛ one Rescorla–Wagner update (δ = r − V) · ◷ the value learning curve · ∑ curves across learning rates α |
-| **Bayesian observer** | perception / inference | continuous | prior · likelihood · posterior on a stimulus axis; an estimate-vs-true *central-tendency* curve (±SD ribbon); trial-to-trial prior updating |
-| **Efficient-coding observer** — Wei & Stocker | perception | process mode | prior → warped encoding *F(θ)* → measurement → skewed likelihood → posterior → estimate → bias & discriminability |
-| **Causal inference** — Körding et al. | multisensory | process mode | cues → per-hypothesis likelihoods → p(common cause) → branch estimates → combine, with the N-shaped ventriloquism bias |
-| **Working-memory recall** — Bays & Husain | memory | process mode | allocate → encode on a feature wheel → probe → recall → error histogram → target / swap / guess decomposition |
+| **Drift-diffusion decision** | decision-making | level switch | one update (drift plus noise to new evidence); one trial walking to a bound; the RT histogram building up |
+| **Decision: integrate vs one sample** | comparison | sliders + toggle | toggle two models; a speed-accuracy overlay; a metric heatmap over a (drift, noise) grid; accuracy / speed / reward bars; the mechanism |
+| **Early vision (orientation)** | sensory / image | level switch | the input grating image; oriented Gabor channels re-representing it; the orientation tuning and decoded angle |
+| **Attractor network** | network | level switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) energy-landscape heatmap and trajectory |
+| **Epidemic (spatial SIR)** | macro / population | level switch | a space-time kymograph of a travelling infection wave; the S/I/R curves; peak prevalence vs R0 (the epidemic threshold) |
+| **Spiking neuron (LIF)** | single-neuron biophysics | level switch | a V(t) trace integrating to threshold; a spike raster over repeats; the f-I transfer curve (with a refractory toggle) |
+| **Reinforcement learning (RW)** | learning | level switch | one Rescorla-Wagner update; the value learning curve; curves across learning rates |
+| **Bayesian observer** | perception / inference | continuous | prior, likelihood, posterior on a stimulus axis; an estimate-vs-true central-tendency curve (with an SD ribbon); trial-to-trial prior updating |
+| **Efficient-coding observer** (Wei & Stocker) | perception | process mode | prior, warped encoding, measurement, skewed likelihood, posterior, estimate; bias and discriminability |
+| **Causal inference** (Körding et al.) | multisensory | process mode | cues, per-hypothesis likelihoods, p(common cause), branch estimates, combine; the ventriloquism bias |
+| **Working-memory recall** (Bays & Husain) | memory | process mode | allocate, encode on a feature wheel, probe, recall; the error histogram; target / swap / guess decomposition |
 
 Copy one, swap in your equations, and it is yours.
 
@@ -114,35 +98,35 @@ Copy one, swap in your equations, and it is yours.
 
 One harness, many control + view types — every plot is live, so you build intuition by tuning.
 
-**Trial-level animation** — press ▶ and watch evidence accumulate to a bound (drift-diffusion, ◷ Trial lens):
+**Trial-level animation** — play it and watch evidence accumulate to a bound (drift-diffusion, Trial lens):
 
 ![drift-diffusion trial animation](docs/ddm-trial.gif)
 
 <table>
 <tr>
-<td width="50%"><img src="docs/shots/ddm-step.png" alt="atomic step decomposition with sliders"><br/><b>Sliders + atomic step.</b> One update split into signal + noise; every parameter is a live slider (⚛ Step lens).</td>
-<td width="50%"><img src="docs/shots/vision-transform.png" alt="oriented filter energy maps"><br/><b>Colormaps + representation level.</b> An input image re-represented as oriented-filter energy maps (early vision, 🧱 Transform lens).</td>
+<td width="50%"><img src="docs/shots/ddm-step.png" alt="step decomposition with sliders"><br/><b>Sliders and a step view.</b> One update split into signal and noise; every parameter is a live slider (Step lens).</td>
+<td width="50%"><img src="docs/shots/vision-transform.png" alt="oriented filter energy maps"><br/><b>Colormaps and the representation.</b> An input image re-represented as oriented-filter energy maps (early vision, Transform lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/shots/lif-fI.png" alt="LIF f-I curve with a refractory toggle"><br/><b>Toggles + condition sliders.</b> A boolean toggle (refractory on/off) beside sliders; the f–I transfer curve (LIF, ⌁ lens).</td>
-<td width="50%"><img src="docs/shots/lif-raster.png" alt="LIF spike raster"><br/><b>Spike raster.</b> Repeats stack into a raster with the mean firing rate (LIF neuron, ∑ Raster lens).</td>
+<td width="50%"><img src="docs/shots/lif-fI.png" alt="LIF f-I curve with a refractory toggle"><br/><b>Toggles and sliders.</b> A boolean toggle (refractory on/off) beside sliders; the f-I transfer curve (LIF, f-I lens).</td>
+<td width="50%"><img src="docs/shots/lif-raster.png" alt="LIF spike raster"><br/><b>Spike raster.</b> Repeats stack into a raster with the mean firing rate (LIF neuron, Raster lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/shots/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay + legend.</b> Learning curves across learning rates α (reinforcement learning, ∑ Rate-sweep lens).</td>
-<td width="50%"><img src="docs/shots/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram builds up, correct ↑ / error ↓ (drift-diffusion, ∑ Simulation lens).</td>
+<td width="50%"><img src="docs/shots/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay.</b> Learning curves across learning rates, drawn as coloured lines (reinforcement learning, Rate-sweep lens).</td>
+<td width="50%"><img src="docs/shots/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram building up, correct above and error below (drift-diffusion, Simulation lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/shots/compare.png" alt="comparing two decision models via a toggle"><br/><b>Compare models via a toggle.</b> Switch DDM ⟷ single-sample; an overlay, a metric <b>heatmap</b> over (drift × noise), and accuracy/speed/reward <b>bars</b>.</td>
-<td width="50%"><img src="docs/shots/sir-spread.png" alt="space-time kymograph of a spatial SIR epidemic"><br/><b>Heatmap — a travelling wave.</b> A spatial SIR epidemic as a space×time kymograph (macro scale, 🗺 Spread lens).</td>
+<td width="50%"><img src="docs/shots/compare.png" alt="comparing two decision models via a toggle"><br/><b>Compare models via a toggle.</b> Switch DDM versus single-sample; an overlay, a metric <b>heatmap</b> over a (drift, noise) grid, and metric <b>bars</b>.</td>
+<td width="50%"><img src="docs/shots/sir-spread.png" alt="space-time kymograph of a spatial SIR epidemic"><br/><b>Heatmap, a travelling wave.</b> A spatial SIR epidemic as a space-time kymograph (macro scale, Spread lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap — an energy landscape.</b> A decision network's (S₁,S₂) flow field with the trajectory rolling into a basin (network scale, ⎇ Landscape lens).</td>
-<td width="50%"><b>Same harness, any scale.</b> These heatmaps — a metric landscape, an epidemic kymograph, a phase-plane flow — all come from the same <code>g.heat</code> + <code>g.colorbar</code>; the eleven models span behavioural, single-neuron, sensory, network, and macro scales.</td>
+<td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap, an energy landscape.</b> A decision network's (S1, S2) flow field with the trajectory rolling into a basin (network scale, Landscape lens).</td>
+<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the eleven models span behavioural, single-neuron, sensory, network, and macro scales.</td>
 </tr>
 </table>
 
 Every state is **deep-linkable** for sharing or screenshots: open `index.html?model=lif&lens=raster&head=30`
-(`model` · `lens` · `head` · `still=1` · `text=`). The **Text size** control on the left rail scales
+(`model`, `lens`, `head`, `still=1`, `text=`). The **Text size** control on the left rail scales
 every label for talks.
 
 ---
@@ -154,64 +138,14 @@ template, and a modelbook) and the **explorer** it produces — a no-build app o
 files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus an optional
 reusable-model library, `mslib.js`, that the bundled examples use.
 
-### From a model to a running explorer
-
-```mermaid
-flowchart TB
-    R["Researcher: explore model X as I tune its parameters"]
-
-    subgraph PLUGIN["model-scope plugin — what you install"]
-      direction LR
-      SKILL["Skill · model-scope<br/>the method + view recipes<br/>+ the modelbook"]
-      AGENT["Agent · model-gui-builder<br/>builds the GUI end-to-end"]
-      CMD["Command · /model-scope:scaffold<br/>copies the template"]
-    end
-
-    TPL["Template — no-build app<br/>4 core files + mslib.js · 11 worked examples"]
-    EDIT["Add ONE entry to the MODELS registry:<br/>params + a simulate() function + views"]
-    VAL{"node validate.mjs<br/>passes?"}
-    APP["Interactive explorer — open index.html"]
-
-    R --> SKILL
-    R --> AGENT
-    R --> CMD
-    SKILL --> TPL
-    AGENT --> TPL
-    CMD --> TPL
-    TPL --> EDIT
-    EDIT --> VAL
-    VAL -->|no| EDIT
-    VAL -->|yes| APP
-```
-
-### Inside a generated explorer
-
-```mermaid
-flowchart TB
-    USER["move a slider · press ▶ or step ◀ ▶"]
-
-    subgraph APP["one generated explorer — plain &lt;script&gt; tags, opens from file://"]
-      direction TB
-      HTML["index.html — the toolbox (you never edit it)<br/>builds sliders from params · runs simulate on every change<br/>drives the playhead / stage-stepper · calls each view"]
-      ENGINE["engine.js → window.SIM ★ the only file you edit ★<br/>seedable RNG + the MODELS registry"]
-      PLOT["plot.js → window.Plot (make · setup · TH · histify)<br/>Plot.make(canvas) returns the helper g — frame · line · band · bars · heat · raster · flow · …"]
-      MSLIB["modules/mslib.js → window.MSLIB (optional)<br/>reusable blocks: sde · bayes · neuron · decision · rl · psy · efficient · causal · wm"]
-    end
-
-    NODE["validate.mjs — Node correctness gate"]
-
-    USER --> HTML
-    HTML -->|"simulate(params, env) → data, then calls the views"| ENGINE
-    ENGINE -->|"each view draws through the helper g"| PLOT
-    ENGINE -.->|"compose inside simulate()"| MSLIB
-    NODE -.->|"re-evaluates the same engine.js"| ENGINE
-```
+![How model-scope is built and how it runs](docs/architecture.png)
 
 **The loop.** On any slider change the toolbox (debounced) calls `simulate(params, env)`
 once, caches the returned `data`, then calls each view's `draw(g, data, ui)` to redraw. For
-sequential models a `requestAnimationFrame` loop advances a playhead and redraws the views;
-a generation counter cancels any in-flight playback, so rapid slider drags or model switches
-never leave stale state on screen. You normally touch only `engine.js`.
+sequential models an animation loop advances a playhead and redraws the views; a generation
+counter cancels any in-flight playback, so rapid changes never leave stale state on screen.
+You normally touch only `engine.js`. The same `engine.js` is re-checked in Node by
+`validate.mjs`, so the math you read is the math that runs.
 
 ---
 
@@ -233,11 +167,11 @@ rewritten.
 
 | | ad-hoc "write me a simulator" | a model-scope harness |
 |---|---|---|
-| **Reproducibility** | non-deterministic; re-runs differ | a seedable per-trial RNG → same seed, same result; any trial is addressable by index |
+| **Reproducibility** | non-deterministic; re-runs differ | a seedable per-trial RNG: same seed, same result; any trial is addressable by index |
 | **Correctness** | rarely checked; errors ship silently | `node validate.mjs` re-runs the *same* `engine.js` the browser runs, plus analytic checks tied to the science, before it's "done" |
-| **Separation of concerns** | math, UI, controls tangled in one blob | pure math (`engine.js`, no DOM) · rendering (`plot.js`) · toolbox (`index.html`) — edit one, the rest is already proven |
+| **Separation of concerns** | math, UI, controls tangled in one blob | pure math (`engine.js`, no DOM), rendering (`plot.js`), toolbox (`index.html`) — edit one, the rest is already proven |
 | **Consistency** | every request reinvents controls, axes, layout | every model gets the same sliders, readability conventions, perspectives, and QC for free |
-| **Stable change** | adding a feature regenerates the whole app → fresh bugs | adding a model is one entry; the battle-tested toolbox is untouched |
+| **Stable change** | adding a feature regenerates the whole app, with fresh bugs | adding a model is one entry; the battle-tested toolbox is untouched |
 | **Accumulation** | starts from zero each time | a *modelbook* of canonical families + a reusable `mslib.js` to compose from |
 | **Bounded LLM** | free-form code, easy to hallucinate scaffolding | the skill/agent work *inside* the contract + the GUI-QC pipeline — freedom goes to the science, not the plumbing |
 
@@ -274,7 +208,7 @@ mymodel: {
 
   // OPTIONAL — choose ONE if the model is sequential:
   anim:   { length:(p,data)=> N },              // continuous playhead: ui.head ∈ [0,N]
-  stages: (p,data)=> [ {key,name,about}, … ],   // process mode: a ◀ ▶ stage stepper
+  stages: (p,data)=> [ {key,name,about}, … ],   // process mode: a step-by-step stage stepper
 }
 ```
 
@@ -295,31 +229,29 @@ this shape works:
 
 | | `anim` — continuous | `stages` — process mode |
 |---|---|---|
-| **Transport** | play · pause · fast-forward · scrub | ◀ ▶ single-step + a stage-named readout |
-| **Playhead** | `ui.head ∈ [0, length]` — a trial, a time, an iteration | `ui.stage = ⌊head⌋ ∈ [0, nStages−1]` — the current pipeline step |
+| **Transport** | play, pause, fast-forward, scrub | step-by-step, with a stage-named readout |
+| **Playhead** | `ui.head` in [0, length] — a trial, a time, an iteration | `ui.stage` — the current pipeline step |
 | **Reach for it when** | trials accumulate, evidence drifts, a value updates | you want to *see each computation in sequence* |
-| **Example** | drift-diffusion; the Bayesian observer's prior updating | the efficient-coding, causal-inference & working-memory pipelines |
+| **Example** | drift-diffusion; the Bayesian observer's prior updating | the efficient-coding, causal-inference and working-memory pipelines |
 
-### Decompose the process — the three levels (`lenses`)
+### Angles (`lenses`)
 
-The point isn't to pixel-match a paper's figure; it's to make the **mechanism** legible —
-*given an input, what transformation produces what output* — decomposed to the **atomic level**.
-A model can declare `lenses` and the toolbox shows a **level switch** that zooms the same
-simulation three ways: **⚛ Step** (ONE update split into its contributions — signal, leak/decay,
-noise — → the new state), **◷ Trial** (that atom repeated over time → an output), **∑ Simulation**
-(many trials → the statistics you'd compare to data). The template's **drift-diffusion** model is
-the worked exemplar; see [`references/levels.md`](skills/model-scope/references/levels.md).
+A model can declare `lenses` and the toolbox shows a **level switch** that views the same
+simulation from several **angles** chosen for the model's class — the lens keys are free. A
+decision model: one update, one trial, the statistics. A network: structure, activity,
+representation, landscape. A vision model: architecture, layer transforms. Where there is
+structure, show it first. The template's drift-diffusion, attractor, and early-vision models are
+the worked exemplars; see [`references/levels.md`](skills/model-scope/references/levels.md).
 
-### Scaling to a whole paper — screens, conditions, a claim map
+### Scaling to a whole paper — screens and conditions
 
 A whole paper isn't one grid: each entry in `MODEL_ORDER` is a **top tab (a screen)**, so you
-build the paper as a few screens that tell the story in order — **mechanism** (one trial: where
-input accumulates and decays) → **condition comparisons** (sweep one experimental condition at
-fixed model parameters) → the **key prediction**. Keep **experimental conditions** (swept across
-fixed levels) separate from **model parameters** (sliders), and make the paper's
-**claim↔mechanism** mapping visible — show *why* the data look that way rather than re-plotting
-the figure. Heavy comparison screens stream their trials via `SIM.runChunks` behind a loading
-overlay. See the skill's "Scaling to a whole paper" and [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md).
+build the paper as a few screens — a mechanism screen, then condition comparisons (sweep one
+experimental condition at fixed model parameters), then the key prediction. Keep **experimental
+conditions** (swept across fixed levels) separate from **model parameters** (sliders), and make
+the comparison the payoff: read off what changes across the sweep. Heavy comparison screens stream
+their trials via `SIM.runChunks` behind a loading overlay. See
+[`references/gui-qc.md`](skills/model-scope/references/gui-qc.md).
 
 See [`references/plotting.md`](skills/model-scope/references/plotting.md) for the full `g`
 API and worked view recipes,
@@ -360,7 +292,7 @@ shareable tunnel or permanent deploy when the tooling is available:
 ```
 
 The `paper-to-sim` skill reads the reference, runs a short `AskUserQuestion` interview (purpose ·
-scope · which levels ⚛◷∑ · which conditions · constraints) with defaults drawn from the paper,
+scope, which angles to show, what to compare, constraints) with defaults drawn from the paper,
 then drives the build + QC and verifies the local URL before reporting it. It
 also triggers on plain language — *“turn this paper into an interactive sim”*, *“interview me and
 build a simulator from these equations.”*
@@ -392,7 +324,7 @@ their meaning and typical ranges, the views that make it intuitive, a ready-to-c
 | Family | Use it for | `MSLIB` |
 |---|---|---|
 | **Bayesian / ideal observer** | perception, magnitude & time estimation, central tendency, prior learning | `bayes` |
-| **Efficient coding & sequential observers** | prior-shaped encoding, repulsive/anti-Bayesian bias, bias ↔ discriminability | `efficient`, `bayes` |
+| **Efficient coding & sequential observers** | prior-shaped encoding, repulsive/anti-Bayesian bias, bias vs discriminability | `efficient`, `bayes` |
 | **Causal inference & Bayesian cognition** | multisensory fusion, ventriloquism, cue combination, concept learning | `causal` |
 | **Working memory & mixture models** | continuous report, precision / capacity, swap errors, von Mises mixtures | `wm` |
 | **Evidence accumulation & attractor decision** | 2AFC decisions, RT distributions, speed–accuracy, winner-take-all | `decision`, `sde` |
@@ -433,7 +365,7 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   fix and re-verify.
 
 ```bash
-node skills/model-scope/assets/template/validate.mjs   # → ✓ ALL CHECKS PASSED
+node skills/model-scope/assets/template/validate.mjs   # prints: ALL CHECKS PASSED
 ```
 
 ---
@@ -447,21 +379,21 @@ model-scope/
 │   └── model-gui-builder.md     the subagent that builds an explorer end-to-end
 ├── commands/
 │   ├── scaffold.md              /model-scope:scaffold <dir> [model idea]
-│   └── from-paper.md            /model-scope:from-paper <paper> — interview → build → serve
+│   └── from-paper.md            /model-scope:from-paper <paper> (interview, build, serve)
 ├── skills/paper-to-sim/
-│   └── SKILL.md                 the autonomous flow: ingest reference → interview → build → serve
+│   └── SKILL.md                 the autonomous flow: ingest reference, interview, build, serve
 └── skills/model-scope/
     ├── SKILL.md                 the method (auto-loaded when you ask to build a model GUI)
     ├── references/
     │   ├── architecture.md      the model contract + runtime, in detail
     │   ├── plotting.md          the g API + view recipes + readability conventions
-    │   ├── levels.md            the three-level (step·trial·simulation) method + atomic-step recipe
+    │   ├── levels.md            the per-class angle catalogue (replicate, illuminate, compare)
     │   ├── gui-qc.md            the QC pipeline: static gate + visual checklist + review
     │   └── modelbook/           one file per canonical family + INDEX.md
     └── assets/template/         the app you copy & extend
         ├── README.md            quick-start for the copied app
         ├── index.html           the toolbox — sliders, the loop, the transport (untouched)
-        ├── engine.js            seedable RNG + the MODELS registry   ← you edit this
+        ├── engine.js            seedable RNG + the MODELS registry   (you edit this)
         ├── plot.js              the canvas charting helper g
         ├── modules/mslib.js     optional reusable model library (MSLIB)
         └── validate.mjs         the Node correctness gate
@@ -471,13 +403,10 @@ model-scope/
 
 ## Design lineage
 
-The pattern was distilled from a full DDM/TAFC decision simulator (the *Decision Lab*,
-after Bogacz, Brown, Moehlis, Holmes & Cohen, 2006): a seedable per-trial RNG for instant,
-reproducible, addressable trials; a trial-by-trial player (restart · play · fast-forward ·
-scrub); fixed-axis, Δt-aligned histograms; and a rank-equalised energy-landscape colour map
-(yellow = attractor / valley, blue = ridge) for 2-D models with a bifurcation. `model-scope`
-generalises that one app into a builder for *any* model — see the skill for the full rationale.
+The pattern was distilled from a full drift-diffusion decision simulator (after Bogacz,
+Brown, Moehlis, Holmes & Cohen, 2006) — a seedable per-trial RNG, a trial-by-trial player, and
+fixed-axis histograms — and generalised into a builder for any model.
 
 ---
 
-MIT licensed · © Joonoh Park ([joonop99@snu.ac.kr](mailto:joonop99@snu.ac.kr))
+MIT licensed, Joonoh Park ([joonop99@snu.ac.kr](mailto:joonop99@snu.ac.kr))

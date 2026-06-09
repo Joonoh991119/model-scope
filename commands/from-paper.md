@@ -20,9 +20,9 @@ path or paste the reference before continuing.
 1. **Load the `paper-to-sim` skill** and follow it exactly — it owns the workflow.
 2. **Ingest** the reference(s) in `$ARGUMENTS` (read PDFs with the Read tool's `pages`; transcribe
    the equations/parameters exactly; build the internal model brief).
-3. **Interview** the user with `AskUserQuestion` about purpose, scope, levels (⚛ Step · ◷ Trial ·
-   ∑ Simulation), conditions/comparisons, and constraints — options adapted to the brief, with
-   sensible defaults so a one-round confirm usually suffices.
+3. **Interview** the user with `AskUserQuestion` about purpose, scope, which angles to show (the ones
+   that fit the model's class), what to compare (parameter sweep or model toggle), and constraints —
+   options adapted to the brief, with sensible defaults so a one-round confirm usually suffices.
 4. **Build** the app: scaffold by copying the template directly (perform the scaffold steps — do
    not call another slash command from inside this one), then follow the `model-scope` skill,
    delegating to the `model-gui-builder` agent with the confirmed paper brief + interview contract.
