@@ -88,19 +88,50 @@ The lenses adapt to the model class: a decision/trial model zooms **⚛ Step →
 
 ## What you can build — the examples that ship
 
-The bundled template runs six worked models spanning every idiom — a continuous playhead, a
-process-mode stepper, and the perspective **level switch**:
+The bundled template runs **eight** worked models across computational neuroscience, spanning
+every idiom — a continuous playhead, a process-mode stepper, and the perspective **level switch**:
 
-| Model | Idiom | What you watch |
-|---|---|---|
-| **Drift-diffusion decision** | level switch (⚛◷∑) | ⚛ one update = drift + noise → new evidence · ◷ one trial walks to a bound · ∑ the RT histogram builds up — the worked 3-perspective example |
-| **Early vision — orientation** | level switch (🖼🧱🎯) | 🖼 a noisy grating image · 🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle — an **image-input** model |
-| **Bayesian observer** | continuous | prior · likelihood · posterior on a stimulus axis; an estimate-vs-true *central-tendency* curve (±SD ribbon); trial-to-trial prior updating |
-| **Efficient-coding observer** — Wei & Stocker | process mode | prior → warped encoding *F(θ)* → measurement → skewed likelihood → posterior → estimate → bias & discriminability |
-| **Causal inference** — Körding et al. | process mode | cues → per-hypothesis likelihoods → p(common cause) → branch estimates → combine, with the N-shaped ventriloquism bias |
-| **Working-memory recall** — Bays & Husain | process mode | allocate → encode on a feature wheel → probe → recall → error histogram → target / swap / guess decomposition |
+| Model | Domain | Idiom | What you watch |
+|---|---|---|---|
+| **Drift-diffusion decision** | decision-making | level switch (⚛◷∑) | ⚛ one update = drift + noise → new evidence · ◷ one trial walks to a bound · ∑ the RT histogram builds up — the worked 3-perspective example |
+| **Early vision — orientation** | sensory / image | level switch (🖼🧱🎯) | 🖼 a noisy grating image · 🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle — an **image-input** model |
+| **Spiking neuron (LIF)** | single-neuron biophysics | level switch (◷∑⌁) | ◷ a V(t) trace integrating to threshold · ∑ a spike raster over repeats · ⌁ the f–I transfer curve (+ a refractory **toggle**) |
+| **Reinforcement learning (RW)** | learning | level switch (⚛◷∑) | ⚛ one Rescorla–Wagner update (δ = r − V) · ◷ the value learning curve · ∑ curves across learning rates α |
+| **Bayesian observer** | perception / inference | continuous | prior · likelihood · posterior on a stimulus axis; an estimate-vs-true *central-tendency* curve (±SD ribbon); trial-to-trial prior updating |
+| **Efficient-coding observer** — Wei & Stocker | perception | process mode | prior → warped encoding *F(θ)* → measurement → skewed likelihood → posterior → estimate → bias & discriminability |
+| **Causal inference** — Körding et al. | multisensory | process mode | cues → per-hypothesis likelihoods → p(common cause) → branch estimates → combine, with the N-shaped ventriloquism bias |
+| **Working-memory recall** — Bays & Husain | memory | process mode | allocate → encode on a feature wheel → probe → recall → error histogram → target / swap / guess decomposition |
 
 Copy one, swap in your equations, and it is yours.
+
+---
+
+## A tour of the GUI
+
+One harness, many control + view types — every plot is live, so you build intuition by tuning.
+
+**Trial-level animation** — press ▶ and watch evidence accumulate to a bound (drift-diffusion, ◷ Trial lens):
+
+![drift-diffusion trial animation](docs/ddm-trial.gif)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/ddm-step.png" alt="atomic step decomposition with sliders"><br/><b>Sliders + atomic step.</b> One update split into signal + noise; every parameter is a live slider (⚛ Step lens).</td>
+<td width="50%"><img src="docs/vision-transform.png" alt="oriented filter energy maps"><br/><b>Colormaps + representation level.</b> An input image re-represented as oriented-filter energy maps (early vision, 🧱 Transform lens).</td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/lif-fI.png" alt="LIF f-I curve with a refractory toggle"><br/><b>Toggles + condition sliders.</b> A boolean toggle (refractory on/off) beside sliders; the f–I transfer curve (LIF, ⌁ lens).</td>
+<td width="50%"><img src="docs/lif-raster.png" alt="LIF spike raster"><br/><b>Spike raster.</b> Repeats stack into a raster with the mean firing rate (LIF neuron, ∑ Raster lens).</td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay + legend.</b> Learning curves across learning rates α (reinforcement learning, ∑ Rate-sweep lens).</td>
+<td width="50%"><img src="docs/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram builds up, correct ↑ / error ↓ (drift-diffusion, ∑ Simulation lens).</td>
+</tr>
+</table>
+
+Every state is **deep-linkable** for sharing or screenshots: open `index.html?model=lif&lens=raster&head=30`
+(`model` · `lens` · `head` · `still=1` · `text=`). The **Text size** control on the left rail scales
+every label for talks.
 
 ---
 

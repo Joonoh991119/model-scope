@@ -312,10 +312,11 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 ## How to start
 
 1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs, with
-   six worked examples spanning every idiom — the **lens switch** (a drift-diffusion model zoomed
-   ⚛ Step · ◷ Trial · ∑ Simulation; an **early-vision** image model zoomed 🖼 Input · 🧱 Transform ·
-   🎯 Readout), *continuous* anim (a Bayesian observer with prior updating), and *process mode*
-   `stages` (efficient-coding, causal-inference, and working-memory pipelines).
+   eight worked examples across neuroscience spanning every idiom — the **lens switch** (a
+   drift-diffusion model zoomed ⚛ Step · ◷ Trial · ∑ Simulation; an **early-vision** image model
+   zoomed 🖼 Input · 🧱 Transform · 🎯 Readout; a **LIF spiking neuron** with a refractory toggle; a
+   **Rescorla–Wagner** learner), *continuous* anim (a Bayesian observer with prior updating), and
+   *process mode* `stages` (efficient-coding, causal-inference, and working-memory pipelines).
 2. **Add the model**: pin the equations/parameters, then write ONE `MODELS` entry — its
    `params`, a `simulate` that returns the data the model is about, and a `views` list
    that draws what's intuitive. Add `anim` only if it's sequential.

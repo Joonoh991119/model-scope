@@ -5,12 +5,16 @@ or `python3 -m http.server` if your browser blocks `file://` scripts). Move a sl
 simulation re-runs; the result is shown in **views the model defines** — there is no fixed
 graphic or axis.
 
-Ships with six examples spanning every idiom so you can see the range:
+Ships with eight examples spanning every idiom so you can see the range:
 - **Drift-diffusion decision** *(level switch)* — zoom one model through perspectives: ⚛ Step (one
   update = drift + noise → new evidence) · ◷ Trial (a walk to a bound) · ∑ Simulation (the RT
   histogram builds up). The worked example of the three-level lenses.
 - **Early vision — orientation** *(level switch)* — an **image-input** model: 🖼 the grating image ·
   🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle.
+- **Spiking neuron (LIF)** *(level switch)* — ◷ a V(t) trace to threshold · ∑ a spike raster over
+  repeats · ⌁ the f–I transfer curve, with a refractory-period **toggle**.
+- **Reinforcement learning (RW)** *(level switch)* — ⚛ one Rescorla–Wagner update (δ = r − V) ·
+  ◷ the value learning curve · ∑ curves across learning rates α.
 - **Bayesian observer** *(continuous)* — prior/likelihood/posterior on a stimulus axis, an
   estimate-vs-true *central-tendency* curve (±SD ribbon), and a trial-to-trial prior update.
 - **Efficient-coding observer** *(process mode)* — step through prior → warped encoding F(θ) →

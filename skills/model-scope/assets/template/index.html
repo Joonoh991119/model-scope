@@ -41,6 +41,8 @@ aside.console{border-right:1px solid var(--edge); overflow-y:auto; padding:18px;
 .blurb{font-size:12.5px; color:var(--ink-dim); line-height:1.5} .note{font-size:11.5px; color:var(--ink-dim); line-height:1.5; padding:9px 11px; border-radius:8px; background:var(--accent-soft); border:1px solid rgba(74,122,147,.2); border-left:2px solid var(--accent)}
 .field{display:flex; flex-direction:column; gap:6px} .field .row{display:flex; align-items:baseline; justify-content:space-between; gap:8px} .field label{font-size:12.5px; font-weight:500} .field .unit{color:var(--ink-faint); font-size:11px; font-family:var(--mono)}
 .field .num{width:82px; font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:6px; padding:3px 7px} .field .num:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field .toggle{appearance:none;-webkit-appearance:none;width:38px;height:21px;border-radius:11px;background:var(--edge-2);position:relative;cursor:pointer;transition:.15s;flex:0 0 auto;margin:0}
+.field .toggle:checked{background:var(--accent)} .field .toggle::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.15s} .field .toggle:checked::after{left:19px}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;cursor:pointer;margin:6px 0 2px;background:linear-gradient(90deg,var(--accent) 0 var(--fill,50%),var(--edge-2) var(--fill,50%) 100%)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.12);cursor:pointer}
 input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer}
@@ -117,6 +119,9 @@ const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:'model-scope', data:null, 
 // activeSpec() is the object that supplies views/anim/stages right now: the active lens, or the model itself.
 function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+// optional deep-link state: ?model=&lens=&head=&still=1&text=  (applied once on load — lets you share/screenshot an exact view)
+const Q=(()=>{ try{ const o={}, p=new URLSearchParams(location.search); for(const[k,v] of p) o[k]=v; return o; }catch(e){ return {}; } })();
+let qFirst=true;
 
 function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
   SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId); b.onclick=()=>setModel(id); nav.appendChild(b); }); }
@@ -129,7 +134,14 @@ function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.i
 function switchLens(k){ if(k===S.lens) return; S.lens=k; stopAll();
   [...$('#lensSwitch').querySelectorAll('button')].forEach(b=>b.setAttribute('aria-pressed', b.textContent===(S.model.lenses[k].label||k)));
   bindLens(); }   // same data, different zoom level — no re-simulate
-function makeField(spec,obj,onChange){ const wrap=document.createElement('div'); wrap.className='field';
+function makeField(spec,obj,onChange){
+  if(spec.type==='bool'){ const wrap=document.createElement('div'); wrap.className='field';     // boolean → a toggle switch
+    const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=spec.label||spec.name; lab.htmlFor='f_'+spec.name;
+    const sw=document.createElement('input'); sw.type='checkbox'; sw.className='toggle'; sw.id='f_'+spec.name;
+    sw.checked = obj[spec.name]!==undefined ? !!obj[spec.name] : !!spec.default; obj[spec.name]=sw.checked;
+    sw.addEventListener('change',()=>{ obj[spec.name]=sw.checked; onChange&&onChange(); });
+    row.appendChild(lab); row.appendChild(sw); wrap.appendChild(row); return wrap; }
+  const wrap=document.createElement('div'); wrap.className='field';
   const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=spec.label||spec.name; lab.htmlFor='f_'+spec.name;
   const num=document.createElement('input'); num.className='num'; num.type='number'; num.min=spec.min; num.max=spec.max; num.step=spec.step; num.id='f_'+spec.name;
   if(spec.unit){ const u=document.createElement('span'); u.className='unit'; u.textContent=spec.unit; lab.appendChild(document.createTextNode(' ')); lab.appendChild(u); }
@@ -142,7 +154,8 @@ function makeField(spec,obj,onChange){ const wrap=document.createElement('div');
   num.addEventListener('blur',()=>apply(parseFloat(num.value)||spec.default)); apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
 function setModel(id){ S.suppress=true; stopAll(); S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
   [...$('#modelTabs').children].forEach(b=>b.setAttribute('aria-pressed',b.textContent===m.name));
-  S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? S.lensKeys[0] : null; buildLensSwitch();
+  S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? S.lensKeys[0] : null;
+  if(qFirst && Q.lens && m.lenses && m.lenses[Q.lens]) S.lens=Q.lens; buildLensSwitch();
   $('#blurb').textContent=m.blurb||''; $('#note').textContent=m.note||'';
   const box=$('#paramFields'); box.innerHTML=''; S.params={}; (m.params||[]).forEach(p=>S.params[p.name]=p.default); (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
   S.suppress=false; recompute(); }
@@ -166,6 +179,8 @@ function bindLens(){ const spec=activeSpec(); S.views=spec.views||[]; buildCards
   $('#transport').style.display = seq ? 'flex' : 'none';
   $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
   const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; }
+  const useQ = qFirst && (Q.still==='1' || Q.head!=null); qFirst=false;       // deep-link: freeze at a requested frame for a clean screenshot
+  if(useQ){ S.head = Q.head!=null ? clamp(parseFloat(Q.head), 0, S.maxHead) : S.maxHead; readout(); drawAll(); return; }
   S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
   readout(); if(seq && !reduceMotion){ play(); } else { drawAll(); } }
 function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, Math.floor(S.head))) : null;
@@ -192,7 +207,7 @@ function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value
 function pico(){ $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
 
 $('#runBtn').onclick=()=>recompute();
-$('#resetBtn').onclick=()=>{ S.suppress=true; stopAll(); (S.model.params||[]).forEach(p=>{const f=$('#f_'+p.name); if(f){f.value=p.default; f.dispatchEvent(new Event('input'));}}); $('#seedInput').value='model-scope'; S.suppress=false; recompute(); };
+$('#resetBtn').onclick=()=>{ S.suppress=true; stopAll(); (S.model.params||[]).forEach(p=>{const f=$('#f_'+p.name); if(!f)return; if(f.type==='checkbox'){ f.checked=!!p.default; f.dispatchEvent(new Event('change')); } else { f.value=p.default; f.dispatchEvent(new Event('input')); }}); $('#seedInput').value='model-scope'; S.suppress=false; recompute(); };
 $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
 $('#playBtn').onclick=()=>{ if(S.playing)pause(); else play(); };
@@ -213,6 +228,8 @@ window.__redraw=()=>drawAll();
 window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; el.classList.toggle('on',!!on);
   if(on){ const b=$('#loadingBar'); if(b)b.style.width=Math.round((prog||0)*100)+'%'; const s=$('#loadingSub'); if(s)s.textContent=label||(Math.round((prog||0)*100)+'%'); } };
 
+if(Q.text){ const ts=parseFloat(Q.text); if(ts>0){ window.__plotFontScale=ts; const f=$('#fontScale'); if(f)f.value=ts; const fv=$('#fontScaleVal'); if(fv)fv.textContent=Math.round(ts*100)+'%'; } }
+if(Q.model && SIM.MODELS[Q.model]) S.modelId=Q.model;
 buildModelTabs(); setModel(S.modelId);
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawAll);
 })();

@@ -470,8 +470,94 @@
           }} ] },
       },
     },
+
+    /* ---- single-neuron biophysics: leaky integrate-and-fire (composed from MSLIB.neuron) ---- */
+    lif: {
+      id:'lif', name:'Spiking neuron (LIF)',
+      blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the LEVEL switch: ◷ one V(t) trace · ∑ a spike raster over repeats · ⌁ the f–I transfer curve. Move the current / noise / membrane sliders.',
+      note:'dV/dt = (−(V−EL) + R·I)/τ with a hard threshold→reset (Vth→Vreset) and a refractory period. Stronger current → faster charging → higher rate (the f–I curve); current noise jitters spike times (the raster); toggle the refractory period off and the f–I curve loses its ceiling. A canonical single-neuron model, composed from MSLIB.neuron.',
+      params:[
+        {name:'I', label:'Input current I (condition)', min:0, max:0.8, step:0.005, default:0.35, unit:'nA'},
+        {name:'sigma', label:'Current noise σ', min:0, max:0.3, step:0.005, default:0.06, unit:'nA'},
+        {name:'tau', label:'Membrane τ', min:5, max:40, step:1, default:20, unit:'ms'},
+        {name:'reps', label:'Repeats (raster)', min:5, max:60, step:1, default:30, int:true},
+        {name:'refrac', label:'Refractory period (toggle)', type:'bool', default:true},
+      ],
+      simulate:(p, env)=>{ const ML=global.MSLIB.neuron, dt=0.0005, T=0.5, nS=Math.round(T/dt), pr={...ML.LIF_DEFAULT, tau:p.tau/1000, tref: p.refrac===false?0:ML.LIF_DEFAULT.tref};
+        const rng0=trialRng(env.seed,0), v=new Float64Array(nS), tm=new Float64Array(nS), sp0=[]; { const s={v:pr.EL,refr:0};
+          for(let k=0;k<nS;k++){ const fired=ML.lifStep(s, p.I + p.sigma*gaussian(rng0), pr, dt); v[k]=fired?4:s.v; tm[k]=k*dt; if(fired) sp0.push(k*dt); } }
+        const reps=Math.round(p.reps), raster=[]; let totSp=0;
+        for(let r=0;r<reps;r++){ const rng=trialRng(env.seed,r+1), s={v:pr.EL,refr:0}, row=[];
+          for(let k=0;k<nS;k++){ if(ML.lifStep(s, p.I + p.sigma*gaussian(rng), pr, dt)) row.push(k*dt); } raster.push(row); totSp+=row.length; }
+        const fI=[]; for(let i=0;i<=24;i++){ const I=i*0.8/24, s={v:pr.EL,refr:0}; let n=0; for(let k=0;k<nS;k++) if(ML.lifStep(s,I,pr,dt)) n++; fI.push([I, n/T]); }
+        return { dt, T, nS, v, tm, sp0, raster, reps, rate:totSp/(reps*T), fI, I:p.I, pr, vmin:pr.Vreset-3 };
+      },
+      lenses:{
+        trace:{ label:'◷ V(t) trace', about:'one trial: the membrane integrates current and fires when it reaches threshold',
+          anim:{ length:(p,d)=>d.nS },
+          views:[ { title:'membrane potential V(t)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nS-1,Math.floor(ui.head));
+            g.frame({x:[0,d.T], y:[d.vmin,6], xlabel:'time (s)', ylabel:'V (mV)', title:'integrate → spike → reset'});
+            g.hline(d.pr.Vth,{color:T.warn,dash:[5,4],label:'threshold'}); g.hline(d.pr.EL,{color:'rgba(80,75,65,.25)',dash:[2,3],label:'rest'});
+            const pts=[]; for(let i=0;i<=k;i++) pts.push([d.tm[i],d.v[i]]); g.line(pts,{color:T.accent,width:1.7});
+          }} ] },
+        raster:{ label:'∑ Raster', about:'many repeats → spike raster + the mean firing rate',
+          anim:{ length:(p,d)=>d.reps },
+          views:[ { title:'spike raster over repeats', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.reps,Math.floor(ui.head));
+            g.frame({x:[0,d.T], y:[0,d.reps], xlabel:'time (s)', ylabel:'repeat #', title:`raster — mean rate ${d.rate.toFixed(1)} Hz`});
+            g.raster(d.raster.slice(0,k),{color:T.ink,width:1.2});
+          }} ] },
+        fI:{ label:'⌁ f–I curve', about:'firing rate vs input current — the neuron’s transfer function',
+          views:[ { title:'f–I transfer curve', draw:(g,d)=>{ const T=TH(), ymax=Math.max(10,...d.fI.map(q=>q[1]))*1.12;
+            g.frame({x:[0,0.8], y:[0,ymax], xlabel:'input current I (nA)', ylabel:'firing rate (Hz)', title:'rate rises with current (rheobase, then ~linear)'});
+            g.line(d.fI,{color:T.accent,width:2}); g.points(d.fI,{color:T.accent,r:2.4}); g.vline(d.I,{color:T.pos,dash:[5,4],label:'current I'});
+          }} ] },
+      },
+    },
+
+    /* ---- learning: Rescorla–Wagner value updating (composed from MSLIB.rl) ---- */
+    rl: {
+      id:'rl', name:'Reinforcement learning (RW)',
+      blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the LEVEL switch: ⚛ one update decomposed · ◷ the learning curve · ∑ how the learning rate α changes it.',
+      note:'V ← V + α·(r − V). The prediction error δ = r − V is the teaching signal; α sets how fast V tracks the reward probability (its asymptote ≈ p). Small α = slow & stable; large α = fast & jittery. Composed from MSLIB.rl.',
+      params:[
+        {name:'alpha', label:'Learning rate α (condition)', min:0.01, max:0.9, step:0.01, default:0.2},
+        {name:'pRew', label:'Reward probability', min:0, max:1, step:0.01, default:0.7},
+        {name:'nTrials', label:'Trials', min:20, max:300, step:5, default:120, int:true},
+      ],
+      simulate:(p, env)=>{ const ML=global.MSLIB.rl, n=Math.round(p.nTrials), rng=trialRng(env.seed,0);
+        const V=new Float64Array(n+1), r=new Int8Array(n), delta=new Float64Array(n);
+        for(let t=0;t<n;t++){ r[t]=rng()<p.pRew?1:0; delta[t]=r[t]-V[t]; V[t+1]=ML.rescorlaWagner(V[t], r[t], p.alpha); }
+        const alphas=[0.05,0.2,0.6], curves=alphas.map(a=>{ const vv=new Float64Array(n+1), rg=trialRng(env.seed,0); for(let t=0;t<n;t++){ const rr=rg()<p.pRew?1:0; vv[t+1]=ML.rescorlaWagner(vv[t],rr,a); } return {a, vv}; });
+        return { n, V, r, delta, pRew:p.pRew, alpha:p.alpha, curves };
+      },
+      lenses:{
+        update:{ label:'⚛ Update', about:'one trial: the prediction error δ = r − V nudges V by α·δ',
+          anim:{ length:(p,d)=>d.n },
+          views:[ { title:'one update: V′ = V + α·(r − V)', draw:(g,d,ui)=>{ const T=TH(), t=Math.min(d.n-1,Math.floor(ui.head)), V=d.V[t], r=d.r[t], dl=d.delta[t], Vn=d.V[t+1];
+            g.frame({x:[-0.1,1.1], y:[-0.6,3.6], yticks:1, xlabel:'value / reward', title:`trial ${t+1}: reward ${r} → δ = ${dl.toFixed(2)}`});
+            g.text(-0.1,3,'V',{color:T.dim,size:10}); g.marker(V,3,{color:T.ink,r:4.5,label:V.toFixed(2)});
+            g.text(-0.1,2,'reward r',{color:T.dim,size:10}); g.marker(r,2,{color:r?T.pos:T.neg,r:4.5,label:String(r)});
+            g.text(-0.1,1,'+ α·δ',{color:T.dim,size:10}); g.arrow(V,1,Vn,1,{color:T.accent,label:`${dl>=0?'+':''}${(d.alpha*dl).toFixed(3)}`});
+            g.text(-0.1,0,'V′',{color:T.dim,size:10}); g.marker(Vn,0,{color:T.ink,r:4.5,label:Vn.toFixed(2)});
+          }} ] },
+        learn:{ label:'◷ Learning', about:'the value tracks the reward probability over trials',
+          anim:{ length:(p,d)=>d.n },
+          views:[ { title:'learning curve V(trial)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head));
+            g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:`α=${d.alpha} → V approaches reward prob ${d.pRew}`});
+            g.hline(d.pRew,{color:T.warn,dash:[5,4],label:'reward prob'});
+            const pts=[]; for(let i=0;i<=k;i++) pts.push([i,d.V[i]]); g.line(pts,{color:T.accent,width:2});
+          }} ] },
+        rate:{ label:'∑ Rate sweep', about:'how the learning rate α changes speed and stability',
+          views:[ { title:'learning curves across α', draw:(g,d)=>{ const T=TH(), cols=['#86b0c4','#4a7a93','#c25b42'];
+            g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:'small α = slow & smooth · large α = fast & jittery'});
+            g.hline(d.pRew,{color:T.warn,dash:[5,4],label:'reward prob'});
+            d.curves.forEach((c,i)=>{ const pts=[]; for(let t=0;t<=d.n;t++) pts.push([t,c.vv[t]]); g.line(pts,{color:cols[i],width:1.8}); });
+            g.legend(d.curves.map((c,i)=>({label:'α='+c.a,color:cols[i]})),{corner:'br'});
+          }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','vision'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','vision','lif','rl'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

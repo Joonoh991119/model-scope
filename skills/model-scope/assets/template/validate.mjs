@@ -54,6 +54,24 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  vision: worst orientation decode error = ${worst.toFixed(1)}° (clean grating)   [${ok(worst < 25)}]`);
 }
 
+// LIF neuron: the f–I curve is monotonic and fires above rheobase, silent at I=0
+{
+  const m = SIM.MODELS.lif, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('lif'));
+  const mono = d.fI.every((q,i)=> i===0 || q[1] >= d.fI[i-1][1] - 1e-9), silent = d.fI[0][1] === 0, hi = d.fI[d.fI.length-1][1];
+  console.log(`  LIF: f–I monotonic & fires above rheobase (0→${hi.toFixed(0)} Hz, silent at I=0=${silent})   [${ok(mono && silent && hi > 5)}]`);
+}
+
+// Rescorla–Wagner: the value TRACKS the reward probability (single-point V is exponentially-weighted
+// and noisy, so check the time-average of V over the second half, which converges to p)
+{
+  const m = SIM.MODELS.rl, p = {}; m.params.forEach(s => p[s.name] = s.default); p.nTrials = 300; p.alpha = 0.12;
+  const d = m.simulate(p, env('rl'));
+  let s = 0, c = 0; for (let t = Math.floor(d.n/2); t <= d.n; t++) { s += d.V[t]; c++; }
+  const meanV = s/c;
+  console.log(`  RW: time-averaged V → reward prob (mean=${meanV.toFixed(2)} vs p=${d.pRew})   [${ok(Math.abs(meanV - d.pRew) < 0.1)}]`);
+}
+
 // ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {
