@@ -83,6 +83,22 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  compare: chance@A=0 [${ok(chance)}]   DDM accuracy monotonic in bound [${ok(mono)}]   accuracy heatmap∈[0.5,1] [${ok(inb)}]`);
 }
 
+// Attractor network: strong + coherence drives pool 1 to win (winner-take-all), and a decision is reached
+{
+  const m = SIM.MODELS.attractor, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  let win1 = 0, decided = 0; for (let k = 0; k < 8; k++) { const d = m.simulate({ ...p, coh: 25 }, env('att'+k)); if (d.decT > 0) decided++; if (d.win === 1) win1++; }
+  console.log(`  attractor: pool 1 wins at +25% coh ${win1}/8, decided ${decided}/8   [${ok(win1 >= 6 && decided >= 6)}]`);
+}
+
+// Spatial SIR: epidemic threshold at R0=1 — below it the outbreak fizzles, above it a real peak; sweep is monotonic
+{
+  const m = SIM.MODELS.sir, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('sir'));
+  const below = d.sweep.find(q => q[0] <= 0.8), above = d.sweep[d.sweep.length-1];
+  const mono = d.sweep.every((q,i)=> i===0 || q[1] >= d.sweep[i-1][1] - 1e-6);
+  console.log(`  SIR: peak below R₀=1 = ${(below[1]*100).toFixed(1)}% « above = ${(above[1]*100).toFixed(0)}%; threshold monotonic [${ok(below[1] < 0.02 && above[1] > 0.2 && mono && d.peakI > 0.05)}]`);
+}
+
 // ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {

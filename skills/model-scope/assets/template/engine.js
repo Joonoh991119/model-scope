@@ -624,8 +624,111 @@
           }} ] },
       },
     },
+
+    /* ---- NETWORK-level exemplar: a 2-population attractor decision circuit (Wong–Wang reduced,
+       MSLIB.decision). Realises the energy-landscape recipe and shows network perspectives:
+       ⚛ Step (one pool's recurrent input decomposed) · ◷ Dynamics (the pools race) · ⎇ Landscape. */
+    attractor: {
+      id:'attractor', name:'Attractor network — decision',
+      blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias + noise tips the network into one of two attractors. Use the LEVEL switch: ⚛ Step (one pool’s recurrent input, decomposed) · ◷ Dynamics (the pools race to a winner) · ⎇ Landscape (the state-space the network rolls down).',
+      note:'Each pool’s gating S obeys dS/dt = −S/τ_S + (1−S)·γ·φ(I), with input I = J_s·S_self − J_c·S_other + I₀ + stimulus + noise — self-excitation vs cross-inhibition is the competition. Strong cross-inhibition J_c destabilises the symmetric state → two stable attractors (winner-take-all); coherence biases which one wins. The Landscape lens maps the flow speed over (S₁,S₂): dark = slow = near a fixed point. Composed from MSLIB.decision.',
+      params:[
+        {name:'coh', label:'Coherence (condition, + favors pool 1)', min:-40, max:40, step:1, default:8, unit:'%'},
+        {name:'Jc', label:'Cross-inhibition J_c', min:0, max:0.12, step:0.001, default:0.0497},
+        {name:'sigma', label:'Noise σ', min:0, max:0.05, step:0.001, default:0.02},
+      ],
+      simulate:(p, env)=>{ const D=global.MSLIB.decision, WW=D.WW, phi=D.phi, dt=0.0005, T=1.0, nS=Math.round(T/dt), STORE=10, thr=15;
+        const rng=makeRNG(env.seed+'#'+(p.coh|0)), g=()=>gaussian(rng);
+        const s={S1:0.1,S2:0.1,In1:0,In2:0}, t=[], r1=[], r2=[], s1=[], s2=[]; let decT=-1, win=0;
+        for(let k=0;k<=nS;k++){ const o=D.wwStep(s,{coh:p.coh,Jc:p.Jc,sigma:p.sigma},dt,g);
+          if(k%STORE===0){ t.push(k*dt); r1.push(o.r1); r2.push(o.r2); s1.push(s.S1); s2.push(s.S2); }
+          if(decT<0 && Math.max(o.r1,o.r2)>=thr){ decT=k*dt; win=o.r1>o.r2?1:2; } }
+        const NG=40, stim1=WW.JAext*WW.mu0*(1+p.coh/100), stim2=WW.JAext*WW.mu0*(1-p.coh/100), flow=new Float64Array(NG*NG); let fmax=1e-9;
+        const der=(Sa,Sb,stim)=>{ const I=WW.Js*Sa - p.Jc*Sb + WW.I0 + stim, r=phi(I,WW.a,WW.b,WW.d); return -Sa/WW.tauS + (1-Sa)*WW.gamma*r; };
+        for(let i=0;i<NG;i++){ const S1=i/(NG-1); for(let j=0;j<NG;j++){ const S2=j/(NG-1);
+          const sp=Math.hypot(der(S1,S2,stim1), der(S2,S1,stim2)); flow[j*NG+i]=sp; if(sp>fmax)fmax=sp; } }
+        return { t, r1, r2, s1, s2, nF:t.length, decT, win, thr, flow, NG, fmax, coh:p.coh, Jc:p.Jc, WW, phi, stim1 };
+      },
+      lenses:{
+        step:{ label:'⚛ Step', about:'one pool’s recurrent input: self-excitation − cross-inhibition + drive → rate',
+          anim:{ length:(p,d)=>d.nF },
+          views:[ { title:'pool 1 input: I₁ = Js·S₁ − Jc·S₂ + drive', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), W=d.WW;
+            const S1=d.s1[k], S2=d.s2[k], self=W.Js*S1, cross=-d.Jc*S2, drive=W.I0+d.stim1, I1=self+cross+drive, r1=d.phi(I1,W.a,W.b,W.d);
+            const lo=Math.min(0,self+cross)-0.04, hi=Math.max(I1,self)+0.06;
+            g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'input current to pool 1', title:`step ${k+1}: self-excite vs cross-inhibit → r₁ = ${r1.toFixed(0)} Hz`});
+            g.text(lo,3,'self +Js·S₁',{color:T.dim,size:10}); g.arrow(0,3,self,3,{color:T.pos,label:'+'+self.toFixed(3)});
+            g.text(lo,2,'cross −Jc·S₂',{color:T.dim,size:10}); g.arrow(self,2,self+cross,2,{color:T.neg,label:cross.toFixed(3)});
+            g.text(lo,1,'+ drive',{color:T.dim,size:10}); g.arrow(self+cross,1,I1,1,{color:T.accent,label:'+'+drive.toFixed(3)});
+            g.text(lo,0,'= I₁',{color:T.dim,size:10}); g.marker(I1,0,{color:T.ink,r:4.5,label:I1.toFixed(3)});
+          }} ] },
+        dynamics:{ label:'◷ Dynamics', about:'the two pools race; strong cross-inhibition makes one win',
+          anim:{ length:(p,d)=>d.nF },
+          views:[ { title:'pool rates r₁, r₂ over time', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.t[d.nF-1]||1, ymax=Math.max(40, Math.max(...d.r1), Math.max(...d.r2))*1.1;
+            g.frame({x:[0,tE], y:[0,ymax], xlabel:'time (s)', ylabel:'rate (Hz)', title:'winner-take-all: one pool rises, the other is suppressed'});
+            g.hline(d.thr,{color:'#7a5a93',dash:[5,4],label:'decision threshold'});
+            const p1=[],p2=[]; for(let i=0;i<=k;i++){ p1.push([d.t[i],d.r1[i]]); p2.push([d.t[i],d.r2[i]]); }
+            g.line(p1,{color:T.pos,width:2.2}); g.line(p2,{color:T.neg,width:2.2});
+            if(d.decT>=0 && d.t[k]>=d.decT) g.vline(d.decT,{color:T.ink,label:'decided · pool '+d.win});
+            g.legend([{label:'pool 1',color:T.pos},{label:'pool 2',color:T.neg}],{corner:'tl'});
+          }} ] },
+        landscape:{ label:'⎇ Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
+          views:[ { title:'state-space flow (dark = attractor) + this trajectory', draw:(g,d)=>{ const T=TH();
+            const cmap=v=>{ const tt=Math.max(0,Math.min(1,v/(d.fmax||1))); return [Math.round(40+205*tt), Math.round(38+198*tt), Math.round(72+165*tt)]; };
+            g.frame({x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
+            g.heat(d.NG, d.NG, (i,j)=>d.flow[j*d.NG+i], cmap);
+            g.line([[0,0],[1,1]],{color:'rgba(255,255,255,.35)',dash:[3,3]});
+            const path=[]; for(let i=0;i<d.nF;i++) path.push([d.s1[i],d.s2[i]]); g.line(path,{color:'#fff',width:2});
+            g.marker(d.s1[0],d.s2[0],{color:T.dim,stroke:'#fff',r:4}); g.marker(d.s1[d.nF-1],d.s2[d.nF-1],{color:d.win===1?T.pos:T.neg,stroke:'#fff',r:5,label:'pool '+d.win});
+            g.colorbar(0,d.fmax,cmap,{label:'|dS/dt|'});
+          }} ] },
+      },
+    },
+
+    /* ---- MACRO-level exemplar: a spatial SIR epidemic on a 1-D line of sites (reaction–diffusion).
+       A different scale entirely (no neurons, no trials) — perspectives fit a population/field model:
+       🗺 Spread (space×time kymograph) · 〰 Curve (well-mixed totals) · ⎇ Threshold (peak vs R₀). */
+    sir: {
+      id:'sir', name:'Epidemic (spatial SIR)',
+      blurb:'A population model at the MACRO scale: Susceptible→Infected→Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the LEVEL switch: 🗺 Spread (the epidemic as a space×time map) · 〰 Curve (the classic S/I/R totals) · ⎇ Threshold (how the peak depends on R₀). Move R₀, γ, and spread.',
+      note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion). β = R₀·γ. Below the epidemic THRESHOLD R₀=1 the outbreak fizzles; above it, a travelling wave sweeps the line (🗺) and the well-mixed curve shows the familiar infected peak (〰). The ⎇ lens traces peak prevalence vs R₀ — flat then rising sharply past 1. Same harness, perspectives chosen for a field/population model (no atomic-trial here).',
+      params:[
+        {name:'R0', label:'Basic reproduction number R₀ (condition)', min:0, max:4, step:0.05, default:2.5},
+        {name:'gamma', label:'Recovery rate γ', min:0.05, max:0.5, step:0.01, default:0.12, unit:'/day'},
+        {name:'D', label:'Spatial spread (diffusion)', min:0, max:0.5, step:0.01, default:0.18},
+      ],
+      simulate:(p, env)=>{ const N=60, dt=0.1, T=150, nS=Math.round(T/dt), STORE=8, beta=p.R0*p.gamma;
+        let S=new Float64Array(N).fill(1), I=new Float64Array(N), R=new Float64Array(N);
+        const c=(N/2)|0; S[c]-=0.02; I[c]=0.02;
+        const kymo=[], times=[], totS=[], totI=[], totR=[]; let peakI=0, iMax=1e-6;
+        for(let k=0;k<=nS;k++){ if(k%STORE===0){ kymo.push(Float64Array.from(I)); times.push(k*dt); let s=0,ii=0,r=0; for(let x=0;x<N;x++){ s+=S[x]; ii+=I[x]; r+=R[x]; if(I[x]>iMax)iMax=I[x]; } totS.push(s/N); totI.push(ii/N); totR.push(r/N); if(ii/N>peakI)peakI=ii/N; }
+          const nS_=new Float64Array(N), nI=new Float64Array(N), nR=new Float64Array(N);
+          for(let x=0;x<N;x++){ const xl=(x-1+N)%N, xr=(x+1)%N, Itil=I[x]+p.D*(I[xl]+I[xr]-2*I[x]), inf=Math.max(0,beta*S[x]*Itil), rec=p.gamma*I[x];
+            nS_[x]=Math.max(0,S[x]-dt*inf); nI[x]=Math.max(0,I[x]+dt*(inf-rec)); nR[x]=R[x]+dt*rec; }
+          S=nS_; I=nI; R=nR; }
+        const sweep=[]; for(let i=0;i<=40;i++){ const R0=4*i/40, b=R0*p.gamma; let s=0.999,ii=0.001,pk=0; for(let k=0;k<2400;k++){ const inf=b*s*ii, rec=p.gamma*ii; s=Math.max(0,s-dt*inf); ii=Math.max(0,ii+dt*(inf-rec)); if(ii>pk)pk=ii; } sweep.push([R0,pk]); }
+        return { N, kymo, times, totS, totI, totR, nF:times.length, peakI, iMax, sweep, R0:p.R0, gamma:p.gamma, T };
+      },
+      lenses:{
+        spread:{ label:'🗺 Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
+          views:[ { title:'infected fraction over space (x) and time', draw:(g,d)=>{ const T=TH();
+            const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.iMax||1))); return [Math.round(245-20*t), Math.round(245-205*t), Math.round(232-150*t)]; }; // cream→deep red
+            g.frame({x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
+            g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap);
+            g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
+        curve:{ label:'〰 Curve', about:'the well-mixed S / I / R totals — the classic epidemic curve',
+          views:[ { title:'population fractions S, I, R over time', draw:(g,d)=>{ const T=TH(), tE=d.times[d.nF-1]||1;
+            g.frame({x:[0,tE], y:[0,1.02], xlabel:'time (days)', ylabel:'fraction of population', title:'peak infected = '+(d.peakI*100).toFixed(0)+'% (R₀='+d.R0.toFixed(2)+')'});
+            const mk=a=>a.map((v,i)=>[d.times[i],v]); g.line(mk(d.totS),{color:T.accent,width:2}); g.line(mk(d.totI),{color:T.neg,width:2.4}); g.line(mk(d.totR),{color:T.pos,width:2});
+            g.legend([{label:'S susceptible',color:T.accent},{label:'I infected',color:T.neg},{label:'R recovered',color:T.pos}],{corner:'tr'}); }} ] },
+        threshold:{ label:'⎇ Threshold', about:'peak prevalence vs R₀ — flat below 1, rising sharply above',
+          views:[ { title:'epidemic threshold: peak infected vs R₀', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.05,...d.sweep.map(q=>q[1]))*1.12;
+            g.frame({x:[0,4], y:[0,ymax], xlabel:'basic reproduction number R₀', ylabel:'peak infected fraction', title:'no outbreak below R₀ = 1; epidemic above'});
+            g.vline(1,{color:'#7a5a93',dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
+            g.marker(d.R0, (function(){ let best=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.R0)<Math.abs(best[0]-d.R0)) best=q; return best[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);
