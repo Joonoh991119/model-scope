@@ -6,32 +6,32 @@ simulation re-runs; the result is shown in **views the model defines** — there
 graphic or axis.
 
 Ships with eleven examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
-macro) and every idiom, so you can see the range:
-- **Drift-diffusion decision** *(level switch)* — zoom one model through perspectives: ⚛ Step (one
-  update = drift + noise → new evidence) · ◷ Trial (a walk to a bound) · ∑ Simulation (the RT
-  histogram builds up). The worked example of the three-level lenses.
+macro) and every idiom, so you can see the range. Each model is replicated and shown from the angles
+that fit its class; the payoff is comparing what changes across parameters and model choices.
+- **Drift-diffusion decision** *(level switch)* — the angles: one update (drift plus noise), one trial
+  walking to a bound, and the RT histogram over many trials.
 - **Decision: integrate vs one sample** *(toggle + heatmap)* — compare two models via a toggle: a
-  speed–accuracy overlay, a metric heatmap over (drift × noise), and accuracy/speed/reward bars.
-- **Attractor network — decision** *(level switch)* — a recurrent 2-pool circuit: ⚛ one pool's input ·
-  ◷ winner-take-all dynamics · ⎇ the (S₁,S₂) energy-landscape heatmap.
-- **Epidemic (spatial SIR)** *(level switch)* — a macro model: 🗺 a space×time kymograph · 〰 the
-  S/I/R curves · ⎇ peak vs R₀ (the epidemic threshold).
-- **Early vision — orientation** *(level switch)* — an **image-input** model: 🖼 the grating image ·
-  🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle.
-- **Spiking neuron (LIF)** *(level switch)* — ◷ a V(t) trace to threshold · ∑ a spike raster over
-  repeats · ⌁ the f–I transfer curve, with a refractory-period **toggle**.
-- **Reinforcement learning (RW)** *(level switch)* — ⚛ one Rescorla–Wagner update (δ = r − V) ·
-  ◷ the value learning curve · ∑ curves across learning rates α.
-- **Bayesian observer** *(continuous)* — prior/likelihood/posterior on a stimulus axis, an
-  estimate-vs-true *central-tendency* curve (±SD ribbon), and a trial-to-trial prior update.
-- **Efficient-coding observer** *(process mode)* — step through prior → warped encoding F(θ) →
-  measurement → skewed likelihood → posterior → estimate → bias & discriminability (Wei & Stocker).
-- **Causal inference** *(process mode)* — cues → hypothesis likelihoods → p(C=1) → branch
-  estimates → combine, with the N-shaped ventriloquism bias (Körding et al.).
-- **Working-memory recall** *(process mode)* — allocate → encode on a feature wheel → probe →
-  recall → accumulate the error histogram → decompose into target/swap/guess (Bays & Husain).
+  speed-accuracy overlay, a metric heatmap over a (drift, noise) grid, and metric bars.
+- **Attractor network — decision** *(level switch)* — structure first: the circuit wiring and E/I,
+  then one pool's input, winner-take-all dynamics, and the (S1, S2) energy-landscape heatmap.
+- **Epidemic (spatial SIR)** *(level switch)* — a macro model: a space-time kymograph, the S/I/R
+  curves, and peak prevalence vs R0 (the epidemic threshold).
+- **Early vision — orientation** *(level switch)* — an image-input model: the grating image, oriented
+  Gabor energy channels re-representing it, and the orientation tuning with the decoded angle.
+- **Spiking neuron (LIF)** *(level switch)* — a V(t) trace to threshold, a spike raster over repeats,
+  and the f-I transfer curve, with a refractory-period **toggle**.
+- **Reinforcement learning (RW)** *(level switch)* — one Rescorla-Wagner update (δ = r − V), the value
+  learning curve, and curves across learning rates α.
+- **Bayesian observer** *(continuous)* — prior, likelihood, posterior on a stimulus axis, an
+  estimate-vs-true central-tendency curve (with an SD ribbon), and a trial-to-trial prior update.
+- **Efficient-coding observer** *(process mode)* — step through prior, warped encoding F(θ),
+  measurement, skewed likelihood, posterior, estimate, and bias vs discriminability (Wei & Stocker).
+- **Causal inference** *(process mode)* — cues, hypothesis likelihoods, p(C=1), branch estimates,
+  and combine, with the ventriloquism bias (Körding et al.).
+- **Working-memory recall** *(process mode)* — allocate, encode on a feature wheel, probe, recall,
+  accumulate the error histogram, and decompose into target / swap / guess (Bays & Husain).
 
-The process-mode models use `stages` instead of `anim`: the transport becomes a ◀ ▶ stepper
+The process-mode models use `stages` instead of `anim`: the transport becomes a step-by-step stepper
 and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the pipeline strip.
 
 ## Files
@@ -39,9 +39,9 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   `raster`, `vline`, `flow` (process strip), … Each view defines its own axes. Rarely edited.
 - `engine.js` — pure math: RNG + the `MODELS` registry. **This is what you edit.**
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
-  play/scrub transport (or ◀ ▶ stage stepper for `stages` models), and the view grid. Untouched.
-- `modules/mslib.js` — optional reusable library (`MSLIB`: `sde·bayes·neuron·decision·rl·psy·
-  efficient·causal·wm`) of canonical building blocks you compose inside `simulate()`.
+  play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
+- `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
+  efficient, causal, wm`) of canonical building blocks you compose inside `simulate()`.
 - `validate.mjs` — `node validate.mjs` checks each model runs and is sane (+ the `mslib` blocks).
 
 ## Add your model — one registry entry

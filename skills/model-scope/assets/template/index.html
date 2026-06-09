@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>model-scope · interactive model explorer</title>
+<title>model-scope — interactive model explorer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -63,7 +63,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 <body>
 <div class="app">
   <header class="topbar">
-    <div class="brand"><b>model-scope</b> · move a slider, watch the result change</div>
+    <div class="brand"><b>model-scope</b> — move a slider, watch the result change</div>
     <nav class="models" id="modelTabs" aria-label="Model"></nav>
     <div class="tip" id="tip"></div>
   </header>
@@ -170,7 +170,7 @@ function recompute(){ clearTimeout(rt); stopAll(); const myGen=S.gen; S.seed=$('
   if(myGen!==S.gen) return; bindLens(); }
 // bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
 function bindLens(){ const spec=activeSpec(); S.views=spec.views||[]; buildCards();
-  $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'move a slider · ▶ or ◀ ▶ to step through each stage':spec.anim?'move a slider · ▶ to watch it build':'move a slider · watch the views update');
+  $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'move a slider, or step through each stage':spec.anim?'move a slider, or play to watch it build':'move a slider, watch the views update');
   S.stageList = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(S.params, S.data) : spec.stages) : null;
   S.stageMode = !!(S.stageList && S.stageList.length); S.anim = spec.anim || null;
   S.length = S.stageMode ? S.stageList.length : (S.anim ? Math.max(1, S.anim.length(S.params, S.data)) : 1);
@@ -203,7 +203,7 @@ function pause(){ S.playing=false; pico(); }
 function stopAll(){ S.gen++; window.__simGen=S.gen; S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; if(window.__setLoading)window.__setLoading(false); }   // new gen → in-flight runChunks() bail; clear any stale overlay
 function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%');
   if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k];
-    $('#tread').innerHTML=`<b>${k+1}</b> / ${S.length} · ${st?esc(st.name):''}`; }
+    $('#tread').innerHTML=`<b>${k+1}</b> / ${S.length} — ${st?esc(st.name):''}`; }
   else { const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`; } }
 function pico(){ $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
 

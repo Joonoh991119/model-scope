@@ -115,7 +115,7 @@
           const xs=[]; const NG=160; for(let i=0;i<=NG;i++) xs.push(d.lo+(d.hi-d.lo)*i/NG);
           const pri=xs.map(x=>[x,npdf(x,p.mu0,p.sigma0)]), lik=xs.map(x=>[x,npdf(x,d.m,p.sigma_m)]), pos=xs.map(x=>[x,npdf(x,d.muPost,d.sigPost)]);
           const ymax=Math.max(...pri.map(a=>a[1]),...lik.map(a=>a[1]),...pos.map(a=>a[1]))*1.1;
-          g.frame({x:[d.lo,d.hi], y:[0,ymax], xlabel:'stimulus value', title:'prior · likelihood · posterior'});
+          g.frame({x:[d.lo,d.hi], y:[0,ymax], xlabel:'stimulus value', title:'prior, likelihood, posterior'});
           g.band(pri,{color:'rgba(74,122,147,.12)'}).line(pri,{color:T.accent,width:1.4,dash:[4,3]});
           g.line(lik,{color:T.faint,width:1.6});
           g.band(pos,{color:'rgba(46,139,122,.16)'}).line(pos,{color:T.pos,width:2});
@@ -152,7 +152,7 @@
     efficient: {
       id:'efficient', name:'Efficient-coding observer',
       blurb:'An efficient sensory code spends resolution where the prior is dense: the encoding F(θ)=CDF(prior) warps stimulus space so noise is uniform in sensory space. Decoding back skews the likelihood and biases the percept — repelled from the prior peak (Wei & Stocker).',
-      note:'Low noise + BLS (L2) loss → bias points AWAY from the prior peak (the "anti-Bayesian" repulsion). Switch to MAP, or raise σ, and the prior wins (attraction). Discriminability is best where the prior is densest. Step ▶ through the stages.',
+      note:'Low noise + BLS (L2) loss → bias points AWAY from the prior peak (the "anti-Bayesian" repulsion). Switch to MAP, or raise σ, and the prior wins (attraction). Discriminability is best where the prior is densest. Step through the stages.',
       params:[
         {name:'theta',   label:'True stimulus θ', min:-3, max:3, step:0.05, default:1.1},
         {name:'sigma',   label:'Sensory noise σ', min:0.02, max:0.5, step:0.005, default:0.1},
@@ -191,7 +191,7 @@
           if(ui.stage>=2){ const my=Math.max(0,Math.min(1,d.mt)); g.hline(my,{color:T.warn,dash:[3,3],label:'m̃'}); g.marker(d.mBack,my,{color:T.warn,stroke:'#fff',r:3.5}); }
           g.legend([{label:'prior',color:T.accent},{label:'F(θ)',color:T.ink}]);
         }},
-        { title:'Likelihood · prior · posterior', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
+        { title:'Likelihood, prior, posterior', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
           const pm=Math.max(...d.prior), lm=Math.max(...d.like)||1, pom=Math.max(...d.post)||1;
           g.frame({x:[d.lo,d.hi],y:[0,1.1],xlabel:'stimulus θ',title:'inference in stimulus space'});
           const pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm]); g.band(pri,{color:'rgba(74,122,147,.10)'}).line(pri,{color:T.accent,width:1.1,dash:[4,3]});
@@ -280,7 +280,7 @@
     wm: {
       id:'wm', name:'Working-memory recall',
       blurb:'Remember N items on a feature circle, then report one. A limited resource sets recall precision; reports are a mixture of accurate memory, swaps to a non-target, and uniform guesses (Bays & Husain; Zhang & Luck).',
-      note:'Raise set size N → resource per item drops (precision↓). Swaps put mass under the non-targets; guesses raise a flat floor. The error histogram = target peak (κ) + swap bumps + uniform. Step ▶ through encode → recall → decompose.',
+      note:'Raise set size N and the resource per item drops (lower precision). Swaps put mass under the non-targets; guesses raise a flat floor. The error histogram = target peak (κ) + swap bumps + uniform. Step through encode, recall, and decompose.',
       params:[
         {name:'N',      label:'Set size N', min:1, max:8, step:1, default:4, int:true},
         {name:'kappa',  label:'Precision κ', min:1, max:60, step:1, default:16},
@@ -328,7 +328,7 @@
           const pts=[1,2,3,4,5,6,7,8].map(N=>[N, W.precisionFromSetsize(N,{k:0.74})]);
           g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:3});
           g.marker(d.N, W.precisionFromSetsize(d.N,{k:0.74}),{color:T.pos,stroke:'#fff',r:5,label:'N='+d.N});
-          g.text(1.15,0.13,'κ='+d.kappa+'  ·  circ.SD≈'+(d.sd*180/Math.PI).toFixed(0)+'°',{color:T.dim});
+          g.text(1.15,0.13,'κ='+d.kappa+' ,  circ.SD≈'+(d.sd*180/Math.PI).toFixed(0)+'°',{color:T.dim});
         }},
         { title:'Recall error & mixture', draw:(g,d,ui)=>{ const T=TH(), PIc=Math.PI, W=global.MSLIB.wm;
           if(ui.stage<5){ g.frame({x:[-PIc,PIc],y:[0,1],xlabel:'report error θ̂−θ (rad)',title:'recall-error histogram'}); g.note('→ recall over many trials'); return; }
@@ -362,9 +362,9 @@
         const rtMax=dec.length?Math.min(20,dec[Math.floor(0.99*(dec.length-1))]*1.08):1;
         const pp={A:p.A,c:p.c,z:p.z,dt:p.dt}, steps0=ddmSteps(pp, env.seed, 0), stepCap=Math.min(steps0.length, 48);
         return { n, out, rt, rtMax, pp, seed:env.seed, steps0, stepCap }; },
-      // THREE LENSES over the same data — step (one atomic update) · trial (one decision) · simulation (the statistics)
+      // THREE LENSES over the same data — step (one atomic update), trial (one decision), simulation (the statistics)
       lenses:{
-        step:{ label:'⚛ Step', about:'one atomic update: evidence ← evidence + drift (signal) + noise',
+        step:{ label:'Step', about:'one atomic update: evidence ← evidence + drift (signal) + noise',
           anim:{ length:(p,d)=>d.stepCap },
           views:[
             { title:'one update: x′ = x + drift + noise', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), s=d.steps0[k];
@@ -386,7 +386,7 @@
               g.clip().line(pts,{color:T.accent,width:2}).unclip(); const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:T.ink,r:3.2});
             }},
           ] },
-        trial:{ label:'◷ Trial', about:'one trial: the atom repeated until evidence hits a bound — a choice and its RT',
+        trial:{ label:'Trial', about:'one trial: the atom repeated until evidence hits a bound — a choice and its RT',
           anim:{ length:(p,d)=>d.steps0.length },
           views:[
             { title:'one trial: evidence random-walks to a bound', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.steps0.length-1,Math.floor(ui.head)), tView=Math.max(0.2,d.rtMax*1.05);
@@ -396,10 +396,10 @@
               const last=d.steps0[k], done=!!last.cross && k>=d.steps0.length-1;
               g.clip().line(pts,{color:done?(last.cross===1?T.pos:T.neg):'#6b675d',width:2}).unclip();
               const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:done?(last.cross===1?T.pos:T.neg):T.ink,r:3.4});
-              if(done) g.text(tip[0],(last.cross===1?1:-1)*z*1.34,`${last.cross===1?'✓ correct':'✗ error'} · RT ${(last.t+d.pp.dt).toFixed(2)} s`,{color:last.cross===1?T.pos:T.neg,size:10,align:'right'});
+              if(done) g.text(tip[0],(last.cross===1?1:-1)*z*1.34,`${last.cross===1?'✓ correct':'✗ error'}, RT ${(last.t+d.pp.dt).toFixed(2)} s`,{color:last.cross===1?T.pos:T.neg,size:10,align:'right'});
             }},
           ] },
-        sim:{ label:'∑ Simulation', about:'thousands of trials → the choice proportions & RT histogram the model predicts',
+        sim:{ label:'Simulation', about:'thousands of trials → the choice proportions & RT histogram the model predicts',
           anim:{ length:(p)=>Math.round(p.nTrials) },
           views:[
             { title:'each trial flashes by', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n-1,Math.floor(ui.head)), frac=ui.playing?(ui.head-Math.floor(ui.head)):1;
@@ -412,12 +412,12 @@
             { title:'response-time distribution (building up)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head)); const cor=[],err=[];
               for(let i=0;i<k;i++){ if(d.out[i]===1)cor.push(d.rt[i]); else if(d.out[i]===2)err.push(d.rt[i]); }
               const hc=HIST(cor,52,0,d.rtMax,d.pp.dt), he=HIST(err,52,0,d.rtMax,d.pp.dt), mx=Math.max(hc.max,he.max,1);
-              g.frame({x:[0,d.rtMax], y:[-mx,mx], xlabel:'RT (s)', yticks:4, title:'correct ↑   ·   error ↓'});
+              g.frame({x:[0,d.rtMax], y:[-mx,mx], xlabel:'RT (s)', yticks:4, title:'correct above, error below'});
               g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
               g.bars(hc,{dir:'up',baseY:0,color:'rgba(46,139,122,.78)',max:mx,height:g.Y(0)-g.frameRect().py});
               g.bars(he,{dir:'down',baseY:0,color:'rgba(194,91,66,.78)',max:mx,height:g.frameRect().py+g.frameRect().ph-g.Y(0)});
               const dec=cor.length+err.length, er=dec?100*err.length/dec:0;
-              g.text(d.rtMax*0.02, mx*0.92, `${dec.toLocaleString()} trials · error ${er.toFixed(1)}%`, {color:T.dim});
+              g.text(d.rtMax*0.02, mx*0.92, `${dec.toLocaleString()} trials, error ${er.toFixed(1)}%`, {color:T.dim});
             }},
           ] },
       },
@@ -428,8 +428,8 @@
        a model CHOICE + PARAMETERS via sliders/toggles, a 2-D metric HEATMAP, and several METRICS. Analytic. */
     compare: {
       id:'compare', name:'Decision: integrate vs one sample',
-      blurb:'Two 2-alternative strategies with the SAME signal (drift A) and noise c — toggle between them: a drift-diffusion model INTEGRATES evidence to a bound ±z (variable time), or a single-sample observer takes ONE noisy reading over a fixed time T and reports its sign. ① overlays their speed–accuracy frontiers · ② maps the chosen metric over the (drift × noise) plane · ③ compares accuracy/speed/reward at the operating point · ④ shows the mechanism.',
-      note:'Same A, c — only the mechanism differs. DDM: accuracy 1/(1+e^(−2Az/c²)), mean decision time (z/A)·tanh(Az/c²) — raising the bound z buys accuracy but costs time, so reward rate is NON-monotonic in z. Single-sample: a FIXED accuracy Φ(A√T/c) and a flat tradeoff (it can only trade by observing longer). Integration dominates when the signal is strong; they converge at low noise. The toggle re-skins ②/③; the Metric selector swaps the surface in ②. (Bogacz et al. 2006; Gold & Shadlen 2007.)',
+      blurb:'Two 2-alternative strategies with the SAME signal (drift A) and noise c — toggle between them: a drift-diffusion model INTEGRATES evidence to a bound ±z (variable time), or a single-sample observer takes ONE noisy reading over a fixed time T and reports its sign. Panel 1 overlays their speed-accuracy frontiers, panel 2 maps the chosen metric over the (drift, noise) plane, panel 3 compares accuracy, speed, and reward at the operating point, panel 4 shows the mechanism.',
+      note:'Same A, c — only the mechanism differs. DDM: accuracy 1/(1+e^(−2Az/c²)), mean decision time (z/A)·tanh(Az/c²) — raising the bound z buys accuracy but costs time, so reward rate is NON-monotonic in z. Single-sample: a FIXED accuracy Φ(A√T/c) and a flat tradeoff (it can only trade by observing longer). Integration dominates when the signal is strong; they converge at low noise. The toggle re-skins panels 2 and 3; the Metric selector swaps the surface in panel 2. (Bogacz et al. 2006; Gold & Shadlen 2007.)',
       params:[
         {name:'A', label:'Drift A (signal)', min:0, max:3, step:0.01, default:1.0},
         {name:'c', label:'Noise c', min:0.2, max:2.5, step:0.01, default:1.0},
@@ -437,7 +437,7 @@
         {name:'T', label:'Single-sample obs. time T', min:0.05, max:2.0, step:0.01, default:0.5, unit:'s'},
         {name:'Ter', label:'Non-decision time', min:0, max:0.6, step:0.01, default:0.2, unit:'s'},
         {name:'metric', label:'Heatmap metric: accuracy / RT / reward', min:0, max:2, step:1, default:0, int:true},
-        {name:'useDDM', label:'Model: single-sample ⟷ DDM', type:'bool', default:true},
+        {name:'useDDM', label:'Model: single-sample vs DDM', type:'bool', default:true},
       ],
       simulate:(p, env)=>{ const Phi=global.MSLIB.sde.normcdf, c2=p.c*p.c;
         const accDDM=(A,z,cc2)=>1/(1+Math.exp(-2*A*z/cc2)), dtDDM=(A,z,cc2)=>Math.abs(A)<1e-6? z*z/cc2 : (z/A)*Math.tanh(A*z/cc2);
@@ -455,7 +455,7 @@
         const metricName=['accuracy','mean RT (s)','reward rate (1/s)'][p.metric];
         return { accD, dtD, accS, dtS, rrD, rrS, satDDM, satSS, tMax, grid, NX, NY, Amin, Amax, cmin, cmax, gmin, gmax, metric:p.metric, metricName, useDDM:p.useDDM, A:p.A, c:p.c, z:p.z, T:p.T, Ter:p.Ter }; },
       views:[
-        { title:'① speed–accuracy: integrate-to-bound vs one sample', draw:(g,d)=>{ const T=TH();
+        { title:'speed–accuracy: integrate-to-bound vs one sample', draw:(g,d)=>{ const T=TH();
           g.frame({x:[0,d.tMax], y:[0.46,1.02], xlabel:'time to decision (s)', ylabel:'accuracy', title:'DDM trades time for accuracy along the bound; one sample is flat'});
           g.hline(1,{color:'rgba(80,75,65,.28)',dash:[2,3],label:'ceiling'}); g.hline(0.5,{color:'rgba(80,75,65,.3)',dash:[4,3],label:'chance'});
           const clip=a=>a.map(q=>[q[0],Math.max(0.5,Math.min(1,q[1]))]);
@@ -464,13 +464,13 @@
           g.marker(d.dtD+d.Ter, Math.max(0.5,Math.min(1,d.accD)), {color:T.accent,stroke:'#fff',r:5,label:'DDM'});
           g.marker(d.T+d.Ter, Math.max(0.5,Math.min(1,d.accS)), {color:T.neg,stroke:'#fff',r:5,label:'1-sample'});
           g.legend([{label:'DDM (sweep bound z)',color:T.accent},{label:'1-sample (sweep T)',color:T.neg}],{corner:'br'}); }},
-        { title:'② metric over (drift × noise) — heatmap', draw:(g,d)=>{ const T=TH();
+        { title:'metric over (drift, noise) — heatmap', draw:(g,d)=>{ const T=TH();
           const cmap=v=>{ const t=Math.max(0,Math.min(1,(v-d.gmin)/((d.gmax-d.gmin)||1))); return [Math.round(246-150*t), Math.round(241-78*t), Math.round(228-92*t)]; };
-          g.frame({x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM · ':'1-sample · ')+d.metricName+' over (A × c)'});
+          g.frame({x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM, ':'1-sample, ')+d.metricName+' over (A × c)'});
           g.heat(d.NX, d.NY, (i,j)=>d.grid[j*d.NX+i], cmap);
           const fmt=v=>d.metric===0?v.toFixed(2):v.toFixed(2); g.colorbar(d.gmin, d.gmax, cmap, {ticks:[{v:d.gmin,label:fmt(d.gmin)},{v:(d.gmin+d.gmax)/2,label:fmt((d.gmin+d.gmax)/2)},{v:d.gmax,label:fmt(d.gmax)}], label:d.metricName});
           g.marker(d.A, d.c, {color:'#fff', stroke:T.ink, r:5, label:'now'}); }},
-        { title:'③ this operating point — DDM vs 1-sample', draw:(g,d)=>{ const T=TH(), ctx=g.ctx;
+        { title:'this operating point — DDM vs 1-sample', draw:(g,d)=>{ const T=TH(), ctx=g.ctx;
           const groups=[{name:'accuracy',dv:d.accD,sv:d.accS,f:x=>x.toFixed(2)},{name:'speed (1/s)',dv:1/(d.dtD+d.Ter),sv:1/(d.T+d.Ter),f:x=>x.toFixed(1)},{name:'reward (1/s)',dv:d.rrD,sv:d.rrS,f:x=>x.toFixed(2)}];
           g.frame({x:[-0.5,2.5], y:[0,1.18], yticks:2, xticklabels:groups.map(q=>q.name), title:'each group normalised to its larger bar — taller = better'});
           const bw=0.17, aD=d.useDDM?1:0.4, aS=d.useDDM?0.4:1;
@@ -480,8 +480,8 @@
             ctx.fillStyle=T.dim; ctx.font=(9*(g.FS||1)).toFixed(1)+'px "IBM Plex Mono",monospace'; ctx.textAlign='center';
             ctx.fillText(q.f(q.dv), g.X(i-bw*0.52), g.Y(hD)-4); ctx.fillText(q.f(q.sv), g.X(i+bw*0.54), g.Y(hS)-4); });
           g.legend([{label:'DDM',color:T.accent},{label:'1-sample',color:T.neg}],{corner:'tr'}); }},
-        { title:'④ mechanism: walk-to-bound vs single draw', draw:(g,d)=>{ const T=TH();
-          g.frame({x:[0,d.tMax], y:[-d.z*1.7,d.z*1.7], xlabel:'time (s)', ylabel:'evidence', title:'DDM integrates to ±z · 1-sample draws once at T, decides sign'});
+        { title:'mechanism: walk-to-bound vs single draw', draw:(g,d)=>{ const T=TH();
+          g.frame({x:[0,d.tMax], y:[-d.z*1.7,d.z*1.7], xlabel:'time (s)', ylabel:'evidence', title:'DDM integrates to ±z, 1-sample draws once at T, decides sign'});
           g.hline(d.z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-d.z,{color:T.neg,dash:[5,4],label:'−z'}); g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
           g.line([[0,0],[d.dtD, Math.min(d.z, d.A*d.dtD)]],{color:T.accent,width:2.4}); g.vline(d.dtD+d.Ter,{color:T.accent,dash:[3,3],label:'mean DT'});
           const yMu=Math.max(-d.z*1.7,Math.min(d.z*1.7, d.A*d.T)), sd=d.c*Math.sqrt(d.T);
@@ -492,12 +492,12 @@
     },
 
     /* ---- An IMAGE-input exemplar (a different model class): early-vision orientation readout.
-       Perspectives are chosen to fit a sensory model — 🖼 input image → 🧱 channel transform →
-       🎯 readout — instead of step/trial/simulation. Shows the harness generalises to image models. */
+       Angles fit a sensory model: the input image, the channel transform, the readout.
+       Shows the harness generalises to image models. */
     vision: {
       id:'vision', name:'Early vision — orientation',
-      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the LEVEL switch to change perspective: 🖼 the input image → 🧱 how each channel re-represents it → 🎯 the orientation readout. Move the sliders and watch all three update.',
-      note:'Each channel is a quadrature Gabor pair (energy = even² + odd²) tuned to one orientation, so the image becomes one energy map per channel. Pooled energy across channels is an orientation tuning curve whose population-vector peak is the decoded orientation. Higher contrast / lower noise → sharper tuning and a more accurate read-out. A different model class from the trial-based models (no time axis) — same harness, perspectives chosen to fit.',
+      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the level switch for the angles: the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch all three update.',
+      note:'Each channel is a quadrature Gabor pair (energy = even² + odd²) tuned to one orientation, so the image becomes one energy map per channel. Pooled energy across channels is an orientation tuning curve whose population-vector peak is the decoded orientation. Higher contrast or lower noise gives sharper tuning and a more accurate read-out. A different model class from the trial-based models (no time axis) — same harness, angles chosen to fit.',
       params:[
         {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:45, unit:'°'},
         {name:'sf', label:'Spatial frequency', min:1, max:8, step:0.1, default:3, unit:'cyc/img'},
@@ -515,13 +515,13 @@
         return { N, K, oris, img, imgLim, maps, pooled, dec, emax, pmax:Math.max(...pooled,1e-9), ori:p.ori };
       },
       lenses:{
-        input:{ label:'🖼 Input', about:'the stimulus image — a noisy grating at orientation θ (all the model sees)',
+        input:{ label:'Input', about:'the stimulus image — a noisy grating at orientation θ (all the model sees)',
           views:[ { title:'input image', draw:(g,d)=>{ const N=d.N;
-            g.frame({x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ · frequency · contrast · noise)`});
+            g.frame({x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ, frequency, contrast, noise)`});
             g.heat(N,N,(i,j)=> d.img[j*N+i], v=>VGRAY(v,d.imgLim));
             g.colorbar(-d.imgLim, d.imgLim, v=>VGRAY(v,d.imgLim), {ticks:[{v:-d.imgLim,label:'−'},{v:0,label:'0'},{v:d.imgLim,label:'+'}], label:'intensity'});
           }} ] },
-        transform:{ label:'🧱 Transform', about:'each oriented channel re-represents the image as an energy map',
+        transform:{ label:'Transform', about:'each oriented channel re-represents the image as an energy map',
           views:[ { title:'oriented Gabor energy maps — one per channel', draw:(g,d)=>{ const N=d.N, K=d.K, cols=3, rows=Math.ceil(K/cols);
             g.frame({x:[0,cols*N], y:[0,rows*N], xticks:1, yticks:1, title:'how each orientation channel re-represents the image'});
             g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?[244,243,238]:VHOT(v,d.emax));
@@ -529,7 +529,7 @@
               g.text(cx, cy, d.oris[k].toFixed(0)+'°', {color: hit?'#fff':'rgba(255,255,255,.82)', size:9.5, align:'center'}); }
             g.colorbar(0, d.emax, v=>VHOT(v,d.emax), {label:'energy'});
           }} ] },
-        readout:{ label:'🎯 Readout', about:'pool the channels → orientation tuning curve → decoded orientation',
+        readout:{ label:'Readout', about:'pool the channels → orientation tuning curve → decoded orientation',
           views:[ { title:'orientation tuning (pooled energy) → decoded θ̂', draw:(g,d)=>{ const T=TH();
             g.frame({x:[-12,180], y:[0, d.pmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`readout: tuning peak = decoded θ̂ = ${d.dec.toFixed(0)}° (true ${d.ori}°)`});
             const pts=d.oris.map((o,k)=>[o,d.pooled[k]]); g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:4});
@@ -542,7 +542,7 @@
     /* ---- single-neuron biophysics: leaky integrate-and-fire (composed from MSLIB.neuron) ---- */
     lif: {
       id:'lif', name:'Spiking neuron (LIF)',
-      blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the LEVEL switch: ◷ one V(t) trace · ∑ a spike raster over repeats · ⌁ the f–I transfer curve. Move the current / noise / membrane sliders.',
+      blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the level switch for the angles: one V(t) trace, a spike raster over repeats, the f-I transfer curve. Move the current, noise, and membrane sliders.',
       note:'dV/dt = (−(V−EL) + R·I)/τ with a hard threshold→reset (Vth→Vreset) and a refractory period. Stronger current → faster charging → higher rate (the f–I curve); current noise jitters spike times (the raster); toggle the refractory period off and the f–I curve loses its ceiling. A canonical single-neuron model, composed from MSLIB.neuron.',
       params:[
         {name:'I', label:'Input current I (condition)', min:0, max:0.8, step:0.005, default:0.35, unit:'nA'},
@@ -561,20 +561,20 @@
         return { dt, T, nS, v, tm, sp0, raster, reps, rate:totSp/(reps*T), fI, I:p.I, pr, vmin:pr.Vreset-3 };
       },
       lenses:{
-        trace:{ label:'◷ V(t) trace', about:'one trial: the membrane integrates current and fires when it reaches threshold',
+        trace:{ label:'V(t) trace', about:'one trial: the membrane integrates current and fires when it reaches threshold',
           anim:{ length:(p,d)=>d.nS },
           views:[ { title:'membrane potential V(t)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nS-1,Math.floor(ui.head));
             g.frame({x:[0,d.T], y:[d.vmin,6], xlabel:'time (s)', ylabel:'V (mV)', title:'integrate → spike → reset'});
             g.hline(d.pr.Vth,{color:T.warn,dash:[5,4],label:'threshold'}); g.hline(d.pr.EL,{color:'rgba(80,75,65,.25)',dash:[2,3],label:'rest'});
             const pts=[]; for(let i=0;i<=k;i++) pts.push([d.tm[i],d.v[i]]); g.line(pts,{color:T.accent,width:1.7});
           }} ] },
-        raster:{ label:'∑ Raster', about:'many repeats → spike raster + the mean firing rate',
+        raster:{ label:'Raster', about:'many repeats → spike raster + the mean firing rate',
           anim:{ length:(p,d)=>d.reps },
           views:[ { title:'spike raster over repeats', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.reps,Math.floor(ui.head));
             g.frame({x:[0,d.T], y:[0,d.reps], xlabel:'time (s)', ylabel:'repeat #', title:`raster — mean rate ${d.rate.toFixed(1)} Hz`});
             g.raster(d.raster.slice(0,k),{color:T.ink,width:1.2});
           }} ] },
-        fI:{ label:'⌁ f–I curve', about:'firing rate vs input current — the neuron’s transfer function',
+        fI:{ label:'f–I curve', about:'firing rate vs input current — the neuron’s transfer function',
           views:[ { title:'f–I transfer curve', draw:(g,d)=>{ const T=TH(), ymax=Math.max(10,...d.fI.map(q=>q[1]))*1.12;
             g.frame({x:[0,0.8], y:[0,ymax], xlabel:'input current I (nA)', ylabel:'firing rate (Hz)', title:'rate rises with current (rheobase, then ~linear)'});
             g.line(d.fI,{color:T.accent,width:2}); g.points(d.fI,{color:T.accent,r:2.4}); g.vline(d.I,{color:T.pos,dash:[5,4],label:'current I'});
@@ -585,7 +585,7 @@
     /* ---- learning: Rescorla–Wagner value updating (composed from MSLIB.rl) ---- */
     rl: {
       id:'rl', name:'Reinforcement learning (RW)',
-      blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the LEVEL switch: ⚛ one update decomposed · ◷ the learning curve · ∑ how the learning rate α changes it.',
+      blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the level switch for the angles: one update decomposed, the learning curve, and how the learning rate α changes it.',
       note:'V ← V + α·(r − V). The prediction error δ = r − V is the teaching signal; α sets how fast V tracks the reward probability (its asymptote ≈ p). Small α = slow & stable; large α = fast & jittery. Composed from MSLIB.rl.',
       params:[
         {name:'alpha', label:'Learning rate α (condition)', min:0.01, max:0.9, step:0.01, default:0.2},
@@ -599,7 +599,7 @@
         return { n, V, r, delta, pRew:p.pRew, alpha:p.alpha, curves };
       },
       lenses:{
-        update:{ label:'⚛ Update', about:'one trial: the prediction error δ = r − V nudges V by α·δ',
+        update:{ label:'Update', about:'one trial: the prediction error δ = r − V nudges V by α·δ',
           anim:{ length:(p,d)=>d.n },
           views:[ { title:'one update: V′ = V + α·(r − V)', draw:(g,d,ui)=>{ const T=TH(), t=Math.min(d.n-1,Math.floor(ui.head)), V=d.V[t], r=d.r[t], dl=d.delta[t], Vn=d.V[t+1];
             g.frame({x:[-0.1,1.1], y:[-0.6,3.6], yticks:1, xlabel:'value / reward', title:`trial ${t+1}: reward ${r} → δ = ${dl.toFixed(2)}`});
@@ -608,16 +608,16 @@
             g.text(-0.1,1,'+ α·δ',{color:T.dim,size:10}); g.arrow(V,1,Vn,1,{color:T.accent,label:`${dl>=0?'+':''}${(d.alpha*dl).toFixed(3)}`});
             g.text(-0.1,0,'V′',{color:T.dim,size:10}); g.marker(Vn,0,{color:T.ink,r:4.5,label:Vn.toFixed(2)});
           }} ] },
-        learn:{ label:'◷ Learning', about:'the value tracks the reward probability over trials',
+        learn:{ label:'Learning', about:'the value tracks the reward probability over trials',
           anim:{ length:(p,d)=>d.n },
           views:[ { title:'learning curve V(trial)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head));
             g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:`α=${d.alpha} → V approaches reward prob ${d.pRew}`});
             g.hline(d.pRew,{color:T.warn,dash:[5,4],label:'reward prob'});
             const pts=[]; for(let i=0;i<=k;i++) pts.push([i,d.V[i]]); g.line(pts,{color:T.accent,width:2});
           }} ] },
-        rate:{ label:'∑ Rate sweep', about:'how the learning rate α changes speed and stability',
+        rate:{ label:'Rate sweep', about:'how the learning rate α changes speed and stability',
           views:[ { title:'learning curves across α', draw:(g,d)=>{ const T=TH(), cols=['#86b0c4','#4a7a93','#c25b42'];
-            g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:'small α = slow & smooth · large α = fast & jittery'});
+            g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:'small α = slow & smooth, large α = fast & jittery'});
             g.hline(d.pRew,{color:T.warn,dash:[5,4],label:'reward prob'});
             d.curves.forEach((c,i)=>{ const pts=[]; for(let t=0;t<=d.n;t++) pts.push([t,c.vv[t]]); g.line(pts,{color:cols[i],width:1.8}); });
             g.legend(d.curves.map((c,i)=>({label:'α='+c.a,color:cols[i]})),{corner:'br'});
@@ -626,12 +626,12 @@
     },
 
     /* ---- NETWORK-level exemplar: a 2-population attractor decision circuit (Wong–Wang reduced,
-       MSLIB.decision). Realises the energy-landscape recipe and shows network perspectives:
-       ⚛ Step (one pool's recurrent input decomposed) · ◷ Dynamics (the pools race) · ⎇ Landscape. */
+       MSLIB.decision). STRUCTURE FIRST (the wiring + E/I), then the network's angles:
+       Structure (the circuit) - Step (one pool's recurrent input) - Dynamics (the pools race) - Landscape. */
     attractor: {
       id:'attractor', name:'Attractor network — decision',
-      blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias + noise tips the network into one of two attractors. Use the LEVEL switch: ⚛ Step (one pool’s recurrent input, decomposed) · ◷ Dynamics (the pools race to a winner) · ⎇ Landscape (the state-space the network rolls down).',
-      note:'Each pool’s gating S obeys dS/dt = −S/τ_S + (1−S)·γ·φ(I), with input I = J_s·S_self − J_c·S_other + I₀ + stimulus + noise — self-excitation vs cross-inhibition is the competition. Strong cross-inhibition J_c destabilises the symmetric state → two stable attractors (winner-take-all); coherence biases which one wins. The Landscape lens maps the flow speed over (S₁,S₂): dark = slow = near a fixed point. Composed from MSLIB.decision.',
+      blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias plus noise tips the network into one of two attractors. Use the level switch for the angles — structure first: Structure (the circuit wiring and E/I), Step (one pool’s recurrent input), Dynamics (the pools race to a winner), Landscape (the state-space the network rolls down).',
+      note:'Each pool’s gating S obeys dS/dt = −S/τ_S + (1−S)·γ·φ(I), with input I = J_s·S_self − J_c·S_other + I₀ + stimulus + noise; self-excitation vs cross-inhibition is the competition. Strong cross-inhibition J_c destabilises the symmetric state, giving two stable attractors (winner-take-all); coherence biases which one wins. The Landscape lens maps the flow speed over (S₁,S₂): dark = slow = near a fixed point. Composed from MSLIB.decision.',
       params:[
         {name:'coh', label:'Coherence (condition, + favors pool 1)', min:-40, max:40, step:1, default:8, unit:'%'},
         {name:'Jc', label:'Cross-inhibition J_c', min:0, max:0.12, step:0.001, default:0.0497},
@@ -650,7 +650,30 @@
         return { t, r1, r2, s1, s2, nF:t.length, decT, win, thr, flow, NG, fmax, coh:p.coh, Jc:p.Jc, WW, phi, stim1 };
       },
       lenses:{
-        step:{ label:'⚛ Step', about:'one pool’s recurrent input: self-excitation − cross-inhibition + drive → rate',
+        structure:{ label:'Structure', about:'the circuit wiring: two pools, self-excitation, mutual inhibition, and the stimulus drive',
+          views:[ { title:'circuit structure — self-excitation vs mutual inhibition', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS;
+            const r=Math.min(W,H)*0.135, cy=H*0.46, x1=W*0.31, x2=W*0.69;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif';
+            ctx.fillText('the circuit: two recurrent pools compete', W/2, 20*F);
+            const pool=(cx,col,name)=>{ ctx.beginPath(); ctx.arc(cx,cy,r,0,7); ctx.globalAlpha=0.16; ctx.fillStyle=col; ctx.fill(); ctx.globalAlpha=1;
+              ctx.lineWidth=2.4; ctx.strokeStyle=col; ctx.stroke();
+              ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText(name,cx,cy+4*F); };
+            pool(x1,T.pos,'Pool 1'); pool(x2,T.neg,'Pool 2');
+            const selfLoop=(cx,col)=>{ ctx.strokeStyle=col; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy-r-11*F,12*F,0.7,Math.PI*2-0.2); ctx.stroke();
+              const a=0.7, ax=cx+12*F*Math.cos(a), ay=cy-r-11*F+12*F*Math.sin(a); ctx.fillStyle=col; ctx.beginPath(); ctx.arc(ax,ay,2.8*F,0,7); ctx.fill();
+              ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText('+Js self-excite',cx,cy-r-30*F); };
+            selfLoop(x1,T.pos); selfLoop(x2,T.neg);
+            const yI=cy-10*F; ctx.strokeStyle=T.neg; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x1+r+3*F,yI); ctx.lineTo(x2-r-3*F,yI); ctx.stroke();
+            const tbar=x=>{ ctx.beginPath(); ctx.moveTo(x,yI-6*F); ctx.lineTo(x,yI+6*F); ctx.stroke(); }; tbar(x1+r+3*F); tbar(x2-r-3*F);
+            ctx.fillStyle=T.neg; ctx.font=(11*F)+'px monospace'; ctx.fillText('−Jc mutual inhibition',(x1+x2)/2,yI-12*F);
+            const inp=(cx,txt)=>{ ctx.strokeStyle=T.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(cx,cy+r+36*F); ctx.lineTo(cx,cy+r+8*F); ctx.stroke();
+              ctx.fillStyle=T.accent; ctx.beginPath(); ctx.moveTo(cx,cy+r+3*F); ctx.lineTo(cx-4.5*F,cy+r+12*F); ctx.lineTo(cx+4.5*F,cy+r+12*F); ctx.closePath(); ctx.fill();
+              ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText(txt,cx,cy+r+50*F); };
+            inp(x1,'stimulus +coh'); inp(x2,'stimulus −coh');
+            ctx.fillStyle=T.dim; ctx.font=(11.5*F)+'px sans-serif';
+            ctx.fillText('Strong cross-inhibition gives two attractors (winner-take-all); coherence biases which pool wins.', W/2, H-12*F);
+          }} ] },
+        step:{ label:'Step', about:'one pool’s recurrent input: self-excitation − cross-inhibition + drive → rate',
           anim:{ length:(p,d)=>d.nF },
           views:[ { title:'pool 1 input: I₁ = Js·S₁ − Jc·S₂ + drive', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), W=d.WW;
             const S1=d.s1[k], S2=d.s2[k], self=W.Js*S1, cross=-d.Jc*S2, drive=W.I0+d.stim1, I1=self+cross+drive, r1=d.phi(I1,W.a,W.b,W.d);
@@ -661,17 +684,17 @@
             g.text(lo,1,'+ drive',{color:T.dim,size:10}); g.arrow(self+cross,1,I1,1,{color:T.accent,label:'+'+drive.toFixed(3)});
             g.text(lo,0,'= I₁',{color:T.dim,size:10}); g.marker(I1,0,{color:T.ink,r:4.5,label:I1.toFixed(3)});
           }} ] },
-        dynamics:{ label:'◷ Dynamics', about:'the two pools race; strong cross-inhibition makes one win',
+        dynamics:{ label:'Dynamics', about:'the two pools race; strong cross-inhibition makes one win',
           anim:{ length:(p,d)=>d.nF },
           views:[ { title:'pool rates r₁, r₂ over time', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.t[d.nF-1]||1, ymax=Math.max(40, Math.max(...d.r1), Math.max(...d.r2))*1.1;
             g.frame({x:[0,tE], y:[0,ymax], xlabel:'time (s)', ylabel:'rate (Hz)', title:'winner-take-all: one pool rises, the other is suppressed'});
             g.hline(d.thr,{color:'#7a5a93',dash:[5,4],label:'decision threshold'});
             const p1=[],p2=[]; for(let i=0;i<=k;i++){ p1.push([d.t[i],d.r1[i]]); p2.push([d.t[i],d.r2[i]]); }
             g.line(p1,{color:T.pos,width:2.2}); g.line(p2,{color:T.neg,width:2.2});
-            if(d.decT>=0 && d.t[k]>=d.decT) g.vline(d.decT,{color:T.ink,label:'decided · pool '+d.win});
+            if(d.decT>=0 && d.t[k]>=d.decT) g.vline(d.decT,{color:T.ink,label:'decided, pool '+d.win});
             g.legend([{label:'pool 1',color:T.pos},{label:'pool 2',color:T.neg}],{corner:'tl'});
           }} ] },
-        landscape:{ label:'⎇ Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
+        landscape:{ label:'Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
           views:[ { title:'state-space flow (dark = attractor) + this trajectory', draw:(g,d)=>{ const T=TH();
             const cmap=v=>{ const tt=Math.max(0,Math.min(1,v/(d.fmax||1))); return [Math.round(40+205*tt), Math.round(38+198*tt), Math.round(72+165*tt)]; };
             g.frame({x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
@@ -685,12 +708,12 @@
     },
 
     /* ---- MACRO-level exemplar: a spatial SIR epidemic on a 1-D line of sites (reaction–diffusion).
-       A different scale entirely (no neurons, no trials) — perspectives fit a population/field model:
-       🗺 Spread (space×time kymograph) · 〰 Curve (well-mixed totals) · ⎇ Threshold (peak vs R₀). */
+       A different scale entirely (no neurons, no trials) — angles fit a population/field model:
+       Spread (space-time kymograph), Curve (well-mixed totals), Threshold (peak vs R0). */
     sir: {
       id:'sir', name:'Epidemic (spatial SIR)',
-      blurb:'A population model at the MACRO scale: Susceptible→Infected→Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the LEVEL switch: 🗺 Spread (the epidemic as a space×time map) · 〰 Curve (the classic S/I/R totals) · ⎇ Threshold (how the peak depends on R₀). Move R₀, γ, and spread.',
-      note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion). β = R₀·γ. Below the epidemic THRESHOLD R₀=1 the outbreak fizzles; above it, a travelling wave sweeps the line (🗺) and the well-mixed curve shows the familiar infected peak (〰). The ⎇ lens traces peak prevalence vs R₀ — flat then rising sharply past 1. Same harness, perspectives chosen for a field/population model (no atomic-trial here).',
+      blurb:'A population model at the MACRO scale: Susceptible, Infected, Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the level switch for the angles: Spread (the epidemic as a space-time map), Curve (the classic S/I/R totals), Threshold (how the peak depends on R0). Move R0, γ, and spread.',
+      note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion); β = R0·γ. Below the epidemic THRESHOLD R0=1 the outbreak fizzles; above it, a travelling wave sweeps the line (the Spread map) and the well-mixed curve shows the familiar infected peak. The Threshold lens traces peak prevalence vs R0 — flat then rising sharply past 1. Same harness, angles chosen for a field/population model.',
       params:[
         {name:'R0', label:'Basic reproduction number R₀ (condition)', min:0, max:4, step:0.05, default:2.5},
         {name:'gamma', label:'Recovery rate γ', min:0.05, max:0.5, step:0.01, default:0.12, unit:'/day'},
@@ -709,18 +732,18 @@
         return { N, kymo, times, totS, totI, totR, nF:times.length, peakI, iMax, sweep, R0:p.R0, gamma:p.gamma, T };
       },
       lenses:{
-        spread:{ label:'🗺 Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
+        spread:{ label:'Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
           views:[ { title:'infected fraction over space (x) and time', draw:(g,d)=>{ const T=TH();
             const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.iMax||1))); return [Math.round(245-20*t), Math.round(245-205*t), Math.round(232-150*t)]; }; // cream→deep red
             g.frame({x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
             g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap);
             g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
-        curve:{ label:'〰 Curve', about:'the well-mixed S / I / R totals — the classic epidemic curve',
+        curve:{ label:'Curve', about:'the well-mixed S / I / R totals — the classic epidemic curve',
           views:[ { title:'population fractions S, I, R over time', draw:(g,d)=>{ const T=TH(), tE=d.times[d.nF-1]||1;
             g.frame({x:[0,tE], y:[0,1.02], xlabel:'time (days)', ylabel:'fraction of population', title:'peak infected = '+(d.peakI*100).toFixed(0)+'% (R₀='+d.R0.toFixed(2)+')'});
             const mk=a=>a.map((v,i)=>[d.times[i],v]); g.line(mk(d.totS),{color:T.accent,width:2}); g.line(mk(d.totI),{color:T.neg,width:2.4}); g.line(mk(d.totR),{color:T.pos,width:2});
             g.legend([{label:'S susceptible',color:T.accent},{label:'I infected',color:T.neg},{label:'R recovered',color:T.pos}],{corner:'tr'}); }} ] },
-        threshold:{ label:'⎇ Threshold', about:'peak prevalence vs R₀ — flat below 1, rising sharply above',
+        threshold:{ label:'Threshold', about:'peak prevalence vs R₀ — flat below 1, rising sharply above',
           views:[ { title:'epidemic threshold: peak infected vs R₀', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.05,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[0,4], y:[0,ymax], xlabel:'basic reproduction number R₀', ylabel:'peak infected fraction', title:'no outbreak below R₀ = 1; epidemic above'});
             g.vline(1,{color:'#7a5a93',dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
