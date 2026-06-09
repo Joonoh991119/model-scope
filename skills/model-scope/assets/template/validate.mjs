@@ -99,6 +99,14 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  SIR: peak below R₀=1 = ${(below[1]*100).toFixed(1)}% « above = ${(above[1]*100).toFixed(0)}%; threshold monotonic [${ok(below[1] < 0.02 && above[1] > 0.2 && mono && d.peakI > 0.05)}]`);
 }
 
+// Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
+// above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
+{
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl']);   // models with an analytic check above
+  const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
+  if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
+}
+
 // ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
 console.log('\n=== mslib.js building blocks ===\n');
 try {

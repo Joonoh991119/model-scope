@@ -88,13 +88,17 @@ The lenses adapt to the model class: a decision/trial model zooms **⚛ Step →
 
 ## What you can build — the examples that ship
 
-The bundled template runs **eight** worked models across computational neuroscience, spanning
-every idiom — a continuous playhead, a process-mode stepper, and the perspective **level switch**:
+The bundled template runs **eleven** worked models that **span the model scales** — behavioural /
+process, single-neuron, sensory, network, and macro — across every idiom (a continuous playhead, a
+process-mode stepper, and the perspective **level switch**):
 
-| Model | Domain | Idiom | What you watch |
+| Model | Domain / scale | Idiom | What you watch |
 |---|---|---|---|
 | **Drift-diffusion decision** | decision-making | level switch (⚛◷∑) | ⚛ one update = drift + noise → new evidence · ◷ one trial walks to a bound · ∑ the RT histogram builds up — the worked 3-perspective example |
+| **Decision: integrate vs one sample** | comparison | sliders + **toggle** | toggle two models; ① a speed–accuracy overlay · ② a metric **heatmap** over (drift × noise) · ③ accuracy/speed/reward **bars** · ④ the mechanism |
 | **Early vision — orientation** | sensory / image | level switch (🖼🧱🎯) | 🖼 a noisy grating image · 🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle — an **image-input** model |
+| **Attractor network — decision** | network | level switch (⚛◷⎇) | ⚛ one pool's recurrent input · ◷ the pools race (winner-take-all) · ⎇ the (S₁,S₂) energy **landscape** heatmap + trajectory |
+| **Epidemic (spatial SIR)** | macro / population | level switch (🗺〰⎇) | 🗺 a space×time **kymograph** of a travelling infection wave · 〰 the S/I/R curves · ⎇ peak vs R₀ (the epidemic threshold) |
 | **Spiking neuron (LIF)** | single-neuron biophysics | level switch (◷∑⌁) | ◷ a V(t) trace integrating to threshold · ∑ a spike raster over repeats · ⌁ the f–I transfer curve (+ a refractory **toggle**) |
 | **Reinforcement learning (RW)** | learning | level switch (⚛◷∑) | ⚛ one Rescorla–Wagner update (δ = r − V) · ◷ the value learning curve · ∑ curves across learning rates α |
 | **Bayesian observer** | perception / inference | continuous | prior · likelihood · posterior on a stimulus axis; an estimate-vs-true *central-tendency* curve (±SD ribbon); trial-to-trial prior updating |
@@ -127,6 +131,14 @@ One harness, many control + view types — every plot is live, so you build intu
 <td width="50%"><img src="docs/rl-rate.png" alt="learning curves across learning rates"><br/><b>Multi-condition overlay + legend.</b> Learning curves across learning rates α (reinforcement learning, ∑ Rate-sweep lens).</td>
 <td width="50%"><img src="docs/ddm-sim.png" alt="response-time histogram building up"><br/><b>Statistics over many trials.</b> The response-time histogram builds up, correct ↑ / error ↓ (drift-diffusion, ∑ Simulation lens).</td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/shots/compare.png" alt="comparing two decision models via a toggle"><br/><b>Compare models via a toggle.</b> Switch DDM ⟷ single-sample; an overlay, a metric <b>heatmap</b> over (drift × noise), and accuracy/speed/reward <b>bars</b>.</td>
+<td width="50%"><img src="docs/shots/sir-spread.png" alt="space-time kymograph of a spatial SIR epidemic"><br/><b>Heatmap — a travelling wave.</b> A spatial SIR epidemic as a space×time kymograph (macro scale, 🗺 Spread lens).</td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap — an energy landscape.</b> A decision network's (S₁,S₂) flow field with the trajectory rolling into a basin (network scale, ⎇ Landscape lens).</td>
+<td width="50%"><b>Same harness, any scale.</b> These heatmaps — a metric landscape, an epidemic kymograph, a phase-plane flow — all come from the same <code>g.heat</code> + <code>g.colorbar</code>; the eleven models span behavioural, single-neuron, sensory, network, and macro scales.</td>
+</tr>
 </table>
 
 Every state is **deep-linkable** for sharing or screenshots: open `index.html?model=lif&lens=raster&head=30`
@@ -155,7 +167,7 @@ flowchart TB
       CMD["Command · /model-scope:scaffold<br/>copies the template"]
     end
 
-    TPL["Template — no-build app<br/>4 core files + mslib.js · 6 worked examples"]
+    TPL["Template — no-build app<br/>4 core files + mslib.js · 11 worked examples"]
     EDIT["Add ONE entry to the MODELS registry:<br/>params + a simulate() function + views"]
     VAL{"node validate.mjs<br/>passes?"}
     APP["Interactive explorer — open index.html"]

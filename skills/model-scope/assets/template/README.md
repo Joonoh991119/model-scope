@@ -5,10 +5,17 @@ or `python3 -m http.server` if your browser blocks `file://` scripts). Move a sl
 simulation re-runs; the result is shown in **views the model defines** — there is no fixed
 graphic or axis.
 
-Ships with eight examples spanning every idiom so you can see the range:
+Ships with eleven examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
+macro) and every idiom, so you can see the range:
 - **Drift-diffusion decision** *(level switch)* — zoom one model through perspectives: ⚛ Step (one
   update = drift + noise → new evidence) · ◷ Trial (a walk to a bound) · ∑ Simulation (the RT
   histogram builds up). The worked example of the three-level lenses.
+- **Decision: integrate vs one sample** *(toggle + heatmap)* — compare two models via a toggle: a
+  speed–accuracy overlay, a metric heatmap over (drift × noise), and accuracy/speed/reward bars.
+- **Attractor network — decision** *(level switch)* — a recurrent 2-pool circuit: ⚛ one pool's input ·
+  ◷ winner-take-all dynamics · ⎇ the (S₁,S₂) energy-landscape heatmap.
+- **Epidemic (spatial SIR)** *(level switch)* — a macro model: 🗺 a space×time kymograph · 〰 the
+  S/I/R curves · ⎇ peak vs R₀ (the epidemic threshold).
 - **Early vision — orientation** *(level switch)* — an **image-input** model: 🖼 the grating image ·
   🧱 oriented Gabor energy channels re-represent it · 🎯 the orientation tuning + decoded angle.
 - **Spiking neuron (LIF)** *(level switch)* — ◷ a V(t) trace to threshold · ∑ a spike raster over

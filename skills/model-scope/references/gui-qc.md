@@ -48,12 +48,18 @@ Text-size control reflows fonts/margins — larger text is where overlap shows u
 - [ ] Panels are numbered (①②③…) and `blurb`/`note` reference them by number.
 - [ ] The paper's thesis is visible: what's held **fixed** looks fixed; what **varies**, varies.
 
-**Levels (if the model declares `lenses`):**
-- [ ] The level switch (⚛ Step · ◷ Trial · ∑ Simulation) shows and each lens binds its own views.
-- [ ] Step lens decomposes ONE update into named contributions (signal/leak/noise), **zoomed** so
-      they're comparable — and reads as input → transform → output.
-- [ ] Trial lens replays the atom to an output; Sim lens shows the statistic building up.
-- [ ] Switching lens is instant (no recompute) and never leaves a stale playhead or overlay.
+**Levels / perspectives (if the model declares `lenses`):** — *lens keys are free; check the family that fits the model, not a fixed trio.*
+- [ ] The level switch shows; each lens binds its own views, and switching is instant (no recompute,
+      no stale playhead/overlay).
+- [ ] The lenses match the model's class and together read **input → transform → output → what emerges**:
+      a trial model → ⚛ Step · ◷ Trial · ∑ Simulation; a sensory/image model → 🖼 Input · 🧱 Transform ·
+      🎯 Readout (static); an inference model → a pipeline of `stages`; a network → Step · Dynamics ·
+      Landscape; a field/macro model → Spread/state · Curve/dynamics · Threshold/regimes.
+- [ ] For an **atomic/step** lens: ONE update decomposed into named contributions (signal/leak/noise,
+      or self/cross/drive for a coupled unit), **zoomed** so they're comparable.
+- [ ] For a **dynamics/trial** lens: the atom replayed to an output or steady state.
+      For a **simulation/regimes** lens: the statistic, curve, or bifurcation building up, axes fixed
+      from the full result.
 
 *How to capture:* a Preview / browser MCP, or `python3 -m http.server` + a headless screenshot.
 Trigger a heavy screen and watch the overlay fill then clear; drag a slider fast and confirm no

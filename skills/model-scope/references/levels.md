@@ -16,7 +16,8 @@ EMERGES over many runs?** The right set depends on the model class:
 | **Decision / accumulator** (DDM, race) | the evidence/stimulus | ⚛ one update = signal + noise → new state | ◷ a trial: walk to a bound | ∑ choice & RT distributions |
 | **Sensory / image** (vision, RFs) | 🖼 the image/stimulus | 🧱 filter/feature-map channels re-represent it | 🎯 pooled tuning → decoded feature | ∑ tuning/accuracy across stimuli |
 | **Bayesian / inference** | stimulus + measurement | prior → likelihood → posterior (a stage walk) | the estimate (loss-dependent) | bias & variability across stimuli |
-| **Dynamical / network** (attractor, ring) | external drive | per-unit update + recurrent coupling | population state / winner | behaviour across conditions |
+| **Dynamical / network** (attractor, ring) | external drive | ⚛ one pool's recurrent update (self-excite − cross-inhibit + drive) | ◷ Dynamics: pools race to a winner | ⎇ Landscape: the state-space basins |
+| **Population / field / macro** (SIR, Wilson–Cowan, neural field) | initial condition / drive | per-site update + coupling/diffusion | 🗺 the field state in space×time (kymograph) | ⎇ regimes across R₀ / a bifurcation |
 | **Learning / RL** | reward / outcome | one value update (prediction error) | policy / choice | the learning curve over episodes |
 
 The default trio for a **time/trial-based** model is the canonical arc **⚛ Step → ◷ Trial →
@@ -33,8 +34,14 @@ free* — choose them to name the model's own perspectives; the harness just ren
 | **∑ Simulation** | the trial **repeated many times** → the emergent statistics | a trial index | a histogram / curve building up; the current trial flashing by |
 
 The template's **drift-diffusion** model is the worked example of this trio; the **early-vision**
-model is the worked example of the 🖼/🧱/🎯 sensory trio (a static lens per perspective — no playhead,
-just live sliders). Both are in `assets/template/engine.js`.
+model is the worked example of the 🖼/🧱/🎯 sensory trio (static lenses — no playhead, just live
+sliders). For other scales the template ships **`attractor`** (a network: Step decomposes one pool's
+recurrent input, Dynamics races the pools, Landscape maps the (S₁,S₂) basins) and **`sir`** (a
+field/macro model: a space×time kymograph + an R₀ threshold). All in `assets/template/engine.js`.
+
+**Atomic step for a COUPLED system.** For a network/field the "atom" is *one unit's update at fixed
+neighbour state*: decompose its net input — self-excitation, cross-inhibition, external drive, noise —
+as a `g.arrow` waterfall → the unit's rate → its Δstate (see the `attractor` model's ⚛ Step lens).
 
 ## Declaring lenses
 
