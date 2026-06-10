@@ -769,8 +769,8 @@
     },
 
     /* ---- NETWORK with PLASTICITY: a Hopfield associative memory (Hebbian). STRUCTURE FIRST —
-       the weight matrix IS the stored memory. Angles: Structure (W) · Store (the memories + the
-       Hebbian rule) · Recall (a noisy cue settles into an attractor) · Capacity (load sweep). */
+       the weight matrix IS the stored memory. Angles: Structure (W), Store (the memories + the
+       Hebbian rule), Recall (a noisy cue settles into an attractor), Capacity (load sweep). */
     hopfield: {
       id:'hopfield', name:'Hopfield memory (Hebbian)',
       blurb:'An associative memory: ±1 patterns are stored by Hebbian plasticity into a symmetric weight matrix W = Σ ξξᵀ; a noisy cue then settles, by repeated sign updates, into the nearest stored pattern (an attractor). Use the lens switch for the angles — structure first: Structure (the weight matrix), Store (the stored memories and the rule that wrote them), Recall (the cue settling in), Capacity (how recall fails as you store more).',
@@ -834,7 +834,7 @@
     },
 
     /* ---- OSCILLATION: Kuramoto coupled phase oscillators. STRUCTURE FIRST — the natural-frequency
-       spread + all-to-all coupling. Angles: Structure · Dynamics (phases on a circle) · Sync (r vs K). */
+       spread + all-to-all coupling. Angles: Structure, Dynamics (phases on a circle), Sync (r vs K). */
     kuramoto: {
       id:'kuramoto', name:'Kuramoto oscillators (sync)',
       blurb:'N phase oscillators, each with its own natural frequency, all-to-all coupled with strength K. Below a critical coupling they drift incoherently; above it they spontaneously synchronise. Use the lens switch for the angles — structure first: Structure (the frequency spread and the coupling), Dynamics (the phases racing around a circle), Sync (the order parameter r as a function of K — the synchronization transition).',
@@ -889,7 +889,7 @@
 
     /* ---- PARTIAL OBSERVABILITY: belief tracking with a discrete Bayes filter (HMM forward).
        A hidden location diffuses on a ring; each step gives a noisy reading; the filter keeps a
-       BELIEF over where it is. STRUCTURE FIRST. Angles: Structure · Belief · Compare(noise). */
+       BELIEF over where it is. STRUCTURE FIRST. Angles: Structure, Belief, Compare(noise). */
     belief: {
       id:'belief', name:'Belief tracking (Bayes filter)',
       blurb:'A hidden location moves on a ring and is never seen directly — each step gives only a noisy reading. A Bayes filter keeps a BELIEF (a probability distribution) over where it is: predict (diffuse the belief through the transition), then correct (multiply by the observation likelihood). Use the lens switch for the angles — structure first: Structure (the hidden states, the transition, the observation model), Belief (the belief distribution evolving as observations arrive), Compare (how observation noise blurs tracking).',
