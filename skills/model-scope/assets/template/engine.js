@@ -23,7 +23,7 @@
   function gaussian(rng){ let u=rng(); if(u<1e-12)u=1e-12; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rng()); }
   const trialRng = (seed,k)=>makeRNG(seed+'#'+k);
   const npdf = (x,mu,s)=>Math.exp(-0.5*((x-mu)/s)*((x-mu)/s))/(s*Math.sqrt(2*Math.PI));
-  const TH = ()=> (global.Plot ? global.Plot.TH : {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91'});
+  const TH = ()=> (global.Plot ? global.Plot.TH : {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',warn:'#b07d2a',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91',grid:'#e7e3d8',edge:'#d6d2c5'});
   const HIST = (v,b,lo,hi,q)=> global.Plot.histify(v,b,lo,hi,q);
 
   /* runChunks — for HEAVY screens (e.g. many trials per condition for a clean estimate).
@@ -466,15 +466,15 @@
           g.legend([{label:'DDM (sweep bound z)',color:T.accent},{label:'1-sample (sweep T)',color:T.neg}],{corner:'br'}); }},
         { title:'metric over (drift, noise) — heatmap', draw:(g,d)=>{ const T=TH();
           const cmap=v=>{ const t=Math.max(0,Math.min(1,(v-d.gmin)/((d.gmax-d.gmin)||1))); return [Math.round(246-150*t), Math.round(241-78*t), Math.round(228-92*t)]; };
-          g.frame({x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM, ':'1-sample, ')+d.metricName+' over (A × c)'});
+          g.frame({cbar:true, x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM, ':'1-sample, ')+d.metricName+' over (A × c)'});
           g.heat(d.NX, d.NY, (i,j)=>d.grid[j*d.NX+i], cmap);
           const fmt=v=>d.metric===0?v.toFixed(2):v.toFixed(2); g.colorbar(d.gmin, d.gmax, cmap, {ticks:[{v:d.gmin,label:fmt(d.gmin)},{v:(d.gmin+d.gmax)/2,label:fmt((d.gmin+d.gmax)/2)},{v:d.gmax,label:fmt(d.gmax)}], label:d.metricName});
           g.marker(d.A, d.c, {color:'#fff', stroke:T.ink, r:5, label:'now'}); }},
         { title:'this operating point — DDM vs 1-sample', draw:(g,d)=>{ const T=TH(), ctx=g.ctx;
-          const groups=[{name:'accuracy',dv:d.accD,sv:d.accS,f:x=>x.toFixed(2)},{name:'speed (1/s)',dv:1/(d.dtD+d.Ter),sv:1/(d.T+d.Ter),f:x=>x.toFixed(1)},{name:'reward (1/s)',dv:d.rrD,sv:d.rrS,f:x=>x.toFixed(2)}];
-          g.frame({x:[-0.5,2.5], y:[0,1.18], yticks:2, xticklabels:groups.map(q=>q.name), title:'each group normalised to its larger bar — taller = better'});
+          const groups=[{name:'accuracy',dv:d.accD,sv:d.accS,f:x=>x.toFixed(2),floor:0.5},{name:'speed (1/s)',dv:1/(d.dtD+d.Ter),sv:1/(d.T+d.Ter),f:x=>x.toFixed(1)},{name:'reward (1/s)',dv:d.rrD,sv:d.rrS,f:x=>x.toFixed(2)}];
+          g.frame({x:[-0.5,2.5], y:[0,1.18], yticks:2, xticklabels:groups.map(q=>q.name), title:'accuracy floored at chance (0=chance); speed/reward scaled to the larger bar'});
           const bw=0.17, aD=d.useDDM?1:0.4, aS=d.useDDM?0.4:1;
-          groups.forEach((q,i)=>{ const norm=Math.max(q.dv,q.sv,1e-9), hD=q.dv/norm, hS=q.sv/norm, y0=g.Y(0);
+          groups.forEach((q,i)=>{ const h=q.floor!=null?(v=>Math.max(0,Math.min(1,(v-q.floor)/(1-q.floor)))):(v=>v/Math.max(q.dv,q.sv,1e-9)), hD=h(q.dv), hS=h(q.sv), y0=g.Y(0);
             ctx.fillStyle='rgba(74,122,147,'+aD+')'; ctx.fillRect(g.X(i-bw*1.05)-1, g.Y(hD), g.X(i)-g.X(i-bw*1.05), y0-g.Y(hD));
             ctx.fillStyle='rgba(194,91,66,'+aS+')'; ctx.fillRect(g.X(i+0.02), g.Y(hS), g.X(i+bw*1.05)-g.X(i+0.02), y0-g.Y(hS));
             ctx.fillStyle=T.dim; ctx.font=(9*(g.FS||1)).toFixed(1)+'px "IBM Plex Mono",monospace'; ctx.textAlign='center';
@@ -517,14 +517,14 @@
       lenses:{
         input:{ label:'Input', about:'the stimulus image — a noisy grating at orientation θ (all the model sees)',
           views:[ { title:'input image', draw:(g,d)=>{ const N=d.N;
-            g.frame({x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ, frequency, contrast, noise)`});
+            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ, frequency, contrast, noise)`});
             g.heat(N,N,(i,j)=> d.img[j*N+i], v=>VGRAY(v,d.imgLim));
             g.colorbar(-d.imgLim, d.imgLim, v=>VGRAY(v,d.imgLim), {ticks:[{v:-d.imgLim,label:'−'},{v:0,label:'0'},{v:d.imgLim,label:'+'}], label:'intensity'});
           }} ] },
         transform:{ label:'Transform', about:'each oriented channel re-represents the image as an energy map',
           views:[ { title:'oriented Gabor energy maps — one per channel', draw:(g,d)=>{ const N=d.N, K=d.K, cols=3, rows=Math.ceil(K/cols);
-            g.frame({x:[0,cols*N], y:[0,rows*N], xticks:1, yticks:1, title:'how each orientation channel re-represents the image'});
-            g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?[244,243,238]:VHOT(v,d.emax));
+            g.frame({cbar:true, x:[0,cols*N], y:[0,rows*N], xticks:1, yticks:1, title:'how each orientation channel re-represents the image'});
+            g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?[244,243,238]:VHOT(v,d.emax), {smooth:false});
             for(let k=0;k<K;k++){ const col=k%cols, row=Math.floor(k/cols), cx=(col+0.5)*N, cy=(rows-1-row)*N + N*0.9, hit=Math.abs(((d.oris[k]-d.ori+90)%180)-90)<16;
               g.text(cx, cy, d.oris[k].toFixed(0)+'°', {color: hit?'#fff':'rgba(255,255,255,.82)', size:9.5, align:'center'}); }
             g.colorbar(0, d.emax, v=>VHOT(v,d.emax), {label:'energy'});
@@ -697,7 +697,7 @@
         landscape:{ label:'Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
           views:[ { title:'state-space flow (dark = attractor) + this trajectory', draw:(g,d)=>{ const T=TH();
             const cmap=v=>{ const tt=Math.max(0,Math.min(1,v/(d.fmax||1))); return [Math.round(40+205*tt), Math.round(38+198*tt), Math.round(72+165*tt)]; };
-            g.frame({x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
+            g.frame({cbar:true, x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
             g.heat(d.NG, d.NG, (i,j)=>d.flow[j*d.NG+i], cmap);
             g.line([[0,0],[1,1]],{color:'rgba(255,255,255,.35)',dash:[3,3]});
             const path=[]; for(let i=0;i<d.nF;i++) path.push([d.s1[i],d.s2[i]]); g.line(path,{color:'#fff',width:2});
@@ -735,8 +735,8 @@
         spread:{ label:'Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
           views:[ { title:'infected fraction over space (x) and time', draw:(g,d)=>{ const T=TH();
             const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.iMax||1))); return [Math.round(245-20*t), Math.round(245-205*t), Math.round(232-150*t)]; }; // cream→deep red
-            g.frame({x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
-            g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap);
+            g.frame({cbar:true, x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
+            g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap, {smooth:false});
             g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
         curve:{ label:'Curve', about:'the well-mixed S / I / R totals — the classic epidemic curve',
           views:[ { title:'population fractions S, I, R over time', draw:(g,d)=>{ const T=TH(), tE=d.times[d.nF-1]||1;

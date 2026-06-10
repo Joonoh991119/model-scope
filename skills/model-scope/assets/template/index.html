@@ -171,9 +171,11 @@ function recompute(){ clearTimeout(rt); stopAll(); const myGen=S.gen; S.seed=$('
 // bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
 function bindLens(){ const spec=activeSpec(); S.views=spec.views||[]; buildCards();
   $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'move a slider, or step through each stage':spec.anim?'move a slider, or play to watch it build':'move a slider, watch the views update');
-  S.stageList = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(S.params, S.data) : spec.stages) : null;
+  try { S.stageList = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(S.params, S.data) : spec.stages) : null; }
+  catch(e){ console.error('[model-scope] stages() threw', {model:S.modelId, error:e}); S.stageList=null; }
   S.stageMode = !!(S.stageList && S.stageList.length); S.anim = spec.anim || null;
-  S.length = S.stageMode ? S.stageList.length : (S.anim ? Math.max(1, S.anim.length(S.params, S.data)) : 1);
+  let alen=1; if(S.anim){ try{ alen=S.anim.length(S.params, S.data); }catch(e){ console.error('[model-scope] anim.length() threw', {model:S.modelId, error:e}); alen=1; } }
+  S.length = S.stageMode ? S.stageList.length : Math.max(1, (Number.isFinite(alen)?Math.floor(alen):1) || 1);   // coerce a NaN/bad length to 1 so the playhead never silently dies
   S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;   // stages: head∈[0,len-1] (one unit/stage); continuous: [0,len]
   const seq = S.stageMode || !!S.anim;
   $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));    // keep the bar (for the lens switch) even if THIS lens is static
