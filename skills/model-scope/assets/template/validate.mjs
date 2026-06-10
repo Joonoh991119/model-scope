@@ -215,10 +215,18 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  hopfield: cue recalled (overlap=${d.finalOv.toFixed(2)}); accuracy ${(d.sweep[0][1]*100).toFixed(0)}% at low load → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}% at high load   [${ok(recalled && lowLoadOk && falls)}]`);
 }
 
+// Kuramoto: synchrony (order parameter r) rises with coupling K — incoherent at K=0, synchronised at high K
+{
+  const m = SIM.MODELS.kuramoto, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('kur'));
+  const lowK = d.sweep[0][1], hiK = d.sweep[d.sweep.length-1][1], rises = hiK > lowK + 0.3;
+  console.log(`  kuramoto: synchrony rises with coupling (r=${lowK.toFixed(2)} at K=0 → ${hiK.toFixed(2)} at K=8; K_c≈${d.Kc.toFixed(2)})   [${ok(lowK<0.5 && hiK>0.6 && rises)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

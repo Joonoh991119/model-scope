@@ -832,8 +832,62 @@
             g.marker(d.load, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.load)<Math.abs(b[0]-d.load)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- OSCILLATION: Kuramoto coupled phase oscillators. STRUCTURE FIRST — the natural-frequency
+       spread + all-to-all coupling. Angles: Structure · Dynamics (phases on a circle) · Sync (r vs K). */
+    kuramoto: {
+      id:'kuramoto', name:'Kuramoto oscillators (sync)',
+      blurb:'N phase oscillators, each with its own natural frequency, all-to-all coupled with strength K. Below a critical coupling they drift incoherently; above it they spontaneously synchronise. Use the lens switch for the angles — structure first: Structure (the frequency spread and the coupling), Dynamics (the phases racing around a circle), Sync (the order parameter r as a function of K — the synchronization transition).',
+      note:'Mean-field Kuramoto: dθ_i/dt = ω_i + K·r·sin(ψ − θ_i), where the order parameter r·e^{iψ} = (1/N)Σ e^{iθ_j} measures global synchrony (r=0 incoherent, r=1 locked). Synchrony emerges above a critical coupling K_c ≈ 2/(π·g(0)) set by the spread of natural frequencies g (for a Gaussian spread σ, K_c ≈ 1.6σ). Raise K past K_c, or narrow the frequency spread, and r jumps up. Composed from MSLIB.osc.',
+      params:[
+        {name:'K', label:'Coupling K', min:0, max:8, step:0.05, default:3, unit:''},
+        {name:'spread', label:'Natural-frequency spread σ', min:0.2, max:3, step:0.05, default:1},
+        {name:'noise', label:'Phase noise', min:0, max:1, step:0.01, default:0.1},
+      ],
+      simulate:(p, env)=>{ const O=global.MSLIB.osc, N=80, dt=0.02, T=20, nS=Math.round(T/dt), STORE=4;
+        const rng=makeRNG(env.seed+'#kur'), omega=new Float64Array(N); for(let i=0;i<N;i++) omega[i]=p.spread*gaussian(rng);
+        let ph=new Float64Array(N); for(let i=0;i<N;i++) ph[i]=(rng()*2-1)*Math.PI;
+        const snaps=[], rt=[], times=[];
+        for(let k=0;k<=nS;k++){ if(k%STORE===0){ snaps.push(Array.from(ph)); rt.push(O.kuramotoOrder(ph).r); times.push(k*dt); }
+          ph=O.kuramotoStep(ph, omega, p.K, dt, p.noise, ()=>gaussian(rng)); }
+        const sweep=[]; for(let kk=0;kk<=24;kk++){ const Kc=kk*(8/24); let p2=new Float64Array(N); const rr=makeRNG(env.seed+'#sw'+kk); for(let i=0;i<N;i++) p2[i]=(rr()*2-1)*Math.PI;
+          for(let s=0;s<350;s++) p2=O.kuramotoStep(p2, omega, Kc, dt, p.noise, ()=>gaussian(rr));
+          let racc=0,cnt=0; for(let s=0;s<120;s++){ p2=O.kuramotoStep(p2, omega, Kc, dt, p.noise, ()=>gaussian(rr)); racc+=O.kuramotoOrder(p2).r; cnt++; } sweep.push([Kc, racc/cnt]); }
+        const Kc=p.spread*Math.sqrt(8/Math.PI), omLim=Math.max(0.5,...omega.map(Math.abs))*1.1;
+        return { N, omega:Array.from(omega), omLim, snaps, rt, times, nF:snaps.length, sweep, K:p.K, Kc, spread:p.spread, rFinal:rt[rt.length-1] };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the natural-frequency spread and the all-to-all coupling that must overcome it',
+          views:[ { title:'natural frequencies ω (the heterogeneity coupling must overcome)', draw:(g,d)=>{ const T=TH();
+            const h=Plot.histify(d.omega, 19, -d.omLim, d.omLim), ymax=Math.max(...h.counts,1)*1.2;
+            g.frame({x:[-d.omLim,d.omLim], y:[0,ymax], xlabel:'natural frequency ω_i', ylabel:'# oscillators', title:`${d.N} oscillators, all-to-all coupling K=${d.K.toFixed(2)} (critical K_c ≈ ${d.Kc.toFixed(2)})`});
+            g.bars(h,{color:T.accent}); g.vline(0,{color:T.faint,dash:[4,3]});
+            g.text(0, ymax*0.92, 'wider spread → larger K_c (harder to synchronise)', {color:T.dim, size:10.5, align:'center'});
+          }} ] },
+        dynamics:{ label:'Dynamics', about:'the phases racing around a circle; the arrow is the synchrony r',
+          anim:{ length:(p,d)=>d.nF-1 },
+          views:[
+            { title:'phases on the unit circle (arrow length = synchrony r)', draw:(g,d,ui)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS, k=Math.min(d.nF-1,Math.floor(ui.head)), ph=d.snaps[k];
+              const cx=W/2, cy=H/2+8*F, R=Math.min(W,H)*0.34;
+              ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText(`t = ${d.times[k].toFixed(1)} s — bunched = synchronised, spread = incoherent`, W/2, 20*F);
+              ctx.strokeStyle=T.faint; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke();
+              ctx.fillStyle=T.accent; for(const t of ph){ ctx.beginPath(); ctx.arc(cx+R*Math.cos(t), cy-R*Math.sin(t), 3*F, 0, 7); ctx.fill(); }
+              let C=0,S=0; for(const t of ph){ C+=Math.cos(t); S+=Math.sin(t); } const r=Math.hypot(C,S)/ph.length, psi=Math.atan2(S,C);
+              ctx.strokeStyle=T.neg; ctx.fillStyle=T.neg; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+R*r*Math.cos(psi), cy-R*r*Math.sin(psi)); ctx.stroke();
+              ctx.font=(12*F)+'px monospace'; ctx.fillText('r = '+r.toFixed(2), cx, cy+R+24*F); }},
+            { title:'synchrony r(t) building up', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.times[d.nF-1]||1;
+              g.frame({x:[0,tE], y:[0,1.05], xlabel:'time (s)', ylabel:'order parameter r', title:'r settles high if K exceeds K_c, stays near 0 if not'});
+              g.hline(1,{color:T.faint,dash:[4,3]}); g.line(d.rt.map((v,i)=>[d.times[i],v]),{color:T.pos,width:2.4}); g.vline(d.times[k],{color:T.ink,dash:[2,3]}); }},
+          ] },
+        sync:{ label:'Sync', about:'the synchronization transition — steady-state r as a function of coupling K',
+          views:[ { title:'synchronization transition: r vs coupling K', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0,8], y:[0,1.05], xlabel:'coupling K', ylabel:'steady-state synchrony r', title:'incoherent (r≈0) below K_c, synchronised (r→1) above'});
+            g.vline(d.Kc,{color:'#7a5a93',dash:[5,4],label:'K_c ≈ '+d.Kc.toFixed(2)}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.K, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.K)<Math.abs(b[0]-d.K)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);
