@@ -298,7 +298,7 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 ## How to start
 
 1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs, with
-   nineteen worked examples spanning the model SCALES — behavioural/process, single-neuron, sensory,
+   twenty worked examples spanning the model SCALES — behavioural/process, single-neuron, sensory,
    network, macro — and every idiom: the **lens switch** (drift-diffusion across its angles; a
    `compare` model-vs-model **toggle** with a metric heatmap; an **early-vision** image model; a
    **LIF** neuron with a refractory toggle; a **Rescorla-Wagner** learner; an **attractor network**

@@ -72,7 +72,7 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 
 ## What you can build — the examples that ship
 
-The bundled template runs **nineteen** worked models that **span the model scales and classes** —
+The bundled template runs **twenty** worked models that **span the model scales and classes** —
 behavioural / process, single-neuron, sensory / image, network (with plasticity), oscillation, macro,
 partial-observability inference, causal graphs, and attention — across every idiom (a continuous playhead, a
 process-mode stepper, and the **lens switch**):
@@ -98,6 +98,7 @@ process-mode stepper, and the **lens switch**):
 | **Causal graph — intervention** | causal inference (Pearl / DAG) | lens switch | the causal DAG (a confounder behind X and Y), structure first; the observed (confounded) association; do(X) vs what you see; the observed-minus-causal gap vs confounding |
 | **Self-attention (transformer)** | attention / sequence | lens switch | the attention matrix (who attends to whom), structure first; how one token's output mixes the values; attention sharpness (entropy) vs temperature |
 | **POMDP — the tiger** | control under uncertainty | lens switch | the reward/observation structure; the value function over belief + the listen/open policy regions (value iteration); a belief-updating episode; caution vs the penalty |
+| **Wilson–Cowan E/I** | oscillation (rate / Hopf) | lens switch | the excitatory–inhibitory circuit, structure first; the E and I rates oscillating + the phase-plane limit cycle; oscillation amplitude vs drive (the bifurcation) |
 
 Copy one, swap in your equations, and it is yours.
 
@@ -130,7 +131,7 @@ One harness, many control + view types — every plot is live, so you build intu
 </tr>
 <tr>
 <td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap, an energy landscape.</b> A decision network's (S1, S2) flow field with the trajectory rolling into a basin (network scale, Landscape lens).</td>
-<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the nineteen models span behavioural, single-neuron, sensory, network, and macro scales.</td>
+<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the twenty models span behavioural, single-neuron, sensory, network, and macro scales.</td>
 </tr>
 </table>
 

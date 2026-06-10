@@ -5,7 +5,7 @@ or `python3 -m http.server` if your browser blocks `file://` scripts). Move a sl
 simulation re-runs; the result is shown in **views the model defines** — there is no fixed
 graphic or axis.
 
-Ships with nineteen examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
+Ships with twenty examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
 macro) and every idiom, so you can see the range. Each model is replicated and shown from the angles
 that fit its class; the payoff is comparing what changes across parameters and model choices.
 - **Drift-diffusion decision** *(lens switch)* — the angles: one update (drift plus noise), one trial

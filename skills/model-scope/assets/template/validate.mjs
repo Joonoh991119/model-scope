@@ -285,10 +285,18 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  pomdp: policy open-left|listen|open-right (listen ${(d.listenFrac*100).toFixed(0)}% of beliefs); a bigger penalty widens it (${(d.sweep[0][1]*100).toFixed(0)}% → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}%)   [${ok(ends && listensMid && hasListen && widens)}]`);
 }
 
+// Wilson-Cowan E/I: a limit cycle at default drive, born at a Hopf bifurcation (flat below a critical drive, oscillating above)
+{
+  const m = SIM.MODELS.wilson, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('wc'));
+  const osc = d.amp > 0.1, lowFlat = d.sweep[0][1] < 0.05, highOsc = d.sweep[d.sweep.length-1][1] > 0.3;
+  console.log(`  wilson-cowan: limit cycle at default (amp=${d.amp.toFixed(2)}); Hopf bifurcation in drive (P=0: ${d.sweep[0][1].toFixed(2)} → P=3: ${d.sweep[d.sweep.length-1][1].toFixed(2)})   [${ok(osc && lowFlat && highOsc)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

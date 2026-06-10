@@ -12,9 +12,11 @@ crosses a critical value (mirror the SIR / epidemic-threshold idiom).
   parameter `r·e^{iψ} = (1/N) Σ_j e^{iθ_j}` measures global synchrony (r=0 incoherent, r=1
   locked). Synchrony emerges above a critical coupling `K_c ≈ 2/(π·g(0))` set by the spread
   of natural frequencies g (for a Gaussian spread σ, K_c ≈ 1.6σ).
-- **Wilson–Cowan E-I oscillator** (not yet shipped) — coupled excitatory/inhibitory rate
-  equations with a sigmoid nonlinearity; a limit cycle appears past a Hopf bifurcation. Show
-  the E/I structure, the rate trajectories, and the bifurcation as drive/coupling varies.
+- **Wilson–Cowan E-I oscillator** (template exemplar `wilson`). Coupled excitatory/inhibitory rate
+  equations with a sigmoid nonlinearity: `τ_E dE/dt = −E + S(w_EE·E − w_EI·I + P)`, similarly for I.
+  Recurrent excitation + slower delayed inhibition produce a limit cycle past a **Hopf bifurcation**.
+  Shows the E/I circuit, the E and I traces + the phase-plane limit cycle, and the bifurcation as
+  drive P grows (flat steady state below a critical drive, a growing oscillation above).
 
 ## Parameters (meaning + typical ranges)
 

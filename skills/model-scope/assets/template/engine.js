@@ -1242,8 +1242,63 @@
             const pen=-d.rTiger; g.marker(pen, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-pen)<Math.abs(b[0]-pen)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- OSCILLATION (E/I): Wilson–Cowan excitatory/inhibitory rate model. STRUCTURE FIRST.
+       A limit cycle appears past a Hopf bifurcation as the drive grows. Angles: Structure, Dynamics, Compare. */
+    wilson: {
+      id:'wilson', name:'Wilson–Cowan E/I (oscillation)',
+      blurb:'Two coupled populations — excitatory E and inhibitory I — with a sigmoid input–output. E excites itself and I; I inhibits E (and itself). With enough drive the pair stops settling and starts to oscillate: a limit cycle born at a Hopf bifurcation (the basis of many cortical rhythms). Use the lens switch for the angles — structure first: Structure (the E/I circuit), Dynamics (the E and I rates and the phase-plane loop), Compare (oscillation amplitude vs drive — the bifurcation).',
+      note:'τ_E dE/dt = −E + S(w_EE·E − w_EI·I + P); τ_I dI/dt = −I + S(w_IE·E − w_II·I + Q), S a logistic. Recurrent excitation w_EE destabilises the fixed point; delayed inhibition (slower τ_I) makes the state overshoot and cycle. Below a critical drive P the activity settles to a steady state; above it a stable limit cycle appears (a Hopf bifurcation) and E/I oscillate in antiphase. Raise the drive or recurrent excitation to switch the rhythm on. Composed from MSLIB.osc.',
+      params:[
+        {name:'P', label:'Excitatory drive P', min:0, max:3, step:0.05, default:1.2},
+        {name:'wEE', label:'Recurrent excitation w_EE', min:8, max:20, step:0.5, default:16},
+        {name:'wEI', label:'Inhibition of E (w_EI)', min:6, max:16, step:0.5, default:12},
+      ],
+      simulate:(p, env)=>{ const O=global.MSLIB.osc, dt=0.01, nT=5000, STORE=8, par={wEE:p.wEE, wEI:p.wEI, wIE:15, wII:3, P:p.P, Q:0, theta:4, k:1, tauE:1, tauI:2};
+        let s={E:0.1, I:0.1}; const Et=[], It=[], times=[], traj=[];
+        for(let t=0;t<=nT;t++){ if(t%STORE===0){ Et.push(s.E); It.push(s.I); times.push(t*dt); traj.push([s.E,s.I]); } s=O.wilsonCowanStep(s, par, dt); }
+        const half=Math.floor(Et.length/2); let mn=1,mx=0; for(let i=half;i<Et.length;i++){ if(Et[i]<mn)mn=Et[i]; if(Et[i]>mx)mx=Et[i]; } const amp=mx-mn;
+        const sweep=[]; for(let sP=0;sP<=20;sP++){ const Pv=sP*3/20, par2={...par, P:Pv}; let ss={E:0.1,I:0.1}, m0=1,m1=0;
+          for(let t=0;t<=nT;t++){ ss=O.wilsonCowanStep(ss,par2,dt); if(t>nT*0.6){ if(ss.E<m0)m0=ss.E; if(ss.E>m1)m1=ss.E; } } sweep.push([Pv, m1-m0]); }
+        return { Et, It, times, traj, nF:Et.length, amp, P:p.P, sweep, oscillating: amp>0.05, ampMax:Math.max(0.1,...sweep.map(q=>q[1])) };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the E/I circuit: E excites itself and I; I inhibits E',
+          views:[ { title:'the excitatory–inhibitory circuit', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS, cy=H*0.5, xE=W*0.34, xI=W*0.66, r=Math.min(W,H)*0.13;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('excitation drives, slower inhibition catches up → a rhythm', W/2, 22*F);
+            const pool=(x,col,lab)=>{ ctx.beginPath(); ctx.arc(x,cy,r,0,7); ctx.globalAlpha=0.16; ctx.fillStyle=col; ctx.fill(); ctx.globalAlpha=1; ctx.lineWidth=2.4; ctx.strokeStyle=col; ctx.stroke(); ctx.fillStyle=T.ink; ctx.font=(15*F)+'px sans-serif'; ctx.fillText(lab,x,cy+5*F); };
+            pool(xE,T.pos,'E'); pool(xI,T.neg,'I');
+            // self-excitation loop on E
+            ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(xE,cy-r-11*F,12*F,0.7,Math.PI*2-0.2); ctx.stroke(); ctx.fillStyle=T.pos; ctx.beginPath(); ctx.arc(xE+12*F*Math.cos(0.7),cy-r-11*F+12*F*Math.sin(0.7),2.8*F,0,7); ctx.fill();
+            ctx.font=(11*F)+'px monospace'; ctx.fillStyle=T.dim; ctx.fillText('+w_EE', xE, cy-r-30*F);
+            // E→I excite (top arc)
+            ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xE+r*0.8, cy-r*0.5); ctx.lineTo(xI-r*0.8, cy-r*0.5); ctx.stroke(); ctx.fillStyle=T.pos; ctx.beginPath(); ctx.moveTo(xI-r*0.8,cy-r*0.5); ctx.lineTo(xI-r*0.8-7*F,cy-r*0.5-4*F); ctx.lineTo(xI-r*0.8-7*F,cy-r*0.5+4*F); ctx.closePath(); ctx.fill(); ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText('+w_IE', (xE+xI)/2, cy-r*0.5-7*F);
+            // I→E inhibit (bottom, T-bar)
+            ctx.strokeStyle=T.neg; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xI-r*0.8, cy+r*0.5); ctx.lineTo(xE+r*0.8, cy+r*0.5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(xE+r*0.8, cy+r*0.5-6*F); ctx.lineTo(xE+r*0.8, cy+r*0.5+6*F); ctx.stroke(); ctx.fillStyle=T.neg; ctx.fillText('−w_EI', (xE+xI)/2, cy+r*0.5+16*F);
+            // drive into E
+            ctx.strokeStyle=T.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xE, cy+r+34*F); ctx.lineTo(xE, cy+r+6*F); ctx.stroke(); ctx.fillStyle=T.accent; ctx.beginPath(); ctx.moveTo(xE,cy+r+2*F); ctx.lineTo(xE-4.5*F,cy+r+12*F); ctx.lineTo(xE+4.5*F,cy+r+12*F); ctx.closePath(); ctx.fill(); ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText('drive P', xE, cy+r+48*F);
+            ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('Below a critical drive the rates settle; above it they cycle (Hopf).', W/2, H-12*F);
+          }} ] },
+        dynamics:{ label:'Dynamics', about:'the E and I rates over time, and the phase-plane trajectory',
+          anim:{ length:(p,d)=>d.nF },
+          views:[
+            { title:'E and I population rates over time', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.times[d.nF-1]||1;
+              g.frame({x:[0,tE], y:[0,1], xlabel:'time', ylabel:'population activity', title: d.oscillating ? 'a sustained rhythm — E and I cycle in antiphase' : 'the rates settle to a steady state (no oscillation)'});
+              const pe=[],pi=[]; for(let i=0;i<=k;i++){ pe.push([d.times[i],d.Et[i]]); pi.push([d.times[i],d.It[i]]); } g.line(pe,{color:T.pos,width:2.2}); g.line(pi,{color:T.neg,width:2.2});
+              g.legend([{label:'E (excitatory)',color:T.pos},{label:'I (inhibitory)',color:T.neg}],{corner:'tr'}); }},
+            { title:'phase plane (E vs I): a loop = a limit cycle', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head));
+              g.frame({x:[0,1], y:[0,1], xlabel:'E activity', ylabel:'I activity', title:'the trajectory settles to a point, or orbits a limit cycle'});
+              g.line(d.traj.slice(0,k+1),{color:'rgba(74,122,147,.5)',width:1.6}); g.marker(d.Et[k], d.It[k], {color:T.accent,stroke:'#fff',r:5}); }},
+          ] },
+        compare:{ label:'Compare', about:'oscillation amplitude vs drive — the Hopf bifurcation',
+          views:[ { title:'the bifurcation: oscillation amplitude vs drive', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0,3], y:[0, d.ampMax*1.12], xlabel:'excitatory drive P', ylabel:'oscillation amplitude (E)', title:'flat (a steady state) below the critical drive; a limit cycle grows above it'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.P, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.P)<Math.abs(b[0]-d.P)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

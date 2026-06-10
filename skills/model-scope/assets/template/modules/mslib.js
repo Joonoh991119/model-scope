@@ -219,7 +219,11 @@
   const kuramotoStep = (phases, omega, K, dt, sigma, g) => {   // mean-field: dθ_i = [ω_i + K·r·sin(ψ−θ_i)]·dt + noise
     const n=phases.length, { r, psi }=kuramotoOrder(phases), out=new Float64Array(n);
     for(let i=0;i<n;i++){ const d = omega[i] + K*r*Math.sin(psi - phases[i]); out[i] = phases[i] + d*dt + (sigma ? sigma*sqrt(dt)*g() : 0); } return out; };
-  const osc = { kuramotoOrder, kuramotoStep };
+  const wilsonCowanStep = (s, p, dt) => {   // s={E,I} rates; p={wEE,wEI,wIE,wII,P,Q,theta,k,tauE,tauI}; sigmoid gain → a limit cycle past a Hopf bifurcation
+    const S=(x)=>1/(1+exp(-(x-p.theta)/p.k));
+    const dE=(-s.E + S(p.wEE*s.E - p.wEI*s.I + p.P))/p.tauE, dI=(-s.I + S(p.wIE*s.E - p.wII*s.I + p.Q))/p.tauI;
+    return { E: s.E + dE*dt, I: s.I + dI*dt }; };
+  const osc = { kuramotoOrder, kuramotoStep, wilsonCowanStep };
 
   /* ---- belief: discrete Bayes filter (HMM forward / belief tracking over a hidden state) ---- */
   const beliefPredict = (b, T) => { const S=b.length, out=new Float64Array(S); for(let i=0;i<S;i++) for(let j=0;j<S;j++) out[j] += b[i]*T[i][j]; return out; };  // propagate through transition T[i][j]=P(j|i)
