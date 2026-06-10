@@ -297,7 +297,7 @@ shareable tunnel or permanent deploy when the tooling is available:
 /model-scope:from-paper ./furman-wang-2008.pdf
 ```
 
-The `paper-to-sim` skill reads the reference, runs a short `AskUserQuestion` interview (purpose ·
+The `paper-to-sim` skill reads the reference, runs a short `AskUserQuestion` interview (purpose,
 scope, which angles to show, what to compare, constraints) with defaults drawn from the paper,
 then drives the build + QC and verifies the local URL before reporting it. It
 also triggers on plain language — *“turn this paper into an interactive sim”*, *“interview me and

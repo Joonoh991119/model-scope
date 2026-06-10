@@ -197,9 +197,9 @@
 
   /* ---- network: Hopfield associative memory (Hebbian plasticity, attractor recall) ---- */
   const hopfieldStore = (patterns, N) => {   // patterns: array of ±1 vectors (length N) → weight matrix W, zero diagonal
-    const W = new Float64Array(N*N), s = patterns.length||1;
+    const W = new Float64Array(N*N);
     for(const p of patterns) for(let i=0;i<N;i++) for(let j=0;j<N;j++){ if(i!==j) W[i*N+j] += p[i]*p[j]; }
-    for(let t=0;t<W.length;t++) W[t] /= s; return W; };
+    for(let t=0;t<W.length;t++) W[t] /= N; return W; };   // canonical 1/N Hebbian scaling (capacity ≈ 0.138·N)
   const hopfieldEnergy = (W, s, N) => { let E=0; for(let i=0;i<N;i++) for(let j=0;j<N;j++) E -= 0.5*W[i*N+j]*s[i]*s[j]; return E; };  // Lyapunov energy (non-increasing under async sign updates)
   const hopfieldStep = (W, s, N, order) => {   // one ASYNC sweep of sign updates; `order` = index order (defaults 0..N-1)
     const o = order || Array.from({length:N},(_,i)=>i);
@@ -210,8 +210,8 @@
     for(let i=0;i<N;i++) for(let j=0;j<N;j++){ const d=Math.min(Math.abs(i-j), N-Math.abs(i-j))/N*2*PI; W[i*N+j] = Jpos*exp(-d*d/(2*sigma*sigma)) - Jneg; } return W; };  // d = circular distance (rad)
   const ringStep = (r, W, Iext, dt, tau, gain, bias, sigmaN, g) => { const N=r.length, out=new Float64Array(N);   // τ dr/dt = −r + f(gain·(W r + Iext − bias)), f = logistic (bounded [0,1] → no runaway)
     for(let i=0;i<N;i++){ let h=0; for(let j=0;j<N;j++) h += W[i*N+j]*r[j]; const f = 1/(1+exp(-gain*(h + (Iext?Iext[i]:0) - bias)));
-      out[i] = max(0, r[i] + (dt/tau)*(-r[i] + f) + (sigmaN? sigmaN*sqrt(dt)*g() : 0)); } return out; };
-  const popVector = (r, N) => { let cx=0, cy=0; for(let i=0;i<N;i++){ const a=2*PI*i/N; cx+=r[i]*Math.cos(a); cy+=r[i]*Math.sin(a); } let th=Math.atan2(cy,cx); if(th<0) th+=2*PI; return { angle:th, length:Math.hypot(cx,cy) }; };  // decoded heading + vector strength
+      out[i] = max(0, Math.min(1, r[i] + (dt/tau)*(-r[i] + f) + (sigmaN? sigmaN*sqrt(dt)*g() : 0))); } return out; };  // clamp to [0,1] so the rate stays bounded even with noise
+  const popVector = (r, N) => { let cx=0, cy=0, tot=0; for(let i=0;i<N;i++){ const a=2*PI*i/N; cx+=r[i]*Math.cos(a); cy+=r[i]*Math.sin(a); tot+=r[i]; } let th=Math.atan2(cy,cx); if(th<0) th+=2*PI; return { angle:th, length: tot>1e-9 ? Math.hypot(cx,cy)/tot : 0 }; };  // decoded heading + concentration ∈ [0,1] (low = no clear bump)
   const network = { hopfieldStore, hopfieldEnergy, hopfieldStep, overlap, ringKernel, ringStep, popVector };
 
   /* ---- osc: Kuramoto coupled phase oscillators (synchronisation) ---- */
@@ -228,12 +228,12 @@
   const belief = { predict:beliefPredict, update:beliefUpdate, entropy:beliefEntropy };
 
   /* ---- vision: front-end receptive fields (center-surround) for layered sensory models ---- */
-  const dogKernel = (sigmaC, sigmaS, wSurr) => {   // difference-of-Gaussians (center − surround) RF; {k,R,sz} for conv2, zero-mean
-    const R=max(3, Math.round(sigmaS*2.4)), sz=2*R+1, k=new Float64Array(sz*sz); let s=0;
+  const dogKernel = (sigmaC, sigmaS, wSurr) => {   // difference-of-Gaussians (center − surround) RF; {k,R,sz} for conv2
+    const R=max(3, Math.round(sigmaS*2.4)), sz=2*R+1, k=new Float64Array(sz*sz);
     for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ const r2=i*i+j*j,
-      cen=exp(-r2/(2*sigmaC*sigmaC))/(2*PI*sigmaC*sigmaC), sur=exp(-r2/(2*sigmaS*sigmaS))/(2*PI*sigmaS*sigmaS),
-      v=cen - wSurr*sur; k[(j+R)*sz+(i+R)]=v; s+=v; }
-    const m=s/(sz*sz); for(let t=0;t<k.length;t++) k[t]-=m; return { k, R, sz }; };   // zero-mean so flat fields give ~0 (the surround does the subtraction)
+      cen=exp(-r2/(2*sigmaC*sigmaC))/(2*PI*sigmaC*sigmaC), sur=exp(-r2/(2*sigmaS*sigmaS))/(2*PI*sigmaS*sigmaS);
+      k[(j+R)*sz+(i+R)] = cen - wSurr*sur; }   // wSurr=0 → pure low-pass centre; wSurr→1 → ~zero-mean band-pass (the surround does the subtraction)
+    return { k, R, sz }; };
   const rfSizeVsEcc = (ecc, base, slope) => base*(1 + slope*ecc);   // receptive-field size grows ~linearly with eccentricity
   const vision = { dogKernel, rfSizeVsEcc };
 

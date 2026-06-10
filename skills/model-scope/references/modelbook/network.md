@@ -40,9 +40,11 @@ parameters or the learning rule.
 
 ## MSLIB (`network`)
 
-`hopfieldStore(patterns, N)` → W; `hopfieldStep(W, s, N, order)` one async sweep;
-`hopfieldEnergy(W, s, N)` Lyapunov energy; `overlap(a, b, N)` ∈ [−1,1]. Compose a ring/continuous
-attractor from a Mexican-hat kernel + a rate update (reuse `sde`/`neuron`).
+Hopfield: `hopfieldStore(patterns, N)` → W (1/N Hebbian); `hopfieldStep(W, s, N, order)` one async
+sweep; `hopfieldEnergy(W, s, N)` Lyapunov energy; `overlap(a, b, N)` ∈ [−1,1]. Ring/continuous
+attractor: `ringKernel(N, Jpos, Jneg, sigma)` (Mexican-hat W), `ringStep(r, W, Iext, dt, tau, gain,
+bias, sigmaN, g)` (bounded-logistic rate update), `popVector(r, N)` → {angle, length} (decoded value
++ concentration ∈ [0,1]).
 
 ## Sources
 

@@ -901,14 +901,17 @@
       simulate:(p, env)=>{ const BF=global.MSLIB.belief, S=24, Tn=40, rng=makeRNG(env.seed+'#bel');
         const wrap=i=>((i%S)+S)%S, ringD=(a,b)=>{ const d=Math.abs(a-b); return Math.min(d,S-d); }, volK=Math.max(0.4,p.vol);
         const T=[]; for(let i=0;i<S;i++){ const row=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ const dd=ringD(i,j), w=Math.exp(-0.5*(dd/volK)*(dd/volK)); row[j]=w; z+=w; } for(let j=0;j<S;j++) row[j]/=z; T.push(Array.from(row)); }
-        const onS=Math.max(0.4,p.obsNoise); let x=Math.floor(S/2), b=new Float64Array(S).fill(1/S);
+        const onS=Math.max(0.4,p.obsNoise);
+        const cat=(pmf,u)=>{ let c=0; for(let j=0;j<S;j++){ c+=pmf[j]; if(u<c) return j; } return S-1; };   // categorical sample
+        const obsPmf=(center,sd)=>{ const a=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ const dd=ringD(j,center); a[j]=Math.exp(-0.5*(dd/sd)*(dd/sd)); z+=a[j]; } for(let j=0;j<S;j++) a[j]/=z; return a; };
+        let x=Math.floor(S/2), b=new Float64Array(S).fill(1/S);
         const beliefs=[Array.from(b)], trueX=[x], obs=[null], entropy=[BF.entropy(b)];
-        for(let t=0;t<Tn;t++){ x=wrap(Math.round(x+volK*gaussian(rng))); const y=wrap(Math.round(x+onS*gaussian(rng)));
-          b=BF.predict(b, T); const lik=new Float64Array(S); for(let j=0;j<S;j++){ const dd=ringD(j,y); lik[j]=Math.exp(-0.5*(dd/onS)*(dd/onS)); } b=BF.update(b, Array.from(lik));
+        for(let t=0;t<Tn;t++){ x=cat(T[x], rng()); const y=cat(obsPmf(x,onS), rng());   // generate from the SAME discrete transition + observation model the filter assumes
+          b=BF.predict(b, T); b=BF.update(b, Array.from(obsPmf(y,onS)));                 // likelihood P(obs=y|state j) ∝ obs pmf centred at y (symmetric)
           beliefs.push(Array.from(b)); trueX.push(x); obs.push(y); entropy.push(BF.entropy(b)); }
         const bmean=(bb)=>{ let cx=0,cy=0; for(let j=0;j<S;j++){ const a=2*Math.PI*j/S; cx+=bb[j]*Math.cos(a); cy+=bb[j]*Math.sin(a); } return wrap(Math.round(Math.atan2(cy,cx)/(2*Math.PI)*S)); };
         const sweep=[]; for(let n=0;n<=20;n++){ const on=Math.max(0.4,0.3+n*(6/20)); let bb=new Float64Array(S).fill(1/S), xx=Math.floor(S/2), rr=makeRNG(env.seed+'#bsw'+n), errAcc=0,cnt=0;
-          for(let t=0;t<Tn;t++){ xx=wrap(Math.round(xx+volK*gaussian(rr))); const yy=wrap(Math.round(xx+on*gaussian(rr))); bb=BF.predict(bb,T); const lk=new Float64Array(S); for(let j=0;j<S;j++){ const dd=ringD(j,yy); lk[j]=Math.exp(-0.5*(dd/on)*(dd/on)); } bb=BF.update(bb,Array.from(lk));
+          for(let t=0;t<Tn;t++){ xx=cat(T[xx], rr()); const yy=cat(obsPmf(xx,on), rr()); bb=BF.predict(bb,T); bb=BF.update(bb, Array.from(obsPmf(yy,on)));
             if(t>Tn/2){ errAcc+=ringD(bmean(bb),xx); cnt++; } } sweep.push([on, errAcc/Math.max(1,cnt)]); }
         let bmax=1e-9; for(const bb of beliefs) for(const v of bb) if(v>bmax) bmax=v;
         return { S, Tn, beliefs, trueX, obs, entropy, nF:beliefs.length, T, sweep, obsNoise:onS, vol:volK, bmax, Huniform:Math.log(S) };
@@ -962,8 +965,8 @@
       simulate:(p, env)=>{ const NET=global.MSLIB.network, N=64, JE=8, sigma=0.3, gain=7, bias=1.7, dt=0.001, tau=0.01;
         const W=NET.ringKernel(N, JE, p.JI, sigma), rng=makeRNG(env.seed+'#ring'), g=()=>gaussian(rng);
         const cueIdx=Math.round(p.cue/360*N)%N, Iext=new Float64Array(N); for(let i=0;i<N;i++){ const dd=Math.min(Math.abs(i-cueIdx),N-Math.abs(i-cueIdx))/N*2*Math.PI; Iext[i]=Math.exp(-dd*dd/(2*0.35*0.35)); }
-        let r=new Float64Array(N).fill(0.05); const driveSteps=200, holdSteps=500, STORE=10, snaps=[], dec=[], times=[];
-        for(let t=0;t<=driveSteps+holdSteps;t++){ if(t%STORE===0){ snaps.push(Array.from(r)); dec.push(NET.popVector(r,N).angle*180/Math.PI); times.push(t*dt); }
+        let r=new Float64Array(N).fill(0.05); const driveSteps=200, holdSteps=500, STORE=10, snaps=[], dec=[], conf=[], times=[];
+        for(let t=0;t<=driveSteps+holdSteps;t++){ if(t%STORE===0){ snaps.push(Array.from(r)); const pv=NET.popVector(r,N); dec.push(pv.angle*180/Math.PI); conf.push(pv.length); times.push(t*dt); }
           r=NET.ringStep(r, W, t<driveSteps?Iext:null, dt, tau, gain, bias, p.noise, g); }
         const offFrame=Math.round(driveSteps/STORE), offTime=driveSteps*dt, prof=snaps[snaps.length-1];
         let amp=Math.max(...prof); const half=amp/2; let fwhm=0; for(const v of prof) if(v>half) fwhm++;
@@ -973,7 +976,7 @@
           for(let t=0;t<200;t++) rr=NET.ringStep(rr,Ws,Iext,dt,tau,gain,bias,0,gg); for(let t=0;t<200;t++) rr=NET.ringStep(rr,Ws,null,dt,tau,gain,bias,0,gg);
           const a=Math.max(...rr); let w=0; if(a>0.2){ const h=a/2; for(const v of rr) if(v>h) w++; } sweep.push([JIv, w/N]); }
         const widthNow=(amp<0.2?0:fwhm/N);
-        return { N, snaps, dec, times, ang, nF:snaps.length, offFrame, offTime, prof, amp, fwhm:fwhm/N, sweep, cue:p.cue, JI:p.JI, kernelRow, width:widthNow };
+        return { N, snaps, dec, conf, times, ang, nF:snaps.length, offFrame, offTime, prof, amp, fwhm:fwhm/N, sweep, cue:p.cue, JI:p.JI, kernelRow, width:widthNow };
       },
       lenses:{
         structure:{ label:'Structure', about:'the Mexican-hat connectivity: each unit excites its neighbours and inhibits the rest',
@@ -988,7 +991,7 @@
             { title:'activity bump over the ring (persists after the cue)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), r=d.snaps[k], pts=d.ang.map((a,i)=>[a,r[i]]), on=k<=d.offFrame;
               g.frame({x:[0,360], y:[0,1.08], xlabel:'location on the ring (°)', ylabel:'unit activity', title:`t=${d.times[k].toFixed(2)}s — ${on?'cue ON: bump forming':'cue OFF: bump persisting (working memory)'}`});
               g.band(pts,{color:'rgba(74,122,147,.18)'}); g.line(pts,{color:T.accent,width:2.2});
-              g.vline(d.cue,{color:T.dim,dash:[4,3],label:'cued'}); g.vline(((d.dec[k]%360)+360)%360,{color:T.pos,label:'decoded'}); }},
+              g.vline(d.cue,{color:T.dim,dash:[4,3],label:'cued'}); if(d.conf[k]>0.15) g.vline(((d.dec[k]%360)+360)%360,{color:T.pos,label:'decoded'}); }},
             { title:'the bump over time (a space-time kymograph)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), N=d.N;
               const cmap=v=>{ const t=Math.max(0,Math.min(1,v)); return [Math.round(247-(247-74)*t), Math.round(245-(245-122)*t), Math.round(240-(240-147)*t)]; };
               g.frame({cbar:true, x:[0,360], y:[0, d.times[d.nF-1]||1], xlabel:'location (°)', ylabel:'time (s)', title:'a sustained stripe = a stable memory of the cued location'});
@@ -999,7 +1002,8 @@
           views:[ { title:'decoded location (population vector) tracks then holds the cue', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.times[d.nF-1]||1;
             g.frame({x:[0,tE], y:[0,360], yticks:4, xlabel:'time (s)', ylabel:'decoded location (°)', title:'the bump holds the remembered location after the cue is gone'});
             g.hline(d.cue,{color:T.dim,dash:[4,3],label:'true cue'}); g.vline(d.offTime,{color:T.neg,dash:[4,3],label:'cue off'});
-            const pts=[]; for(let i=0;i<=k;i++){ if(i>0 && Math.abs(d.dec[i]-d.dec[i-1])>180) pts.push([NaN,NaN]); pts.push([d.times[i], ((d.dec[i]%360)+360)%360]); } g.line(pts,{color:T.pos,width:2.4}); }} ] },
+            const pts=[]; for(let i=0;i<=k;i++){ if(d.conf[i]<=0.15 || (i>0 && Math.abs(d.dec[i]-d.dec[i-1])>180)) pts.push([NaN,NaN]); if(d.conf[i]>0.15) pts.push([d.times[i], ((d.dec[i]%360)+360)%360]); } g.line(pts,{color:T.pos,width:2.4});
+            g.text(tE*0.5, 30, 'a flat line after “cue off” = the location is held in memory', {color:T.faint, size:10.5, align:'center'}); }} ] },
         compare:{ label:'Compare', about:'how the E/I balance sets the bump — width vs inhibition',
           views:[ { title:'bump width vs inhibition (the E/I balance)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.4,2.5], y:[0,1.05], xlabel:'inhibition J_I', ylabel:'fraction of ring active', title:'too little inhibition floods the ring; more sharpens, then kills, the bump'});
@@ -1062,7 +1066,8 @@
               g.frame({x:[d.prof[0][0],d.prof[d.prof.length-1][0]], y:[ymin-Math.abs(ymin)*0.2-1e-3, ymax*1.2], xlabel:'distance from RF centre (pixels)', ylabel:'sensitivity', title:'excitatory centre, inhibitory surround (the horizontal-cell antagonism)'});
               g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.prof,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.prof,{color:T.accent,width:2.4}); }},
             { title:'V1 orientation tuning (complex-cell energy)', draw:(g,d)=>{ const T=TH(); g.frame({x:[-10,180], y:[0,d.tmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`tuning peaks at the stimulus orientation (decoded ${d.dec.toFixed(0)}° vs ${d.ori}°)`});
-              g.line(d.tuning,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
+              const tun=d.tuning.concat([[180, d.tuning[0][1]]]);   // axial: close the curve at 180°=0°
+              g.line(tun,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
           ] },
         compare:{ label:'Compare', about:'how the horizontal-cell surround changes the output',
           views:[ { title:'edge enhancement vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;

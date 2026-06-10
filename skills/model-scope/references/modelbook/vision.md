@@ -34,9 +34,10 @@ transformed layer by layer, then how the readout changes with the parameters and
 
 ## MSLIB / helpers
 
-The template's `vision` model ships inline image helpers (`visScene`, `gaborKernel`, `conv2`,
+`MSLIB.vision` ships `dogKernel(sigmaC, sigmaS, wSurr)` (center-surround difference-of-Gaussians RF;
+`wSurr=0` → low-pass centre, `wSurr→1` → zero-mean band-pass) and `rfSizeVsEcc`. The template's
+`vision` and `retina` models also use inline image helpers (`visScene`, `gaborKernel`, `conv2`,
 gray/hot colormaps); draw per-channel/per-layer maps with `g.image` (sub-rect blit) or `g.heat`.
-A small `MSLIB.vision` (DoG kernel, RF-size-vs-eccentricity) is a natural addition.
 
 ## Sources
 

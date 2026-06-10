@@ -93,6 +93,11 @@ for (const id of SIM.MODEL_ORDER) {
 // ---- parameter property pass: simulate() returns finite data at each parameter's MIN and MAX,
 //      not just defaults — catches NaN/throws at a slider extreme (e.g. zero drift, tiny dt). ----
 console.log('\n--- parameter extremes (simulate stays finite at each slider min/max) ---');
+const allFinite = (v, depth=0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤4)
+  if (typeof v === 'number') return isFinite(v);
+  if (Array.isArray(v) || ArrayBuffer.isView(v)) { if (depth>4) return true; const n=Math.min(v.length,3000); for (let i=0;i<n;i++) if (!allFinite(v[i], depth+1)) return false; return true; }
+  return true;   // strings / functions / nested objects: skip
+};
 for (const id of SIM.MODEL_ORDER) {
   const m = SIM.MODELS[id]; const base = {}; (m.params||[]).forEach(s => base[s.name] = s.default);
   const bad = [];
@@ -103,7 +108,9 @@ for (const id of SIM.MODEL_ORDER) {
     else if (typeof s.min==='number' && typeof s.max==='number') vals = [s.min, s.max];
     else continue;
     for (const v of vals) { const p = { ...base, [s.name]: v };
-      try { const d = m.simulate(p, env('p-'+id+'-'+s.name+v)); if(!d || typeof d!=='object') bad.push(`${s.name}=${v}(no data)`); }
+      try { const d = m.simulate(p, env('p-'+id+'-'+s.name+v));
+        if(!d || typeof d!=='object') bad.push(`${s.name}=${v}(no data)`);
+        else if(!allFinite(d)) bad.push(`${s.name}=${v}(non-finite data)`); }
       catch(e){ bad.push(`${s.name}=${v}: ${e.message}`); }
     }
   }
@@ -261,7 +268,7 @@ for (const id of SIM.MODEL_ORDER) {
 console.log('\n=== mslib.js building blocks ===\n');
 try {
   const L = globalThis.MSLIB, g = () => { let u = Math.random() || 1e-9; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); }, U = () => Math.random();
-  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm'].every(k => L[k]);
+  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm','network','osc','belief','vision'].every(k => L[k]);
   const wgt = L.bayes.weight(0.9, 1);
   const fi = L.neuron.fI((s,I,dt)=>L.neuron.lifStep(s,I,null,dt), ()=>({v:-65,refr:0}), [0.1,0.3,0.6,1.0], 1e-4, 1.0);
   const mono = fi.every((p,i)=>i===0||p.rate>=fi[i-1].rate) && fi[3].rate>fi[0].rate;
@@ -287,6 +294,18 @@ try {
   let sx=0,sy=0; for(let i=0;i<3000;i++){ const t=L.wm.vmSample(0.6,8,U); sx+=Math.cos(t); sy+=Math.sin(t); } const cmOk=Math.abs(Math.atan2(sy,sx)-0.6)<0.12;
   let nt=0,TT=5000; for(let i=0;i<TT;i++) if(L.wm.mixtureRecall({target:0,nontargets:[1.5,-1.5],kappa:10,pT:0.6,pSwap:0.25,pGuess:0.15},U).branch==='target') nt++;
   console.log(`  wm: I0(0)=1 [${ok(i0)}]   κ→SD decreasing [${ok(sdm)}]   vonMises mean≈μ [${ok(cmOk)}]   mixture target≈pT [${ok(Math.abs(nt/TT-0.6)<0.05)}]`);
+  // network: Hopfield recalls a 1-bit-flipped cue; ring kernel has local excitation
+  const pat8=[1,-1,1,-1,1,-1,1,-1], Wh=L.network.hopfieldStore([pat8],8); let sr=Int8Array.from(pat8); sr[0]=-sr[0]; L.network.hopfieldStep(Wh,sr,8,[0,1,2,3,4,5,6,7]); const recOK=L.network.overlap(Array.from(sr),pat8,8)>0.9;
+  const Wr=L.network.ringKernel(16,8,1.3,0.3), ringOK=Wr[0]>Wr[8];
+  // osc: identical phases → r≈1; evenly-spread phases → r≈0
+  const oscOK=L.osc.kuramotoOrder([0.5,0.5,0.5,0.5]).r>0.99 && L.osc.kuramotoOrder([0,Math.PI/2,Math.PI,3*Math.PI/2]).r<0.05;
+  // belief: predict/update renormalise, update concentrates on the likely state, entropy(certain)=0
+  const bp=L.belief.predict([0,1,0,0],[[.5,.5,0,0],[0,.5,.5,0],[0,0,.5,.5],[.5,0,0,.5]]), bpOK=Math.abs(bp.reduce((a,b)=>a+b,0)-1)<1e-9;
+  const bu=L.belief.update([.25,.25,.25,.25],[.1,.7,.1,.1]), buOK=Math.abs(bu.reduce((a,b)=>a+b,0)-1)<1e-9 && bu[1]>0.5 && L.belief.entropy([1,0,0,0])<1e-9;
+  // vision: a balanced DoG (surround=1) is ~zero-sum (band-pass); a pure centre (surround=0) sums positive (low-pass)
+  const dks=L.vision.dogKernel(1.5,4,1); let dsum=0; for(const v of dks.k) dsum+=v; const dc=L.vision.dogKernel(1.5,4,0); let csum=0; for(const v of dc.k) csum+=v; const dogOK=Math.abs(dsum)<0.15 && csum>0.5;
+  console.log(`  network: Hopfield recall [${ok(recOK)}]  ring local-excitation [${ok(ringOK)}]   osc: sync vs incoherent r [${ok(oscOK)}]`);
+  console.log(`  belief: predict/update normalise + concentrate [${ok(bpOK&&buOK)}]   vision: DoG band-pass≈0 vs low-pass>0 [${ok(dogOK)}]`);
 } catch (e) { console.log('  ' + ok(false) + ' mslib failed: ' + e.message); }
 
 console.log(`\n${fails===0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}\n`);

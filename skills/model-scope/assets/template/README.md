@@ -30,6 +30,16 @@ that fit its class; the payoff is comparing what changes across parameters and m
   and combine, with the ventriloquism bias (Körding et al.).
 - **Working-memory recall** *(process mode)* — allocate, encode on a feature wheel, probe, recall,
   accumulate the error histogram, and decompose into target / swap / guess (Bays & Husain).
+- **Hopfield memory (Hebbian)** *(lens switch)* — structure first: the weight matrix, the stored
+  patterns, a corrupted cue settling into an attractor, and recall accuracy vs load (the capacity cliff).
+- **Kuramoto oscillators** *(lens switch)* — the frequency spread and coupling, phases synchronising on
+  a circle, and the order parameter r vs coupling K (the synchronization transition).
+- **Belief tracking (Bayes filter)** *(lens switch)* — the transition and observation model, the belief
+  distribution tracking a hidden state over time, and tracking error vs observation noise.
+- **Ring attractor** *(lens switch)* — the Mexican-hat connectivity, a bump that persists after the cue
+  (working memory), the decoded heading holding the cue, and bump width vs the E/I balance.
+- **Retina → V1 (layered vision)** *(lens switch)* — architecture first: the layer stack and receptive
+  fields, the image transformed stage by stage, the RF profiles, and output vs the horizontal-cell surround.
 
 The process-mode models use `stages` instead of `anim`: the transport becomes a step-by-step stepper
 and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the pipeline strip.
@@ -41,7 +51,7 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
-  efficient, causal, wm, network, osc, belief`) of canonical building blocks you compose inside `simulate()`.
+  efficient, causal, wm, network, osc, belief, vision`) of canonical building blocks you compose inside `simulate()`.
 - `validate.mjs` — `node validate.mjs` checks each model runs and is sane (+ the `mslib` blocks).
 
 ## Add your model — one registry entry
