@@ -946,8 +946,69 @@
             g.marker(d.obsNoise, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.obsNoise)<Math.abs(b[0]-d.obsNoise)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- NETWORK with CONTINUOUS REPRESENTATION: a ring attractor (Mexican-hat connectivity).
+       STRUCTURE FIRST. A localized activity bump codes a continuous variable and PERSISTS after the
+       cue is gone (working memory). Angles: Structure, Dynamics, Representation, Compare (E/I). */
+    ring: {
+      id:'ring', name:'Ring attractor (working memory)',
+      blurb:'A ring of units with Mexican-hat connectivity (local excitation, broad inhibition). A brief cue starts a localized activity bump that the recurrence sustains — and the bump PERSISTS after the cue is gone, holding the remembered location (a working-memory mechanism). The population-vector peak decodes the held value. Use the lens switch for the angles — structure first: Structure (the connectivity), Dynamics (the bump), Representation (the decoded heading over time), Compare (how the E/I balance sets the bump).',
+      note:'Each unit i prefers a location θ_i on a ring; W_ij = J_E·exp(−d²/2σ²) − J_I (d = circular distance) excites neighbours and inhibits the rest. Rates follow τ dr/dt = −r + logistic(gain·(Wr + input − bias)). A cue seeds a bump; recurrence holds it after the cue ends (persistent activity), and the population vector reads out the remembered location. Strong inhibition sharpens the bump; too little floods the ring, too much kills it. Composed from MSLIB.network.',
+      params:[
+        {name:'cue', label:'Cue location (condition)', min:0, max:359, step:1, default:107, unit:'°'},
+        {name:'JI', label:'Inhibition J_I (E/I balance)', min:0.4, max:2.5, step:0.05, default:1.3},
+        {name:'noise', label:'Neural noise', min:0, max:0.15, step:0.005, default:0.02},
+      ],
+      simulate:(p, env)=>{ const NET=global.MSLIB.network, N=64, JE=8, sigma=0.3, gain=7, bias=1.7, dt=0.001, tau=0.01;
+        const W=NET.ringKernel(N, JE, p.JI, sigma), rng=makeRNG(env.seed+'#ring'), g=()=>gaussian(rng);
+        const cueIdx=Math.round(p.cue/360*N)%N, Iext=new Float64Array(N); for(let i=0;i<N;i++){ const dd=Math.min(Math.abs(i-cueIdx),N-Math.abs(i-cueIdx))/N*2*Math.PI; Iext[i]=Math.exp(-dd*dd/(2*0.35*0.35)); }
+        let r=new Float64Array(N).fill(0.05); const driveSteps=200, holdSteps=500, STORE=10, snaps=[], dec=[], times=[];
+        for(let t=0;t<=driveSteps+holdSteps;t++){ if(t%STORE===0){ snaps.push(Array.from(r)); dec.push(NET.popVector(r,N).angle*180/Math.PI); times.push(t*dt); }
+          r=NET.ringStep(r, W, t<driveSteps?Iext:null, dt, tau, gain, bias, p.noise, g); }
+        const offFrame=Math.round(driveSteps/STORE), offTime=driveSteps*dt, prof=snaps[snaps.length-1];
+        let amp=Math.max(...prof); const half=amp/2; let fwhm=0; for(const v of prof) if(v>half) fwhm++;
+        const ang=Array.from({length:N},(_,i)=>i/N*360), c=Math.floor(N/2), kernelRow=[];
+        for(let o=-N/2;o<=N/2;o++){ const j=((c+o)%N+N)%N; kernelRow.push([o/N*360, W[c*N+j]]); }
+        const sweep=[]; for(let s=0;s<=20;s++){ const JIv=0.4+s*(2.5-0.4)/20, Ws=NET.ringKernel(N,JE,JIv,sigma), rg=makeRNG(env.seed+'#rsw'+s), gg=()=>gaussian(rg); let rr=new Float64Array(N).fill(0.05);
+          for(let t=0;t<200;t++) rr=NET.ringStep(rr,Ws,Iext,dt,tau,gain,bias,0,gg); for(let t=0;t<200;t++) rr=NET.ringStep(rr,Ws,null,dt,tau,gain,bias,0,gg);
+          const a=Math.max(...rr); let w=0; if(a>0.2){ const h=a/2; for(const v of rr) if(v>h) w++; } sweep.push([JIv, w/N]); }
+        const widthNow=(amp<0.2?0:fwhm/N);
+        return { N, snaps, dec, times, ang, nF:snaps.length, offFrame, offTime, prof, amp, fwhm:fwhm/N, sweep, cue:p.cue, JI:p.JI, kernelRow, width:widthNow };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the Mexican-hat connectivity: each unit excites its neighbours and inhibits the rest',
+          views:[ { title:'Mexican-hat connectivity (from one unit to the ring)', draw:(g,d)=>{ const T=TH(), ys=d.kernelRow.map(q=>q[1]), ymin=Math.min(...ys), ymax=Math.max(...ys);
+            g.frame({x:[-180,180], y:[ymin-Math.abs(ymin)*0.15-0.05, ymax*1.18], xlabel:'relative location (°)', ylabel:'connection weight', title:'local excitation (+) and broad inhibition (−) → one bump is stable'});
+            g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.kernelRow,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.kernelRow,{color:T.accent,width:2.4});
+            g.text(0, ymax*0.98, 'excite neighbours', {color:T.pos, size:10.5, align:'center'}); g.text(120, ymin*0.55, 'inhibit the rest', {color:T.neg, size:10.5, align:'center'});
+          }} ] },
+        dynamics:{ label:'Dynamics', about:'a cue seeds a localized bump; recurrence holds it after the cue ends',
+          anim:{ length:(p,d)=>d.nF-1 },
+          views:[
+            { title:'activity bump over the ring (persists after the cue)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), r=d.snaps[k], pts=d.ang.map((a,i)=>[a,r[i]]), on=k<=d.offFrame;
+              g.frame({x:[0,360], y:[0,1.08], xlabel:'location on the ring (°)', ylabel:'unit activity', title:`t=${d.times[k].toFixed(2)}s — ${on?'cue ON: bump forming':'cue OFF: bump persisting (working memory)'}`});
+              g.band(pts,{color:'rgba(74,122,147,.18)'}); g.line(pts,{color:T.accent,width:2.2});
+              g.vline(d.cue,{color:T.dim,dash:[4,3],label:'cued'}); g.vline(((d.dec[k]%360)+360)%360,{color:T.pos,label:'decoded'}); }},
+            { title:'the bump over time (a space-time kymograph)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), N=d.N;
+              const cmap=v=>{ const t=Math.max(0,Math.min(1,v)); return [Math.round(247-(247-74)*t), Math.round(245-(245-122)*t), Math.round(240-(240-147)*t)]; };
+              g.frame({cbar:true, x:[0,360], y:[0, d.times[d.nF-1]||1], xlabel:'location (°)', ylabel:'time (s)', title:'a sustained stripe = a stable memory of the cued location'});
+              g.heat(N, d.nF, (i,j)=>d.snaps[j][i], cmap, {smooth:false}); g.hline(d.offTime,{color:T.neg,dash:[4,3],label:'cue off'}); g.hline(d.times[k],{color:T.ink,dash:[2,3]}); g.colorbar(0,1,cmap,{label:'activity'}); }},
+          ] },
+        representation:{ label:'Representation', about:'the decoded heading over time — it tracks the cue, then holds it',
+          anim:{ length:(p,d)=>d.nF-1 },
+          views:[ { title:'decoded location (population vector) tracks then holds the cue', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.times[d.nF-1]||1;
+            g.frame({x:[0,tE], y:[0,360], yticks:4, xlabel:'time (s)', ylabel:'decoded location (°)', title:'the bump holds the remembered location after the cue is gone'});
+            g.hline(d.cue,{color:T.dim,dash:[4,3],label:'true cue'}); g.vline(d.offTime,{color:T.neg,dash:[4,3],label:'cue off'});
+            const pts=[]; for(let i=0;i<=k;i++){ if(i>0 && Math.abs(d.dec[i]-d.dec[i-1])>180) pts.push([NaN,NaN]); pts.push([d.times[i], ((d.dec[i]%360)+360)%360]); } g.line(pts,{color:T.pos,width:2.4}); }} ] },
+        compare:{ label:'Compare', about:'how the E/I balance sets the bump — width vs inhibition',
+          views:[ { title:'bump width vs inhibition (the E/I balance)', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0.4,2.5], y:[0,1.05], xlabel:'inhibition J_I', ylabel:'fraction of ring active', title:'too little inhibition floods the ring; more sharpens, then kills, the bump'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.JI, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.JI)<Math.abs(b[0]-d.JI)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

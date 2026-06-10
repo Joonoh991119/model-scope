@@ -232,10 +232,19 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  belief: concentrates below uniform (H=${meanH.toFixed(2)} < ${d.Huniform.toFixed(2)}); tracking error rises with noise (${d.sweep[0][1].toFixed(1)} → ${d.sweep[d.sweep.length-1][1].toFixed(1)})   [${ok(concentrates && errRises)}]`);
 }
 
+// Ring attractor: a localized bump persists after the cue and holds the cued location (population vector ≈ cue)
+{
+  const m = SIM.MODELS.ring, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('ring'));
+  const decLast = ((d.dec[d.nF-1]%360)+360)%360, dd = Math.abs(decLast - d.cue), decErr = Math.min(dd, 360-dd);
+  const bump = d.amp > 0.5 && d.width > 0.02 && d.width < 0.6, holds = decErr < 25;
+  console.log(`  ring: localized bump persists (amp=${d.amp.toFixed(2)}, width=${(d.width*100).toFixed(0)}% of ring) and holds the cue (decoded ${decLast.toFixed(0)}° vs ${d.cue}°)   [${ok(bump && holds)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

@@ -205,7 +205,14 @@
     const o = order || Array.from({length:N},(_,i)=>i);
     for(const i of o){ let h=0; for(let j=0;j<N;j++) h += W[i*N+j]*s[j]; s[i] = h>=0 ? 1 : -1; } return s; };
   const overlap = (a, b, N) => { let m=0; for(let i=0;i<N;i++) m += a[i]*b[i]; return m/N; };   // pattern overlap ∈ [-1,1]
-  const network = { hopfieldStore, hopfieldEnergy, hopfieldStep, overlap };
+  // ring / continuous attractor: Mexican-hat connectivity (local excitation − broad inhibition) on a ring of N units
+  const ringKernel = (N, Jpos, Jneg, sigma) => { const W=new Float64Array(N*N);
+    for(let i=0;i<N;i++) for(let j=0;j<N;j++){ const d=Math.min(Math.abs(i-j), N-Math.abs(i-j))/N*2*PI; W[i*N+j] = Jpos*exp(-d*d/(2*sigma*sigma)) - Jneg; } return W; };  // d = circular distance (rad)
+  const ringStep = (r, W, Iext, dt, tau, gain, bias, sigmaN, g) => { const N=r.length, out=new Float64Array(N);   // τ dr/dt = −r + f(gain·(W r + Iext − bias)), f = logistic (bounded [0,1] → no runaway)
+    for(let i=0;i<N;i++){ let h=0; for(let j=0;j<N;j++) h += W[i*N+j]*r[j]; const f = 1/(1+exp(-gain*(h + (Iext?Iext[i]:0) - bias)));
+      out[i] = max(0, r[i] + (dt/tau)*(-r[i] + f) + (sigmaN? sigmaN*sqrt(dt)*g() : 0)); } return out; };
+  const popVector = (r, N) => { let cx=0, cy=0; for(let i=0;i<N;i++){ const a=2*PI*i/N; cx+=r[i]*Math.cos(a); cy+=r[i]*Math.sin(a); } let th=Math.atan2(cy,cx); if(th<0) th+=2*PI; return { angle:th, length:Math.hypot(cx,cy) }; };  // decoded heading + vector strength
+  const network = { hopfieldStore, hopfieldEnergy, hopfieldStep, overlap, ringKernel, ringStep, popVector };
 
   /* ---- osc: Kuramoto coupled phase oscillators (synchronisation) ---- */
   const kuramotoOrder = (phases) => { let C=0,S=0; const n=phases.length; for(const th of phases){ C+=Math.cos(th); S+=Math.sin(th); } return { r:Math.hypot(C,S)/Math.max(1,n), psi:Math.atan2(S,C) }; };  // r = global synchrony ∈ [0,1]

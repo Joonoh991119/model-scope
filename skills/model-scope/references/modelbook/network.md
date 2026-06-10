@@ -15,9 +15,11 @@ parameters or the learning rule.
   `E = −½ Σ_ij W_ij s_i s_j` — so the state rolls downhill into a stored pattern (an
   attractor). Capacity is finite: above ≈ **0.138·N** stored patterns the memories interfere
   and recall breaks down.
-- **Continuous attractor / ring** (not yet a shipped exemplar). Mexican-hat connectivity
+- **Continuous attractor / ring** (template exemplar `ring`). Mexican-hat connectivity
   (local excitation + broad inhibition) sustains a bump of activity that codes a continuous
-  variable (head direction, spatial WM); the bump position is the represented value.
+  variable (head direction, spatial WM); the bump persists after the cue is gone (working
+  memory) and its population-vector peak is the represented value. Strong inhibition sharpens
+  the bump; too little floods the ring, too much kills it.
 - **Wong–Wang reduced decision circuit** — see [decision-circuits.md](decision-circuits.md)
   (template exemplar `attractor`): two pools, self-excitation vs cross-inhibition, two basins.
 
