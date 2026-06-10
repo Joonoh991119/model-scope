@@ -72,9 +72,10 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 
 ## What you can build — the examples that ship
 
-The bundled template runs **eleven** worked models that **span the model scales** — behavioural /
-process, single-neuron, sensory, network, and macro — across every idiom (a continuous playhead, a
-process-mode stepper, and the **lens switch**):
+The bundled template runs **fourteen** worked models that **span the model scales and classes** —
+behavioural / process, single-neuron, sensory / image, network (with plasticity), oscillation, macro,
+and partial-observability inference — across every idiom (a continuous playhead, a process-mode
+stepper, and the **lens switch**):
 
 | Model | Domain / scale | Idiom | What you watch |
 |---|---|---|---|
@@ -89,6 +90,9 @@ process-mode stepper, and the **lens switch**):
 | **Efficient-coding observer** (Wei & Stocker) | perception | process mode | prior, warped encoding, measurement, skewed likelihood, posterior, estimate; bias and discriminability |
 | **Causal inference** (Körding et al.) | multisensory | process mode | cues, per-hypothesis likelihoods, p(common cause), branch estimates, combine; the ventriloquism bias |
 | **Working-memory recall** (Bays & Husain) | memory | process mode | allocate, encode on a feature wheel, probe, recall; the error histogram; target / swap / guess decomposition |
+| **Hopfield memory (Hebbian)** | network / plasticity | lens switch | the weight matrix W (the memories are the wiring), structure first; the stored patterns; a corrupted cue settling into an attractor; recall accuracy vs load (the capacity cliff) |
+| **Kuramoto oscillators** | network / oscillation | lens switch | the natural-frequency spread and coupling, structure first; phases racing around a circle; the order parameter r vs coupling K (the synchronization transition) |
+| **Belief tracking (Bayes filter)** | inference / partial observability | lens switch | the transition and observation model, structure first; the belief distribution tracking a hidden state over time; tracking error vs observation noise |
 
 Copy one, swap in your equations, and it is yours.
 
@@ -121,7 +125,7 @@ One harness, many control + view types — every plot is live, so you build intu
 </tr>
 <tr>
 <td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap, an energy landscape.</b> A decision network's (S1, S2) flow field with the trajectory rolling into a basin (network scale, Landscape lens).</td>
-<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the eleven models span behavioural, single-neuron, sensory, network, and macro scales.</td>
+<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the fourteen models span behavioural, single-neuron, sensory, network, and macro scales.</td>
 </tr>
 </table>
 
@@ -331,6 +335,10 @@ their meaning and typical ranges, the views that make it intuitive, a ready-to-c
 | **Single neurons & small networks** | membrane dynamics, *f–I* curves, spike trains, gain | `neuron` |
 | **Reinforcement learning & belief update** | value learning, choice, volatility, prior updating | `rl` |
 | **Psychometrics & detection** | psychometric curves, SDT, thresholds, scalar timing | `psy` |
+| **Recurrent networks & plasticity** | associative memory, attractor dynamics, Hebbian learning, capacity | `network` |
+| **Oscillations & synchronization** | coupled oscillators, phase-locking, neural-mass rhythms, sync transitions | `osc` |
+| **Belief tracking & partial observability** | Bayes filters / HMMs, belief evolution, volatility | `belief` |
+| **Vision & layered sensory** | image input, oriented-energy / DoG / CNN stacks, receptive fields | inline |
 
 These are **recipes, not prescriptions** — start from a family, then adapt it to your exact
 equations and compose the small `MSLIB` functions rather than copying a whole repo. The

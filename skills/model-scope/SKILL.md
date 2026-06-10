@@ -100,7 +100,7 @@ index.html    the toolbox: builds sliders from each model's schema, runs simulat
 validate.mjs  Node gate — every model's simulate() runs & is sane; analytic checks where
               one exists.
 modules/mslib.js  OPTIONAL reusable model library (window.MSLIB): canonical building
-              blocks (sde, bayes, neuron, decision/Wong–Wang, rl, psy). Include only if a
+              blocks (sde, bayes, neuron, decision/Wong–Wang, rl, psy, network, osc, belief). Include only if a
               model needs them; compose inside simulate(). See the modelbook below.
 ```
 
@@ -298,7 +298,7 @@ closed form; a known limit). `node validate.mjs` must pass before declaring done
 ## How to start
 
 1. **Scaffold**: copy `assets/template/` (or run `/model-scope:scaffold <dir>`). It runs, with
-   eleven worked examples spanning the model SCALES — behavioural/process, single-neuron, sensory,
+   fourteen worked examples spanning the model SCALES — behavioural/process, single-neuron, sensory,
    network, macro — and every idiom: the **lens switch** (drift-diffusion across its angles; a
    `compare` model-vs-model **toggle** with a metric heatmap; an **early-vision** image model; a
    **LIF** neuron with a refractory toggle; a **Rescorla-Wagner** learner; an **attractor network**

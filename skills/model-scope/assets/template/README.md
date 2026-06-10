@@ -5,7 +5,7 @@ or `python3 -m http.server` if your browser blocks `file://` scripts). Move a sl
 simulation re-runs; the result is shown in **views the model defines** — there is no fixed
 graphic or axis.
 
-Ships with eleven examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
+Ships with fourteen examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
 macro) and every idiom, so you can see the range. Each model is replicated and shown from the angles
 that fit its class; the payoff is comparing what changes across parameters and model choices.
 - **Drift-diffusion decision** *(lens switch)* — the angles: one update (drift plus noise), one trial
@@ -41,7 +41,7 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
-  efficient, causal, wm`) of canonical building blocks you compose inside `simulate()`.
+  efficient, causal, wm, network, osc, belief`) of canonical building blocks you compose inside `simulate()`.
 - `validate.mjs` — `node validate.mjs` checks each model runs and is sane (+ the `mslib` blocks).
 
 ## Add your model — one registry entry
