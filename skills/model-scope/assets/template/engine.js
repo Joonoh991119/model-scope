@@ -1076,8 +1076,62 @@
             g.marker(d.surround, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.surround)<Math.abs(b[0]-d.surround)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- CAUSAL GRAPH (Pearl-style structural causal model). STRUCTURE FIRST — the DAG.
+       A confounder U biases the OBSERVED X–Y association; an intervention do(X) cuts the backdoor and
+       reveals the true causal effect. Angles: Structure (the graph), Observe, Intervene, Compare. */
+    causalg: {
+      id:'causalg', name:'Causal graph — intervention (do)',
+      blurb:'A structural causal model (a linear-Gaussian DAG): a confounder U drives both the treatment X and the outcome Y, while X affects Y through a mediator M (X→M→Y). The OBSERVED X–Y association mixes the real causal path with the confounding backdoor X←U→Y; an INTERVENTION do(X) cuts that backdoor and reveals the true effect. Use the lens switch for the angles — structure first: Structure (the graph), Observe (the confounded association), Intervene (do(X) vs what you see), Compare (how confounding inflates the observed effect).',
+      note:'Linear-Gaussian SCM: U=ε; X=w_UX·U+ε; M=w_XM·X+ε; Y=M+w_UY·U+ε. The causal effect of X on Y is w_XM (through M, with M→Y weight 1). Regressing Y on X (observational) also picks up the backdoor X←U→Y, so its slope overstates the effect. do(X=x) severs U→X, so U no longer covaries with X and the do-slope ≈ w_XM — the real effect. The gap between observed and do is exactly the confounding. This is Pearl-style causal modelling, distinct from the multisensory "causal inference" model. Composed inline.',
+      params:[
+        {name:'conf', label:'Confounding (U→X, U→Y)', min:0, max:1.5, step:0.05, default:0.9},
+        {name:'causal', label:'Causal effect X→M', min:0, max:1.5, step:0.05, default:0.6},
+        {name:'noise', label:'Noise σ', min:0.2, max:1, step:0.05, default:0.5},
+      ],
+      simulate:(p, env)=>{ const rng=makeRNG(env.seed+'#cg'), g=()=>gaussian(rng), n=400, wUX=p.conf, wUY=p.conf, wXM=p.causal, wMY=1, sig=p.noise;
+        const fit=(pts)=>{ let mx=0,my=0; for(const[a,b]of pts){mx+=a;my+=b;} mx/=pts.length;my/=pts.length; let sxy=0,sxx=0; for(const[a,b]of pts){sxy+=(a-mx)*(b-my);sxx+=(a-mx)*(a-mx);} return {slope:sxx>1e-9?sxy/sxx:0, mx, my}; };
+        const obs=[]; for(let i=0;i<n;i++){ const U=g(), X=wUX*U+sig*g(), M=wXM*X+sig*g(), Y=wMY*M+wUY*U+sig*g(); obs.push([X,Y]); }
+        const doPts=[]; for(let i=0;i<n;i++){ const x=-3+6*rng(), U=g(), M=wXM*x+sig*g(), Y=wMY*M+wUY*U+sig*g(); doPts.push([x,Y]); }   // do(X=x): X is SET, U independent of X
+        const fo=fit(obs), fd=fit(doPts), causal=wXM*wMY;
+        const sweep=[]; for(let s=0;s<=20;s++){ const c=s*1.5/20, r2=makeRNG(env.seed+'#cgs'+s), gg=()=>gaussian(r2), buf=[];
+          for(let i=0;i<300;i++){ const U=gg(), X=c*U+sig*gg(), M=wXM*X+sig*gg(), Y=wMY*M+c*U+sig*gg(); buf.push([X,Y]); } sweep.push([c, fit(buf).slope-causal]); }
+        let xlo=0,xhi=0,ylo=0,yhi=0; for(const[a,b]of obs.concat(doPts)){ if(a<xlo)xlo=a; if(a>xhi)xhi=a; if(b<ylo)ylo=b; if(b>yhi)yhi=b; }
+        return { obs, doPts, obsSlope:fo.slope, doSlope:fd.slope, obsMx:fo.mx, obsMy:fo.my, doMx:fd.mx, doMy:fd.my, causal, conf:p.conf, wXM, sweep, xlo, xhi, ylo, yhi };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the causal graph — a confounder U behind both X and Y',
+          views:[ { title:'the causal graph: X→M→Y (causal) and X←U→Y (confound)', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('a structural causal model — the confounder U is the problem', W/2, 22*F);
+            const nodes=[{x:0.5,y:0.24,label:'U',color:T.neg},{x:0.24,y:0.62,label:'X',color:T.accent},{x:0.5,y:0.62,label:'M'},{x:0.78,y:0.62,label:'Y',color:T.pos}];
+            const edges=[{from:0,to:1,label:d.conf.toFixed(2),color:T.neg,dash:[5,4]},{from:0,to:3,label:d.conf.toFixed(2),color:T.neg,dash:[5,4]},{from:1,to:2,label:d.wXM.toFixed(2),color:T.accent},{from:2,to:3,label:'1.0',color:T.accent}];
+            g.graph(nodes, edges, {r:18*F});
+            ctx.fillStyle=T.neg; ctx.font=(11.5*F)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('U → X and U → Y is the backdoor (confounding, dashed)', W/2, H-30*F);
+            ctx.fillStyle=T.accent; ctx.fillText('X → M → Y is the real causal path', W/2, H-14*F);
+          }} ] },
+        observe:{ label:'Observe', about:'the observed X–Y association — confounded by U',
+          views:[ { title:'what you SEE: Y vs X (the observed association)', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[d.xlo,d.xhi], y:[d.ylo,d.yhi], xlabel:'treatment X', ylabel:'outcome Y', title:`observed slope = ${d.obsSlope.toFixed(2)} — mixes the causal effect with confounding`});
+            g.points(d.obs,{color:'rgba(74,122,147,.45)',r:2.3});
+            g.line([[d.xlo, d.obsMy+d.obsSlope*(d.xlo-d.obsMx)],[d.xhi, d.obsMy+d.obsSlope*(d.xhi-d.obsMx)]],{color:T.accent,width:2.6});
+          }} ] },
+        intervene:{ label:'Intervene', about:'do(X) cuts the backdoor — the true causal effect',
+          views:[ { title:'what you would CHANGE: Y vs do(X)', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[d.xlo,d.xhi], y:[d.ylo,d.yhi], xlabel:'intervention do(X = x)', ylabel:'outcome Y', title:`do-slope = ${d.doSlope.toFixed(2)} ≈ the true causal effect ${d.causal.toFixed(2)}`});
+            g.points(d.doPts,{color:'rgba(46,139,122,.45)',r:2.3});
+            g.line([[d.xlo, d.obsMy+d.obsSlope*(d.xlo-d.obsMx)],[d.xhi, d.obsMy+d.obsSlope*(d.xhi-d.obsMx)]],{color:T.accent,width:2,dash:[5,4]});
+            g.line([[d.xlo, d.doMy+d.doSlope*(d.xlo-d.doMx)],[d.xhi, d.doMy+d.doSlope*(d.xhi-d.doMx)]],{color:T.pos,width:2.6});
+            g.legend([{label:'observed (confounded)',color:T.accent},{label:'do(X): causal',color:T.pos}],{corner:'tl'});
+          }} ] },
+        compare:{ label:'Compare', about:'how confounding inflates the observed effect',
+          views:[ { title:'confounding inflates the observed effect (observed − causal)', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.1,...d.sweep.map(q=>q[1]))*1.15;
+            g.frame({x:[0,1.5], y:[Math.min(0,...d.sweep.map(q=>q[1]))-0.05, ymax], xlabel:'confounding strength', ylabel:'observed slope − causal effect', title:'with no confounding the observed effect equals the causal effect; it inflates as U strengthens'});
+            g.hline(0,{color:T.faint,dash:[4,3]}); g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
+            g.marker(d.conf, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.conf)<Math.abs(b[0]-d.conf)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

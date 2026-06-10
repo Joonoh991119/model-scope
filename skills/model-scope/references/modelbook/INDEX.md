@@ -27,6 +27,7 @@ functions you compose.
 | [oscillation.md](oscillation.md) | Oscillations & synchronization | coupled oscillators, phase-locking, neural-mass rhythms, sync transitions | `osc` |
 | [belief-tracking.md](belief-tracking.md) | Belief tracking & partial observability | Bayes filters / HMMs, belief evolution, volatility, the filtering core of POMDPs | `belief` |
 | [vision.md](vision.md) | Vision & layered sensory | image input, oriented-energy / DoG / CNN stacks, receptive fields, tuning | (inline / `bayes`) |
+| [causal-graph.md](causal-graph.md) | Causal graphs & interventions | structural causal models / DAGs, the do-operator, confounding, backdoor paths, treatment effects | (inline) |
 
 Several families ship as **process-mode** worked examples (a `stages` pipeline you step
 through): efficient-coding, causal-inference, and working-memory each render their internal

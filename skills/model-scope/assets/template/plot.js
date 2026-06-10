@@ -92,6 +92,17 @@
       image(nx,ny,val,cmap,o={}){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), im=oc.createImageData(nx,ny);
         for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), q=((ny-1-j)*nx+i)*4; im.data[q]=c[0];im.data[q+1]=c[1];im.data[q+2]=c[2];im.data[q+3]=255; }
         oc.putImageData(im,0,0); ctx.imageSmoothingEnabled=o.smooth!==false; ctx.drawImage(off, o.x!=null?o.x:fr.px, o.y!=null?o.y:fr.py, o.w!=null?o.w:fr.pw, o.h!=null?o.h:fr.ph); ctx.imageSmoothingEnabled=true; return g; },
+      // node-link diagram for graphs / DAGs / connectomes. nodes:[{x,y in 0..1 of the canvas, label, color?, fill?}], edges:[{from,to (indices), label?, color?, dash?, inhib?}]
+      graph(nodes, edges, o={}){ const nr=o.r||16*FS, P=nd=>[nd.x*w, nd.y*h];
+        for(const e of (edges||[])){ const [x0,y0]=P(nodes[e.from]), [x1,y1]=P(nodes[e.to]), a=Math.atan2(y1-y0,x1-x0), c=Math.cos(a), s=Math.sin(a);
+          const X0=x0+nr*c, Y0=y0+nr*s, X1=x1-nr*c, Y1=y1-nr*s; ctx.strokeStyle=e.color||TH.dim; ctx.fillStyle=e.color||TH.dim; ctx.lineWidth=e.width||2;
+          if(e.dash) ctx.setLineDash(e.dash); ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X1,Y1); ctx.stroke(); ctx.setLineDash([]); const hd=8*FS;
+          if(e.inhib){ ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(X1-hd*0.5*s, Y1+hd*0.5*c); ctx.lineTo(X1+hd*0.5*s, Y1-hd*0.5*c); ctx.stroke(); }   // T-bar = inhibitory
+          else { ctx.beginPath(); ctx.moveTo(X1,Y1); ctx.lineTo(X1-hd*Math.cos(a-0.42),Y1-hd*Math.sin(a-0.42)); ctx.lineTo(X1-hd*Math.cos(a+0.42),Y1-hd*Math.sin(a+0.42)); ctx.closePath(); ctx.fill(); }
+          if(e.label!=null){ ctx.fillStyle=e.color||TH.dim; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(String(e.label), (X0+X1)/2, (Y0+Y1)/2 - 5*FS); } }
+        for(const nd of nodes){ const [x,y]=P(nd); ctx.fillStyle=nd.fill||'#fff'; ctx.strokeStyle=nd.color||TH.accent; ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(x,y,nr,0,7); ctx.fill(); ctx.stroke();
+          ctx.fillStyle=TH.ink; ctx.font=SANS(12,'600'); ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(nd.label||'', x, y); ctx.textBaseline='alphabetic'; }
+        return g; },
       raster(rows,o={}){ const col=o.color||TH.ink, n=rows.length, lane=fr.ph/Math.max(1,n);
         ctx.strokeStyle=col; ctx.lineWidth=o.width||1; for(let r=0;r<n;r++){ const y0=fr.py+r*lane+lane*0.15, y1=fr.py+(r+1)*lane-lane*0.15; for(const x of rows[r]){ const X=sx(x); ctx.beginPath(); ctx.moveTo(X,y0); ctx.lineTo(X,y1); ctx.stroke(); } } return g; },
       text(x,y,str,o={}){ ctx.fillStyle=o.color||TH.dim; ctx.font=o.font||MONO(o.size||10); ctx.textAlign=o.align||'left'; ctx.fillText(str,sx(x),sy(y)); return g; },

@@ -59,7 +59,7 @@ function stubG(){
   const g = { ctx, w:600, h:400, FS:1, _rec:rec, TH: globalThis.Plot.TH,
     frame(o){ o=o||{}; if(o.x&&(!num(o.x[0])||!num(o.x[1]))) rec.badFrame=true; if(o.y&&(!num(o.y[0])||!num(o.y[1]))) rec.badFrame=true; if(o.x)fr.x=o.x; if(o.y)fr.y=o.y; return g; },
     line:()=>g, band:()=>g, points:()=>g, marker:()=>g, arrow:()=>g, vline:()=>g, hline:()=>g, bars:()=>g, raster:()=>g, text:()=>g, legend:()=>g, flow:()=>g, note:()=>g, clip:()=>g, unclip:()=>g,
-    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; },
+    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; }, graph:()=>g,
     X(v){ return fr.px+(v-fr.x[0])/((fr.x[1]-fr.x[0])||1)*fr.pw; }, Y(v){ return fr.py+fr.ph*(1-(v-fr.y[0])/((fr.y[1]-fr.y[0])||1)); }, frameRect(){ return fr; } };
   return g;
 }
@@ -256,10 +256,18 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  retina: V1 tuning decodes orientation (${d.dec.toFixed(0)}° vs ${d.ori}°); surround changes output contrast (Δ=${effect.toFixed(3)})   [${ok(decErr<25 && effect>1e-3)}]`);
 }
 
+// Causal graph: do(X) recovers the true causal effect; the observed slope is inflated by confounding; the gap grows with confounding
+{
+  const m = SIM.MODELS.causalg, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('cg'));
+  const doMatches = Math.abs(d.doSlope - d.causal) < 0.15, confounded = d.obsSlope > d.causal + 0.15, sweepRises = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.1;
+  console.log(`  causal-graph: do(X) recovers the effect (do=${d.doSlope.toFixed(2)} ≈ ${d.causal.toFixed(2)}); observed inflated to ${d.obsSlope.toFixed(2)} by confounding   [${ok(doMatches && confounded && sweepRises)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

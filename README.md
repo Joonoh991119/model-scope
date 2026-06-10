@@ -72,10 +72,10 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 
 ## What you can build — the examples that ship
 
-The bundled template runs **sixteen** worked models that **span the model scales and classes** —
+The bundled template runs **seventeen** worked models that **span the model scales and classes** —
 behavioural / process, single-neuron, sensory / image, network (with plasticity), oscillation, macro,
-and partial-observability inference — across every idiom (a continuous playhead, a process-mode
-stepper, and the **lens switch**):
+partial-observability inference, and causal graphs — across every idiom (a continuous playhead, a
+process-mode stepper, and the **lens switch**):
 
 | Model | Domain / scale | Idiom | What you watch |
 |---|---|---|---|
@@ -95,6 +95,7 @@ stepper, and the **lens switch**):
 | **Belief tracking (Bayes filter)** | inference / partial observability | lens switch | the transition and observation model, structure first; the belief distribution tracking a hidden state over time; tracking error vs observation noise |
 | **Ring attractor** | network / working memory | lens switch | the Mexican-hat connectivity, structure first; a localized bump that persists after the cue (working memory); the decoded heading holding the cue; bump width vs the E/I balance |
 | **Retina → V1 (layered vision)** | sensory / image (deep stack) | lens switch | the layer-stack architecture and its receptive fields, structure first; the image transformed stage by stage (center-surround, V1 simple, V1 complex); the RF profiles and tuning; output vs the horizontal-cell surround |
+| **Causal graph — intervention** | causal inference (Pearl / DAG) | lens switch | the causal DAG (a confounder behind X and Y), structure first; the observed (confounded) association; do(X) vs what you see; the observed-minus-causal gap vs confounding |
 
 Copy one, swap in your equations, and it is yours.
 
@@ -127,7 +128,7 @@ One harness, many control + view types — every plot is live, so you build intu
 </tr>
 <tr>
 <td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap, an energy landscape.</b> A decision network's (S1, S2) flow field with the trajectory rolling into a basin (network scale, Landscape lens).</td>
-<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the sixteen models span behavioural, single-neuron, sensory, network, and macro scales.</td>
+<td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the seventeen models span behavioural, single-neuron, sensory, network, and macro scales.</td>
 </tr>
 </table>
 
