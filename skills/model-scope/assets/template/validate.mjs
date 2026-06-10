@@ -241,10 +241,18 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  ring: localized bump persists (amp=${d.amp.toFixed(2)}, width=${(d.width*100).toFixed(0)}% of ring) and holds the cue (decoded ${decLast.toFixed(0)}° vs ${d.cue}°)   [${ok(bump && holds)}]`);
 }
 
+// Retina→V1: the V1 complex-cell tuning decodes the stimulus orientation; the surround changes the output
+{
+  const m = SIM.MODELS.retina, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('ret'));
+  const dd = Math.abs(d.dec - d.ori), decErr = Math.min(dd, 180-dd), ys = d.sweep.map(q=>q[1]), effect = Math.max(...ys) - Math.min(...ys);
+  console.log(`  retina: V1 tuning decodes orientation (${d.dec.toFixed(0)}° vs ${d.ori}°); surround changes output contrast (Δ=${effect.toFixed(3)})   [${ok(decErr<25 && effect>1e-3)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

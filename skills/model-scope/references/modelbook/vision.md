@@ -11,11 +11,13 @@ transformed layer by layer, then how the readout changes with the parameters and
   (quadrature pairs: energy = even² + odd²) filters the image; pooling across channels gives an
   orientation tuning curve whose population-vector peak is the decoded orientation. Contrast and
   noise set tuning sharpness and decode accuracy.
-- **Center-surround / DoG front end** (retina/LGN; compose by hand). Difference-of-Gaussians
-  receptive fields (bipolar/horizontal-cell antagonism) do contrast normalization and edge
-  enhancement before the oriented stage; RF size grows with eccentricity.
+- **Retina → V1 layered stack** (template exemplar `retina`). Photoreceptors → a **center-surround**
+  stage (difference-of-Gaussians RF, the bipolar/horizontal-cell antagonism — lateral inhibition,
+  edge enhancement) → ganglion edges → V1 **simple** cells (oriented Gabor) → V1 **complex** cells
+  (orientation energy). Shows the architecture, the image transformed layer by layer, the RF profiles,
+  and how the horizontal-cell surround reshapes the output.
 - **CNN-style stack** (compose) — conv → nonlinearity → pool, repeated; show each layer's
-  feature maps and how tuning/invariance build with depth.
+  feature maps and how tuning/invariance build with depth (the same idiom, more layers).
 
 ## Parameters (meaning + typical ranges)
 

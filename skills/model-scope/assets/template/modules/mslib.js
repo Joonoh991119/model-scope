@@ -227,5 +227,15 @@
   const beliefEntropy = (b) => { let H=0; for(const p of b) if(p>1e-12) H -= p*Math.log(p); return H; };   // uncertainty (nats); 0 = certain
   const belief = { predict:beliefPredict, update:beliefUpdate, entropy:beliefEntropy };
 
-  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief };
+  /* ---- vision: front-end receptive fields (center-surround) for layered sensory models ---- */
+  const dogKernel = (sigmaC, sigmaS, wSurr) => {   // difference-of-Gaussians (center − surround) RF; {k,R,sz} for conv2, zero-mean
+    const R=max(3, Math.round(sigmaS*2.4)), sz=2*R+1, k=new Float64Array(sz*sz); let s=0;
+    for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ const r2=i*i+j*j,
+      cen=exp(-r2/(2*sigmaC*sigmaC))/(2*PI*sigmaC*sigmaC), sur=exp(-r2/(2*sigmaS*sigmaS))/(2*PI*sigmaS*sigmaS),
+      v=cen - wSurr*sur; k[(j+R)*sz+(i+R)]=v; s+=v; }
+    const m=s/(sz*sz); for(let t=0;t<k.length;t++) k[t]-=m; return { k, R, sz }; };   // zero-mean so flat fields give ~0 (the surround does the subtraction)
+  const rfSizeVsEcc = (ecc, base, slope) => base*(1 + slope*ecc);   // receptive-field size grows ~linearly with eccentricity
+  const vision = { dogKernel, rfSizeVsEcc };
+
+  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief, vision };
 })(typeof window !== 'undefined' ? window : globalThis);

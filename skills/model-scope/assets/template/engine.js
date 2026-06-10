@@ -1007,8 +1007,72 @@
             g.marker(d.JI, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.JI)<Math.abs(b[0]-d.JI)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- VISION / CNN, DEEP STACK: retina → V1. STRUCTURE (architecture) FIRST, then the image
+       transformed layer by layer. Center-surround (bipolar/horizontal) → ganglion → V1 simple
+       (oriented) → V1 complex (energy). Angles: Architecture, Layers, RF, Compare(surround). */
+    retina: {
+      id:'retina', name:'Retina → V1 (layered vision)',
+      blurb:'A layered early-vision model on an image: photoreceptors → a center-surround stage (bipolar + horizontal cells, a difference-of-Gaussians receptive field) → ganglion edge signals → V1 simple cells (oriented Gabor) → V1 complex cells (orientation energy). Use the lens switch for the angles — architecture first: Architecture (the layer stack and its receptive fields), Layers (the image transformed stage by stage), RF (the receptive-field profiles and V1 tuning), Compare (how the horizontal-cell surround changes the output).',
+      note:'The center-surround stage is a difference-of-Gaussians RF: an excitatory center minus an inhibitory surround supplied by horizontal cells. Being zero-mean, it suppresses uniform regions and enhances edges/contrast (lateral inhibition). V1 simple cells are oriented Gabors on that edge signal; complex cells pool the quadrature pair (even² + odd²) for phase-invariant orientation energy. Turn the surround up and flat regions vanish while edges sharpen. Composed from MSLIB.vision (DoG) + the oriented-filter helpers.',
+      params:[
+        {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:60, unit:'°'},
+        {name:'sf', label:'Spatial frequency', min:1, max:7, step:0.1, default:3, unit:'cyc/img'},
+        {name:'surround', label:'Horizontal-cell surround', min:0, max:1.4, step:0.02, default:0.9},
+        {name:'contrast', label:'Contrast', min:0.1, max:1, step:0.01, default:0.8},
+      ],
+      simulate:(p, env)=>{ const V=global.MSLIB.vision, N=40, sigma=N/12, sC=N/22, sS=N/9;
+        const img=visScene(N, p.ori, p.sf, p.contrast, 0.05, env.seed);
+        const dk=V.dogKernel(sC, sS, p.surround), dog=conv2(img, N, dk);
+        const ev=conv2(dog, N, gaborKernel(p.ori, p.sf, sigma, 0, N)), od=conv2(dog, N, gaborKernel(p.ori, p.sf, sigma, Math.PI/2, N));
+        const simple=ev, complex=new Float64Array(N*N); for(let t=0;t<N*N;t++) complex[t]=ev[t]*ev[t]+od[t]*od[t];
+        const lim=a=>{ let m=1e-6; for(const v of a) m=Math.max(m,Math.abs(v)); return m; };
+        const K=12, oris=[], tuning=[]; for(let k=0;k<K;k++){ const o=k*180/K; oris.push(o); const e=conv2(dog,N,gaborKernel(o,p.sf,sigma,0,N)), d2=conv2(dog,N,gaborKernel(o,p.sf,sigma,Math.PI/2,N)); let s=0; for(let t=0;t<N*N;t++) s+=e[t]*e[t]+d2[t]*d2[t]; tuning.push([o, s/(N*N)]); }
+        const prof=[]; for(let i=-dk.R;i<=dk.R;i++) prof.push([i, dk.k[dk.R*dk.sz+(i+dk.R)]]);   // DoG center-surround 1-D cross-section
+        const sweep=[]; for(let s2=0;s2<=16;s2++){ const wS=s2/16*1.4, dg=conv2(img,N,V.dogKernel(sC,sS,wS)); let mean=0; for(const v of dg) mean+=v; mean/=dg.length; let varr=0; for(const v of dg) varr+=(v-mean)*(v-mean); sweep.push([wS, Math.sqrt(varr/dg.length)]); }
+        const gk=gaborKernel(p.ori, p.sf, sigma, 0, N);
+        return { N, img, dog, simple, complex, imgLim:lim(img), dogLim:lim(dog), simpleLim:lim(simple), complexMax:lim(complex), oris, tuning, tmax:Math.max(...tuning.map(q=>q[1]),1e-9), prof, dk, gk, sweep, surround:p.surround, ori:p.ori, dec:(function(){ let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=tuning[k][1]*Math.cos(a); sy+=tuning[k][1]*Math.sin(a); } let dd=Math.atan2(sy,sx)*90/Math.PI; return ((dd%180)+180)%180; })() };
+      },
+      lenses:{
+        architecture:{ label:'Architecture', about:'the layer stack and its receptive fields, before the image',
+          views:[ { title:'retina → V1 architecture (each stage has a receptive field)', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('a feedforward stack: each layer re-represents the image through its receptive field', W/2, 20*F);
+            const stages=['Image / receptors','Center-surround\n(bipolar + horizontal)','Ganglion\n(edges)','V1 simple\n(oriented)','V1 complex\n(energy)'], n=stages.length;
+            const bw=Math.min(176*F,(W-40*F)/n-10*F), gap=(W-40*F-n*bw)/Math.max(1,n-1), y0=58*F, bh=58*F, x0=20*F, cy=y0+bh/2;
+            for(let i=0;i<n;i++){ const x=x0+i*(bw+gap); ctx.fillStyle=i===1?'#eef3f5':'#ffffff'; ctx.strokeStyle=i===1?T.warn:T.accent; ctx.lineWidth=1.8;
+              const rr=8*F; ctx.beginPath(); ctx.moveTo(x+rr,y0); ctx.arcTo(x+bw,y0,x+bw,y0+bh,rr); ctx.arcTo(x+bw,y0+bh,x,y0+bh,rr); ctx.arcTo(x,y0+bh,x,y0,rr); ctx.arcTo(x,y0,x+bw,y0,rr); ctx.closePath(); ctx.fill(); ctx.stroke();
+              ctx.fillStyle=T.ink; ctx.font=(11.5*F)+'px sans-serif'; const lines=stages[i].split('\n'); lines.forEach((ln,li)=>ctx.fillText(ln, x+bw/2, cy-4*F+li*13*F+(lines.length===1?4*F:0)));
+              if(i<n-1){ const ax=x+bw, ay=cy; ctx.strokeStyle=T.dim; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+gap,ay); ctx.stroke(); ctx.fillStyle=T.dim; ctx.beginPath(); ctx.moveTo(ax+gap,ay); ctx.lineTo(ax+gap-5*F,ay-4*F); ctx.lineTo(ax+gap-5*F,ay+4*F); ctx.closePath(); ctx.fill(); } }
+            // RF thumbnails under the center-surround and V1-simple stages
+            const thumb=(stageIdx, ker, label)=>{ const x=x0+stageIdx*(bw+gap), pwh=Math.min(72*F,bw), tx=x+(bw-pwh)/2, ty=y0+bh+26*F, sz=ker.sz; let kl=1e-6; for(const v of ker.k) kl=Math.max(kl,Math.abs(v));
+              g.image(sz, sz, (i,j)=>ker.k[j*sz+i], v=>VGRAY(v,kl), {x:tx, y:ty, w:pwh, h:pwh}); ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(tx,ty,pwh,pwh); ctx.fillStyle=T.dim; ctx.font=(10.5*F)+'px monospace'; ctx.textAlign='center'; ctx.fillText(label, x+bw/2, ty+pwh+14*F); };
+            thumb(1, d.dk, 'center-surround RF'); thumb(3, d.gk, 'oriented RF');
+            ctx.fillStyle=T.faint; ctx.font=(11*F)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('Adjust the surround, orientation, and frequency, then watch the Layers and RF lenses change.', W/2, H-12*F);
+          }} ] },
+        layers:{ label:'Layers', about:'the input image transformed stage by stage down the stack',
+          views:[
+            { title:'1. input image', draw:(g,d)=>{ const N=d.N; g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, title:`input — grating at θ=${d.ori}°`}); g.heat(N,N,(i,j)=>d.img[j*N+i], v=>VGRAY(v,d.imgLim)); g.colorbar(-d.imgLim,d.imgLim,v=>VGRAY(v,d.imgLim),{ticks:[{v:-d.imgLim,label:'−'},{v:0,label:'0'},{v:d.imgLim,label:'+'}],label:'intensity'}); }},
+            { title:'2. center-surround (bipolar + horizontal)', draw:(g,d)=>{ const N=d.N; g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, title:'edges enhanced, flat regions suppressed (lateral inhibition)'}); g.heat(N,N,(i,j)=>d.dog[j*N+i], v=>VGRAY(v,d.dogLim)); g.colorbar(-d.dogLim,d.dogLim,v=>VGRAY(v,d.dogLim),{ticks:[{v:-d.dogLim,label:'−'},{v:0,label:'0'},{v:d.dogLim,label:'+'}],label:'response'}); }},
+            { title:'3. V1 simple cell (oriented)', draw:(g,d)=>{ const N=d.N; g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, title:`oriented Gabor response at θ=${d.ori}°`}); g.heat(N,N,(i,j)=>d.simple[j*N+i], v=>VGRAY(v,d.simpleLim)); g.colorbar(-d.simpleLim,d.simpleLim,v=>VGRAY(v,d.simpleLim),{ticks:[{v:-d.simpleLim,label:'−'},{v:0,label:'0'},{v:d.simpleLim,label:'+'}],label:'response'}); }},
+            { title:'4. V1 complex cell (energy)', draw:(g,d)=>{ const N=d.N; g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, title:'phase-invariant orientation energy = even² + odd²'}); g.heat(N,N,(i,j)=>d.complex[j*N+i], v=>VHOT(v,d.complexMax)); g.colorbar(0,d.complexMax,v=>VHOT(v,d.complexMax),{label:'energy'}); }},
+          ] },
+        rf:{ label:'RF', about:'the receptive-field profiles — center-surround and V1 orientation tuning',
+          views:[
+            { title:'center-surround receptive field (difference of Gaussians)', draw:(g,d)=>{ const T=TH(), ys=d.prof.map(q=>q[1]), ymin=Math.min(...ys), ymax=Math.max(...ys);
+              g.frame({x:[d.prof[0][0],d.prof[d.prof.length-1][0]], y:[ymin-Math.abs(ymin)*0.2-1e-3, ymax*1.2], xlabel:'distance from RF centre (pixels)', ylabel:'sensitivity', title:'excitatory centre, inhibitory surround (the horizontal-cell antagonism)'});
+              g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.prof,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.prof,{color:T.accent,width:2.4}); }},
+            { title:'V1 orientation tuning (complex-cell energy)', draw:(g,d)=>{ const T=TH(); g.frame({x:[-10,180], y:[0,d.tmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`tuning peaks at the stimulus orientation (decoded ${d.dec.toFixed(0)}° vs ${d.ori}°)`});
+              g.line(d.tuning,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
+          ] },
+        compare:{ label:'Compare', about:'how the horizontal-cell surround changes the output',
+          views:[ { title:'edge enhancement vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;
+            g.frame({x:[0,1.4], y:[0,ymax], xlabel:'horizontal-cell surround strength', ylabel:'output contrast (RMS)', title:'a stronger surround removes flat regions and sharpens edges (band-pass)'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.surround, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.surround)<Math.abs(b[0]-d.surround)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);
