@@ -8,19 +8,19 @@ graphic or axis.
 Ships with eleven examples spanning the model SCALES (behavioural, single-neuron, sensory, network,
 macro) and every idiom, so you can see the range. Each model is replicated and shown from the angles
 that fit its class; the payoff is comparing what changes across parameters and model choices.
-- **Drift-diffusion decision** *(level switch)* — the angles: one update (drift plus noise), one trial
+- **Drift-diffusion decision** *(lens switch)* — the angles: one update (drift plus noise), one trial
   walking to a bound, and the RT histogram over many trials.
 - **Decision: integrate vs one sample** *(toggle + heatmap)* — compare two models via a toggle: a
   speed-accuracy overlay, a metric heatmap over a (drift, noise) grid, and metric bars.
-- **Attractor network — decision** *(level switch)* — structure first: the circuit wiring and E/I,
+- **Attractor network — decision** *(lens switch)* — structure first: the circuit wiring and E/I,
   then one pool's input, winner-take-all dynamics, and the (S1, S2) energy-landscape heatmap.
-- **Epidemic (spatial SIR)** *(level switch)* — a macro model: a space-time kymograph, the S/I/R
+- **Epidemic (spatial SIR)** *(lens switch)* — a macro model: a space-time kymograph, the S/I/R
   curves, and peak prevalence vs R0 (the epidemic threshold).
-- **Early vision — orientation** *(level switch)* — an image-input model: the grating image, oriented
+- **Early vision — orientation** *(lens switch)* — an image-input model: the grating image, oriented
   Gabor energy channels re-representing it, and the orientation tuning with the decoded angle.
-- **Spiking neuron (LIF)** *(level switch)* — a V(t) trace to threshold, a spike raster over repeats,
+- **Spiking neuron (LIF)** *(lens switch)* — a V(t) trace to threshold, a spike raster over repeats,
   and the f-I transfer curve, with a refractory-period **toggle**.
-- **Reinforcement learning (RW)** *(level switch)* — one Rescorla-Wagner update (δ = r − V), the value
+- **Reinforcement learning (RW)** *(lens switch)* — one Rescorla-Wagner update (δ = r − V), the value
   learning curve, and curves across learning rates α.
 - **Bayesian observer** *(continuous)* — prior, likelihood, posterior on a stimulus axis, an
   estimate-vs-true central-tendency curve (with an SD ribbon), and a trial-to-trial prior update.

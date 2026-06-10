@@ -14,8 +14,8 @@ the equations.
 > A **Bayesian observer** draws prior, likelihood, posterior and a central-tendency curve.
 > A **leaky integrate-and-fire neuron** draws a *V(t)* trace, a spike raster, and an *f–I* curve.
 > A **drift-diffusion** model animates an evidence trajectory and a response-time histogram.
-> A **causal-inference**, **working-memory**, **RL**, **POMDP**, **saccade**, or
-> **population** model draws whatever makes *it* intuitive.
+> A **causal-inference**, **working-memory**, **RL**, **attractor-network**, or
+> **epidemic** model draws whatever makes *it* intuitive.
 
 It is built for researchers in perception, decision-making, learning, memory, and
 single-neuron dynamics who want to *understand* a model by tuning it.
@@ -52,7 +52,7 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 - **The model picks the picture.** Each view sets its own axes and draws whatever is
   intuitive: distributions, tuning / psychometric curves, rasters, phase portraits,
   energy landscapes, belief simplices, learning curves.
-- **Switch angle, not just play.** A level switch shows one model from the angles that fit it: a
+- **Switch angle, not just play.** A lens switch shows one model from the angles that fit it: a
   decision model gets one trial and the many-trial statistics; a network gets its structure, then
   activity, representation, and landscape; an image/CNN model gets its architecture first, then the
   layer-by-layer transforms — each driven by a continuous playhead or a step-by-step stepper.
@@ -74,17 +74,17 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 
 The bundled template runs **eleven** worked models that **span the model scales** — behavioural /
 process, single-neuron, sensory, network, and macro — across every idiom (a continuous playhead, a
-process-mode stepper, and the perspective **level switch**):
+process-mode stepper, and the **lens switch**):
 
 | Model | Domain / scale | Idiom | What you watch |
 |---|---|---|---|
-| **Drift-diffusion decision** | decision-making | level switch | one update (drift plus noise to new evidence); one trial walking to a bound; the RT histogram building up |
+| **Drift-diffusion decision** | decision-making | lens switch | one update (drift plus noise to new evidence); one trial walking to a bound; the RT histogram building up |
 | **Decision: integrate vs one sample** | comparison | sliders + toggle | toggle two models; a speed-accuracy overlay; a metric heatmap over a (drift, noise) grid; accuracy / speed / reward bars; the mechanism |
-| **Early vision (orientation)** | sensory / image | level switch | the input grating image; oriented Gabor channels re-representing it; the orientation tuning and decoded angle |
-| **Attractor network** | network | level switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) energy-landscape heatmap and trajectory |
-| **Epidemic (spatial SIR)** | macro / population | level switch | a space-time kymograph of a travelling infection wave; the S/I/R curves; peak prevalence vs R0 (the epidemic threshold) |
-| **Spiking neuron (LIF)** | single-neuron biophysics | level switch | a V(t) trace integrating to threshold; a spike raster over repeats; the f-I transfer curve (with a refractory toggle) |
-| **Reinforcement learning (RW)** | learning | level switch | one Rescorla-Wagner update; the value learning curve; curves across learning rates |
+| **Early vision (orientation)** | sensory / image | lens switch | the input grating image; oriented Gabor channels re-representing it; the orientation tuning and decoded angle |
+| **Attractor network** | network | lens switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) energy-landscape heatmap and trajectory |
+| **Epidemic (spatial SIR)** | macro / population | lens switch | a space-time kymograph of a travelling infection wave; the S/I/R curves; peak prevalence vs R0 (the epidemic threshold) |
+| **Spiking neuron (LIF)** | single-neuron biophysics | lens switch | a V(t) trace integrating to threshold; a spike raster over repeats; the f-I transfer curve (with a refractory toggle) |
+| **Reinforcement learning (RW)** | learning | lens switch | one Rescorla-Wagner update; the value learning curve; curves across learning rates |
 | **Bayesian observer** | perception / inference | continuous | prior, likelihood, posterior on a stimulus axis; an estimate-vs-true central-tendency curve (with an SD ribbon); trial-to-trial prior updating |
 | **Efficient-coding observer** (Wei & Stocker) | perception | process mode | prior, warped encoding, measurement, skewed likelihood, posterior, estimate; bias and discriminability |
 | **Causal inference** (Körding et al.) | multisensory | process mode | cues, per-hypothesis likelihoods, p(common cause), branch estimates, combine; the ventriloquism bias |
@@ -236,7 +236,7 @@ this shape works:
 
 ### Angles (`lenses`)
 
-A model can declare `lenses` and the toolbox shows a **level switch** that views the same
+A model can declare `lenses` and the toolbox shows a **lens switch** that views the same
 simulation from several **angles** chosen for the model's class — the lens keys are free. A
 decision model: one update, one trial, the statistics. A network: structure, activity,
 representation, landscape. A vision model: architecture, layer transforms. Where there is

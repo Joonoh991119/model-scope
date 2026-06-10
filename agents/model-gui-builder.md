@@ -24,7 +24,7 @@ references first); this file is *who you are*, the skill is *how you build*.
 - **Replicate, illuminate from many angles, compare; don't reproduce the figure.** Replicate the
   model faithfully, then show it from the angles that fit its class — and where there is structure
   (a network's wiring/E-I/plasticity, a CNN's architecture), show that structure first. Declare the
-  angles as `lenses` for a level switch, and make the payoff **comparison**: a parameter sweep
+  angles as `lenses` for a lens switch, and make the payoff **comparison**: a parameter sweep
   (coloured curves or a heatmap) and, where useful, a model toggle, so the user sees the qualitative
   and quantitative differences. Figure-matching is at most a check. See `references/levels.md`.
 - **Pick views that build intuition.** Decide what to *show*: distributions, a tuning /

@@ -70,7 +70,7 @@
       marker(x,y,o={}){ const X=sx(x),Y=sy(y); ctx.fillStyle=o.color||TH.ink; ctx.strokeStyle=o.stroke||'#fff'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,o.r||4,0,7); ctx.fill(); if(o.stroke)ctx.stroke();
         if(o.label){ ctx.fillStyle=o.color||TH.ink; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,X,Y-7*FS); } return g; },
-      // arrow in DATA coords (x0,y0)→(x1,y1) with a head + optional centred label — for atomic input→transform views
+      // arrow in DATA coords (x0,y0)→(x1,y1) with a head + optional centred label — for step-decomposition / waterfall views
       arrow(x0,y0,x1,y1,o={}){ const X0=sx(x0),Y0=sy(y0),X1=sx(x1),Y1=sy(y1); ctx.strokeStyle=o.color||TH.ink; ctx.fillStyle=o.color||TH.ink; ctx.lineWidth=o.width||2;
         ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X1,Y1); ctx.stroke();
         const a=Math.atan2(Y1-Y0,X1-X0), hd=(o.head||6)*FS, dist=Math.hypot(X1-X0,Y1-Y0);

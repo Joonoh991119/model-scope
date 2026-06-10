@@ -49,7 +49,7 @@ Text-size control reflows fonts/margins — larger text is where overlap shows u
 - [ ] The paper's thesis is visible: what's held **fixed** looks fixed; what **varies**, varies.
 
 **Angles / lenses (if the model declares `lenses`):** — *lens keys are free; check the angles that fit the model's class.*
-- [ ] The level switch shows; each lens binds its own views, and switching is instant (no recompute,
+- [ ] The lens switch shows; each lens binds its own views, and switching is instant (no recompute,
       no stale playhead/overlay).
 - [ ] The lenses cover the angles that fit the class (process: process / trial / simulation; decision:
       one trial + histograms by condition; network: structure / activity / representation / landscape;

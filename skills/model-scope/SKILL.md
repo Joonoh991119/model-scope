@@ -6,8 +6,9 @@ description: >-
   result update live, shown in views the MODEL defines — there is NO fixed graphic or
   axis. A Bayesian observer draws prior/likelihood/posterior + a bias (central-tendency)
   curve + trial-to-trial prior updating; a neuron draws a V(t) trace + spike raster +
-  f–I curve; a decision model animates an evidence trajectory + an RT histogram; a
-  saccade model draws eye paths + a landing map; a POMDP draws belief evolution. USE THIS
+  f–I curve; a decision model animates an evidence trajectory + an RT histogram; an
+  attractor network draws its circuit then winner-take-all dynamics + an energy landscape;
+  a spatial epidemic draws a space-time spread map. USE THIS
   whenever the user wants a simulator / parameter explorer / "see how the result changes
   as I tune X" / "turn these equations into something I can play with" / a teaching demo
   for researchers — neuron models, Bayesian/ideal-observer models, drift-diffusion or
@@ -56,7 +57,7 @@ Reproducing a specific figure is at most a *check*, never the point.
 
 ## Angles as first-class UI — `lenses`
 
-A model declares its **angles** as **lenses**; the toolbox renders a level switch and swaps the
+A model declares its **angles** as **lenses**; the toolbox renders a lens switch and swaps the
 active views + playhead per lens, over the **same `simulate()` data** (no recompute on switch). The
 lens *keys/labels are free* — name them for the model's own angles:
 

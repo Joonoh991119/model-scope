@@ -129,7 +129,7 @@ function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
 function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.innerHTML='';
   if(!S.lensKeys){ box.style.display='none'; sep.style.display='none'; return; }
   box.style.display='flex'; sep.style.display='block';
-  const lab=document.createElement('span'); lab.className='ll'; lab.textContent='level'; box.appendChild(lab);
+  const lab=document.createElement('span'); lab.className='ll'; lab.textContent='lens'; box.appendChild(lab);
   S.lensKeys.forEach(k=>{ const L=S.model.lenses[k], b=document.createElement('button'); b.textContent=L.label||k;
     b.setAttribute('aria-pressed',k===S.lens); b.title=L.about||''; b.onclick=()=>switchLens(k); box.appendChild(b); }); }
 function switchLens(k){ if(k===S.lens) return; S.lens=k; stopAll();

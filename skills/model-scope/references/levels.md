@@ -37,7 +37,7 @@ the model's behaviour, and its dependence on parameters and model choice, legibl
 
 ## Declaring lenses
 
-A model exposes its angles by declaring `lenses`; the toolbox shows a level switch and binds the
+A model exposes its angles by declaring `lenses`; the toolbox shows a lens switch and binds the
 active lens's views + playhead over the **same `simulate()` data** (switching is instant — no recompute):
 
 ```js

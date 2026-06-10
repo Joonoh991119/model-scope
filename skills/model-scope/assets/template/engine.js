@@ -347,7 +347,7 @@
     /* ---- A drift-diffusion decision: animate one trial's evidence, accumulate RTs. ---- */
     ddm: {
       id:'ddm', name:'Drift-diffusion decision',
-      blurb:'A pure evidence accumulator — the atom of decision models. Each timestep adds a fixed DRIFT (the signal) plus a random NOISE kick; repeat the atom and evidence random-walks to a bound (+z correct / −z error). Use the LEVEL switch (top) to zoom: one update → one trial → the whole distribution.',
+      blurb:'A pure evidence accumulator — the atom of decision models. Each timestep adds a fixed DRIFT (the signal) plus a random NOISE kick; repeat the atom and evidence random-walks to a bound (+z correct / −z error). Use the lens switch (top) to zoom: one update → one trial → the whole distribution.',
       note:'Step: x′ = x + A·dt + c·√dt·ξ — signal vs noise made explicit. Trial: that atom repeated until a bound is hit = one choice and its RT. Simulation: thousands of trials → the choice proportions and RT histogram the model predicts (what you compare to data). Larger A → faster & more accurate; larger z → slower & more accurate; larger c → noisier.',
       params:[
         {name:'A', label:'Drift A (signal)', min:0, max:3, step:0.01, default:1},
@@ -496,7 +496,7 @@
        Shows the harness generalises to image models. */
     vision: {
       id:'vision', name:'Early vision — orientation',
-      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the level switch for the angles: the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch all three update.',
+      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the lens switch for the angles: the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch all three update.',
       note:'Each channel is a quadrature Gabor pair (energy = even² + odd²) tuned to one orientation, so the image becomes one energy map per channel. Pooled energy across channels is an orientation tuning curve whose population-vector peak is the decoded orientation. Higher contrast or lower noise gives sharper tuning and a more accurate read-out. A different model class from the trial-based models (no time axis) — same harness, angles chosen to fit.',
       params:[
         {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:45, unit:'°'},
@@ -542,7 +542,7 @@
     /* ---- single-neuron biophysics: leaky integrate-and-fire (composed from MSLIB.neuron) ---- */
     lif: {
       id:'lif', name:'Spiking neuron (LIF)',
-      blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the level switch for the angles: one V(t) trace, a spike raster over repeats, the f-I transfer curve. Move the current, noise, and membrane sliders.',
+      blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the lens switch for the angles: one V(t) trace, a spike raster over repeats, the f-I transfer curve. Move the current, noise, and membrane sliders.',
       note:'dV/dt = (−(V−EL) + R·I)/τ with a hard threshold→reset (Vth→Vreset) and a refractory period. Stronger current → faster charging → higher rate (the f–I curve); current noise jitters spike times (the raster); toggle the refractory period off and the f–I curve loses its ceiling. A canonical single-neuron model, composed from MSLIB.neuron.',
       params:[
         {name:'I', label:'Input current I (condition)', min:0, max:0.8, step:0.005, default:0.35, unit:'nA'},
@@ -585,7 +585,7 @@
     /* ---- learning: Rescorla–Wagner value updating (composed from MSLIB.rl) ---- */
     rl: {
       id:'rl', name:'Reinforcement learning (RW)',
-      blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the level switch for the angles: one update decomposed, the learning curve, and how the learning rate α changes it.',
+      blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the lens switch for the angles: one update decomposed, the learning curve, and how the learning rate α changes it.',
       note:'V ← V + α·(r − V). The prediction error δ = r − V is the teaching signal; α sets how fast V tracks the reward probability (its asymptote ≈ p). Small α = slow & stable; large α = fast & jittery. Composed from MSLIB.rl.',
       params:[
         {name:'alpha', label:'Learning rate α (condition)', min:0.01, max:0.9, step:0.01, default:0.2},
@@ -630,7 +630,7 @@
        Structure (the circuit) - Step (one pool's recurrent input) - Dynamics (the pools race) - Landscape. */
     attractor: {
       id:'attractor', name:'Attractor network — decision',
-      blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias plus noise tips the network into one of two attractors. Use the level switch for the angles — structure first: Structure (the circuit wiring and E/I), Step (one pool’s recurrent input), Dynamics (the pools race to a winner), Landscape (the state-space the network rolls down).',
+      blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias plus noise tips the network into one of two attractors. Use the lens switch for the angles — structure first: Structure (the circuit wiring and E/I), Step (one pool’s recurrent input), Dynamics (the pools race to a winner), Landscape (the state-space the network rolls down).',
       note:'Each pool’s gating S obeys dS/dt = −S/τ_S + (1−S)·γ·φ(I), with input I = J_s·S_self − J_c·S_other + I₀ + stimulus + noise; self-excitation vs cross-inhibition is the competition. Strong cross-inhibition J_c destabilises the symmetric state, giving two stable attractors (winner-take-all); coherence biases which one wins. The Landscape lens maps the flow speed over (S₁,S₂): dark = slow = near a fixed point. Composed from MSLIB.decision.',
       params:[
         {name:'coh', label:'Coherence (condition, + favors pool 1)', min:-40, max:40, step:1, default:8, unit:'%'},
@@ -712,7 +712,7 @@
        Spread (space-time kymograph), Curve (well-mixed totals), Threshold (peak vs R0). */
     sir: {
       id:'sir', name:'Epidemic (spatial SIR)',
-      blurb:'A population model at the MACRO scale: Susceptible, Infected, Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the level switch for the angles: Spread (the epidemic as a space-time map), Curve (the classic S/I/R totals), Threshold (how the peak depends on R0). Move R0, γ, and spread.',
+      blurb:'A population model at the MACRO scale: Susceptible, Infected, Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the lens switch for the angles: Spread (the epidemic as a space-time map), Curve (the classic S/I/R totals), Threshold (how the peak depends on R0). Move R0, γ, and spread.',
       note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion); β = R0·γ. Below the epidemic THRESHOLD R0=1 the outbreak fizzles; above it, a travelling wave sweeps the line (the Spread map) and the well-mixed curve shows the familiar infected peak. The Threshold lens traces peak prevalence vs R0 — flat then rising sharply past 1. Same harness, angles chosen for a field/population model.',
       params:[
         {name:'R0', label:'Basic reproduction number R₀ (condition)', min:0, max:4, step:0.05, default:2.5},
