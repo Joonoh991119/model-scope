@@ -13,8 +13,10 @@ re-combines the values, then how a knob (temperature, heads, positional bias) re
   is a soft, content-based adjacency: each token's output is the attention-weighted mix of the others'
   values. Low temperature → sharp, near-hard routing (copy the best match); high temperature → uniform
   averaging. The standard dot-product form is `softmax(QKᵀ/√d)·V` with learned Q, K, V projections.
-- **Multi-head / multi-layer** (compose) — several attention maps in parallel, stacked; show each
-  head's matrix and how representations transform with depth (the same idiom, more maps).
+- **Multi-head / multi-layer** (template exemplar `mha`). Several heads with different inductive
+  biases run in parallel — content (same type), previous-token, local — softmaxed and combined; then
+  layers stack so information spreads further with depth. Shows each head's attention matrix, how the
+  sequence representation transforms layer by layer, and sharpness vs temperature.
 
 ## Parameters (meaning + typical ranges)
 

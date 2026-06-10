@@ -1297,8 +1297,52 @@
             g.marker(d.P, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.P)<Math.abs(b[0]-d.P)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- MULTI-HEAD / MULTI-LAYER attention. Several heads with different inductive biases run in
+       parallel; stacking layers mixes the representation further. STRUCTURE FIRST (the heads). */
+    mha: {
+      id:'mha', name:'Multi-head attention (heads + layers)',
+      blurb:'Multi-head self-attention: several attention heads run in parallel, each with a different inductive bias — one routes by content (same type), one to the previous token, one to nearby tokens — and their outputs are combined. Stacking layers mixes the representation further. Use the lens switch for the angles — structure first: Heads (each head’s attention pattern), Layers (how depth transforms the sequence), Compare (sharpness vs temperature).',
+      note:'Each head h has its own score(i,j) (content: −(type_i−type_j)²; previous: j=i−1; local: −|i−j|), softmaxed over keys at temperature T; the heads’ value-mixes are averaged (a stand-in for concat-then-project). A layer applies this to the values; stacking layers re-applies it, so information spreads further with depth. Different heads capture different relations — the basis of the transformer’s expressivity. Composed from MSLIB.attn.',
+      params:[
+        {name:'temp', label:'Temperature (softmax)', min:0.1, max:3, step:0.05, default:0.5},
+        {name:'layers', label:'Layers (depth)', min:1, max:3, step:1, default:2, int:true},
+      ],
+      simulate:(p, env)=>{ const A=global.MSLIB.attn, N=8, H=3, rng=makeRNG(env.seed+'#mha'), L=Math.max(1,Math.round(p.layers));
+        const type=[], v0=[]; for(let i=0;i<N;i++){ type.push(Math.floor(rng()*3)); v0.push(Math.round((rng()*2-1)*100)/100); }
+        const score=(h,i,j)=> h===0 ? -1.2*(type[i]-type[j])*(type[i]-type[j]) : h===1 ? (j===i-1?2:-2) : -0.7*Math.abs(i-j);
+        const heads=[]; for(let h=0;h<H;h++){ const M=[]; for(let i=0;i<N;i++) M.push(A.softmax(Array.from({length:N},(_,j)=>score(h,i,j)/p.temp))); heads.push(M); }
+        const layerV=[v0.slice()]; let v=v0.slice();
+        for(let l=0;l<L;l++){ const nv=new Array(N).fill(0); for(let i=0;i<N;i++){ let s=0; for(let h=0;h<H;h++){ let o=0; for(let j=0;j<N;j++) o+=heads[h][i][j]*v[j]; s+=o; } nv[i]=s/H; } layerV.push(nv); v=nv; }
+        const ent=[]; for(let h=0;h<H;h++){ let e=0; for(let i=0;i<N;i++) e+=A.entropy(heads[h][i])/Math.log(N); ent.push(e/N); }
+        const sweep=[]; for(let s=0;s<=20;s++){ const tp=0.1+s*(3-0.1)/20; let he=0,cnt=0; for(let h=0;h<H;h++) for(let i=0;i<N;i++){ const row=A.softmax(Array.from({length:N},(_,j)=>score(h,i,j)/tp)); he+=A.entropy(row)/Math.log(N); cnt++; } sweep.push([tp, he/cnt]); }
+        return { N, H, type, heads, layerV, nLayers:L, ent, sweep, temp:p.temp, HEADNAME:['content (same type)','previous token','local (nearby)'], TYPECOL:['#4a7a93','#c25b42','#2e8b7a'] };
+      },
+      lenses:{
+        heads:{ label:'Heads', about:'each head learns a different attention pattern',
+          views:[ { title:'three heads, three routing patterns (query rows × key columns)', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS, N=d.N, nh=d.H;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('multi-head attention runs these in parallel, then combines them', W/2, 20*F);
+            const pw=Math.min(150*F,(W-40*F)/nh-12*F), gap=(W-40*F-nh*pw)/Math.max(1,nh-1), y0=44*F, x0=20*F;
+            for(let h=0;h<nh;h++){ const x=x0+h*(pw+gap), M=d.heads[h]; let mx=1e-9; for(const row of M) for(const vv of row) if(vv>mx)mx=vv;
+              g.image(N,N,(i,j)=>M[N-1-j][i], v=>{ const t=Math.max(0,Math.min(1,v/mx)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {x,y:y0,w:pw,h:pw,smooth:false});
+              ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x,y0,pw,pw); ctx.fillStyle=T.ink; ctx.font=(11*F)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('head '+(h+1)+': '+d.HEADNAME[h], x+pw/2, y0+pw+15*F); }
+            ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('Different heads capture different relations — content, order, locality — and combine into one representation.', W/2, y0+pw+42*F);
+          }} ] },
+        layers:{ label:'Layers', about:'how stacking layers transforms the sequence',
+          views:[ { title:'depth mixes the sequence (values, layer by layer)', draw:(g,d)=>{ const T=TH(), N=d.N, all=d.layerV.flat(), lo=Math.min(...all), hi=Math.max(...all), cols=[T.dim,T.accent,T.pos,T.warn];
+            g.frame({x:[-0.3,N-0.7], y:[lo-0.1,hi+0.1], xlabel:'token position', ylabel:'value', title:`input → ${d.nLayers} attention layer(s): values blend toward attended neighbours`});
+            for(let l=0;l<d.layerV.length;l++){ const c=cols[Math.min(l,3)]; g.line(d.layerV[l].map((v,i)=>[i,v]),{color:c,width:l===0?1.8:2.2,dash:l===0?[4,3]:null}); g.points(d.layerV[l].map((v,i)=>[i,v]),{color:c,r:3}); }
+            g.legend(d.layerV.map((_,l)=>({label:l===0?'input':('layer '+l),color:cols[Math.min(l,3)]})),{corner:'tr'});
+          }} ] },
+        compare:{ label:'Compare', about:'attention sharpness vs temperature (averaged over heads)',
+          views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'mean attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard heads; high = uniform averaging'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.temp, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.temp)<Math.abs(b[0]-d.temp)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson','mha'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

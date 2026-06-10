@@ -293,10 +293,20 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  wilson-cowan: limit cycle at default (amp=${d.amp.toFixed(2)}); Hopf bifurcation in drive (P=0: ${d.sweep[0][1].toFixed(2)} → P=3: ${d.sweep[d.sweep.length-1][1].toFixed(2)})   [${ok(osc && lowFlat && highOsc)}]`);
 }
 
+// Multi-head attention: each head's rows are a softmax; the heads route differently; entropy rises with temperature
+{
+  const m = SIM.MODELS.mha, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('mha'));
+  const rows1 = d.heads.every(M => M.every(r => Math.abs(r.reduce((a,b)=>a+b,0)-1) < 1e-9));
+  let differ=false; for(let i=0;i<d.N;i++) for(let j=0;j<d.N;j++) if(Math.abs(d.heads[0][i][j]-d.heads[1][i][j])>0.15) differ=true;
+  const sharpens = d.sweep[0][1] < d.sweep[d.sweep.length-1][1] - 0.2;
+  console.log(`  mha: ${d.H} heads, rows softmax [${ok(rows1)}]; heads route differently [${ok(differ)}]; entropy rises with temp [${ok(sharpens)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson','mha']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }
