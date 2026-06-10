@@ -1,8 +1,12 @@
 /* =============================================================================
- * validate.mjs — checks each model's simulate() runs and is sane, reusing engine.js.
+ * validate.mjs — the model-scope correctness gate, reusing engine.js (and a Plot stub).
  *   Run:  node validate.mjs
- * The toolbox imposes no fixed output shape, so the gate is: simulate() returns data
- * without throwing, every view is a function, and a per-model analytic check holds.
+ * The toolbox imposes no fixed output shape, so the gate is layered:
+ *   (1) simulate() returns data without throwing; every view is a function;
+ *   (2) view-render pass — every view DRAWS (recording stub) at head=0 and the end, per lens,
+ *       without throwing, with finite axes and a colorbar on every heatmap;
+ *   (3) parameter property pass — simulate() stays finite at each slider's min and max;
+ *   (4) a per-model analytic check tied to the science; plus the mslib building-block checks.
  * ========================================================================== */
 import fs from 'node:fs';
 // plot.js touches `document`/canvas; engine.js only needs it lazily inside views, so
@@ -12,6 +16,21 @@ globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
 (0, eval)(fs.readFileSync(new URL('./modules/mslib.js', import.meta.url), 'utf8'));
 (0, eval)(fs.readFileSync(new URL('./engine.js', import.meta.url), 'utf8'));
 const SIM = globalThis.SIM;
+
+// Minimal Plot global so the view-render pass below can run views that call Plot.histify / Plot.TH
+// directly (plot.js touches document at load, so we can't eval it here — supply just the pure pieces
+// views use). histify is copied verbatim from plot.js.
+globalThis.Plot = {
+  TH: {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',warn:'#b07d2a',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91',grid:'#e7e3d8',edge:'#d6d2c5'},
+  histify(values, bins, lo, hi, quant){
+    bins=Math.max(1,Math.floor(bins||1)); if(!(hi>lo)) hi=lo+(quant>0?quant:1);
+    let bw=(hi-lo)/bins; if(quant>0) bw=Math.max(quant, Math.round(bw/quant)*quant); if(!(bw>0)) bw=(hi-lo)||1;
+    const n=Math.max(1,Math.ceil((hi-lo)/bw)), counts=new Array(n).fill(0), edges=new Array(n);
+    for(let i=0;i<n;i++) edges[i]=lo+i*bw;
+    for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; }
+    return { edges, counts, binW:bw, max:Math.max(1,...counts) };
+  }
+};
 
 let fails = 0; const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
 const env = (seed) => ({ rng: SIM.makeRNG(seed), seed, params: {}, batch: false });   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks pattern)
@@ -27,6 +46,60 @@ for (const id of SIM.MODEL_ORDER) {
   const nv = specs.reduce((a,s)=>a+((s.views&&s.views.length)||0),0);
   console.log(`  ${m.name.padEnd(28)} simulate=${threw?'\x1b[31mthrew\x1b[0m':'ok'}  views=${nv}${m.lenses?` (${specs.length} lenses)`:''}  [${ok(!threw && data && viewsOk)}]`);
   if (threw) console.log('    ' + threw.message);
+}
+
+// ---- view-render pass: every view must DRAW without throwing (at head=0 AND the end of its
+//      playhead, per lens), with FINITE axis ranges and a COLORBAR on every heatmap. This is the
+//      machine-checkable slice of gui-qc.md, now enforced — a view that dies on first paint, a NaN
+//      axis (blank panel), or a heatmap with no scale, all FAIL the gate instead of shipping. ----
+function stubG(){
+  const ctx = new Proxy({}, { get(t,p){ if(p==='measureText') return s=>({width:String(s).length*6}); if(p in t) return t[p]; return ()=>{}; }, set(t,p,v){ t[p]=v; return true; } });
+  const fr = {px:40,py:20,pw:520,ph:340,x:[0,1],y:[0,1]}, rec = {badFrame:false,heat:0,colorbar:0}, num = v => (typeof v==='number' && isFinite(v));
+  const g = { ctx, w:600, h:400, FS:1, _rec:rec, TH: globalThis.Plot.TH,
+    frame(o){ o=o||{}; if(o.x&&(!num(o.x[0])||!num(o.x[1]))) rec.badFrame=true; if(o.y&&(!num(o.y[0])||!num(o.y[1]))) rec.badFrame=true; if(o.x)fr.x=o.x; if(o.y)fr.y=o.y; return g; },
+    line:()=>g, band:()=>g, points:()=>g, marker:()=>g, arrow:()=>g, vline:()=>g, hline:()=>g, bars:()=>g, raster:()=>g, text:()=>g, legend:()=>g, flow:()=>g, note:()=>g, clip:()=>g, unclip:()=>g,
+    heat(){ rec.heat++; return g; }, colorbar(){ rec.colorbar++; return g; },
+    X(v){ return fr.px+(v-fr.x[0])/((fr.x[1]-fr.x[0])||1)*fr.pw; }, Y(v){ return fr.py+fr.ph*(1-(v-fr.y[0])/((fr.y[1]-fr.y[0])||1)); }, frameRect(){ return fr; } };
+  return g;
+}
+console.log('\n--- view render (draws, finite axes, colorbar on heatmaps) ---');
+for (const id of SIM.MODEL_ORDER) {
+  const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
+  let data; try { data = m.simulate(p, env('r-'+id)); } catch(e) { continue; }   // simulate-throw already reported above
+  const specs = m.lenses ? Object.entries(m.lenses) : [['', m]];
+  const drew=[], axis=[], cbar=[];
+  for (const [key, spec] of specs) {
+    let stageList=null, length=1;
+    try { stageList = spec.stages ? ((typeof spec.stages==='function')?spec.stages(p,data):spec.stages) : null; } catch(e){}
+    if (stageList && stageList.length) length = stageList.length;
+    else if (spec.anim) { try { const L = spec.anim.length(p,data); length = isFinite(L)?Math.max(1,Math.floor(L)):1; } catch(e){ length=1; } }
+    const heads = stageList ? [0, length-1] : [0, length];
+    (spec.views||[]).forEach((v, vi) => { const tag=(key?key+'/':'')+'v'+vi;
+      for (const head of heads) { const g=stubG();
+        const stage = stageList ? Math.min(length-1, Math.floor(head)) : null;
+        const ui = { head, params:p, playing:false, frac:0, stage, stageKey:(stage!=null&&stageList)?stageList[stage].key:null, stages:stageList, nStages:stageList?stageList.length:1 };
+        try { v.draw(g, data, ui); } catch(e){ if(!drew.find(f=>f.tag===tag)) drew.push({tag,msg:e.message}); }
+        if (g._rec.badFrame && !axis.includes(tag)) axis.push(tag);
+        if (g._rec.heat>0 && g._rec.colorbar===0 && !cbar.includes(tag)) cbar.push(tag);
+      } });
+  }
+  const good = !drew.length && !axis.length && !cbar.length;
+  console.log(`  ${m.name.padEnd(28)}[${ok(good)}]`+(drew.length?`  threw: ${drew.map(f=>f.tag).join(',')}`:'')+(axis.length?`  non-finite axis: ${axis.join(',')}`:'')+(cbar.length?`  heatmap w/o colorbar: ${cbar.join(',')}`:''));
+  drew.forEach(f => console.log('    '+f.tag+': '+f.msg));
+}
+
+// ---- parameter property pass: simulate() returns finite data at each parameter's MIN and MAX,
+//      not just defaults — catches NaN/throws at a slider extreme (e.g. zero drift, tiny dt). ----
+console.log('\n--- parameter extremes (simulate stays finite at each slider min/max) ---');
+for (const id of SIM.MODEL_ORDER) {
+  const m = SIM.MODELS[id]; const base = {}; (m.params||[]).forEach(s => base[s.name] = s.default);
+  const bad = [];
+  for (const s of (m.params||[])) for (const ext of ['min','max']) {
+    const p = { ...base, [s.name]: s[ext] };
+    try { const d = m.simulate(p, env('p-'+id+'-'+s.name+ext)); if(!d || typeof d!=='object') bad.push(`${s.name}.${ext}=no-data`); }
+    catch(e){ bad.push(`${s.name}.${ext}: ${e.message}`); }
+  }
+  console.log(`  ${m.name.padEnd(28)}[${ok(!bad.length)}]`+(bad.length?'  '+bad.slice(0,3).join(' | '):''));
 }
 
 // Bayesian observer: reliability weight in (0,1); estimate lies between measurement & prior mean
@@ -99,10 +172,37 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  SIR: peak below R₀=1 = ${(below[1]*100).toFixed(1)}% « above = ${(above[1]*100).toFixed(0)}%; threshold monotonic [${ok(below[1] < 0.02 && above[1] > 0.2 && mono && d.peakI > 0.05)}]`);
 }
 
+// Efficient-coding observer: BLS & MAP estimates are finite and inside the stimulus range; bias/discriminability curves exist
+{
+  const m = SIM.MODELS.efficient, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('eff'));
+  const sane = isFinite(d.estBLS) && isFinite(d.estMAP) && d.estBLS>=d.lo && d.estBLS<=d.hi && d.estMAP>=d.lo && d.estMAP<=d.hi && d.bias.length>0 && d.disc.length>0;
+  console.log(`  efficient: BLS/MAP estimates finite ∈[${d.lo},${d.hi}] (BLS=${d.estBLS.toFixed(2)}); bias & discriminability curves present   [${ok(sane)}]`);
+}
+
+// Causal inference: the ventriloquism bias is N-shaped — it peaks at intermediate disparity, then RELEASES (segregates) at large disparity
+{
+  const m = SIM.MODELS.causal, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('ci'));
+  const mags = d.biasV.map(b => Math.abs(b[1])), maxMag = Math.max(...mags), endMag = mags[mags.length-1];
+  const nShape = maxMag > 1e-3 && endMag < maxMag*0.9 && d.biasV.every(b => isFinite(b[1]));   // bias largest mid-disparity, smaller at the extreme (capture then release)
+  console.log(`  causal: ventriloquism bias peaks mid-disparity then releases (max=${maxMag.toFixed(2)}, |end|=${endMag.toFixed(2)})   [${ok(nShape)}]`);
+}
+
+// Working memory: with a target-dominated mixture, reports CLUSTER at the target far above the uniform-guess rate
+{
+  const m = SIM.MODELS.wm, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('wm'));
+  const wrap = x => { x=(x+Math.PI)%(2*Math.PI); if(x<0)x+=2*Math.PI; return x-Math.PI; };
+  let C=0,S=0, finite=true; for (let k=0;k<d.errs.length;k++){ if(!isFinite(d.errs[k]))finite=false; const e=wrap(d.errs[k]-d.target); C+=Math.cos(e); S+=Math.sin(e); }
+  const R = Math.hypot(C,S)/d.errs.length;   // circular resultant toward the target; uniform guessing → R≈0, a target-dominated mixture → R well above 0
+  console.log(`  wm: reports concentrate toward target (resultant R=${R.toFixed(2)} » ~0 uniform)   [${ok(finite && R>0.15)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }
