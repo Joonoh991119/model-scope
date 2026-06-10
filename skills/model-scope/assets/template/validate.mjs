@@ -264,10 +264,19 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  causal-graph: do(X) recovers the effect (do=${d.doSlope.toFixed(2)} ≈ ${d.causal.toFixed(2)}); observed inflated to ${d.obsSlope.toFixed(2)} by confounding   [${ok(doMatches && confounded && sweepRises)}]`);
 }
 
+// Self-attention: each attention row is a softmax (sums to 1); sharpness — entropy rises with temperature
+{
+  const m = SIM.MODELS.attention, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('attn'));
+  const rowsum1 = d.attn.every(r => Math.abs(r.reduce((a,b)=>a+b,0)-1) < 1e-9);
+  const sharpens = d.sweep[0][1] < 0.6 && d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.2;
+  console.log(`  attention: rows are softmax (sum=1) [${ok(rowsum1)}]; entropy rises with temperature (${d.sweep[0][1].toFixed(2)} → ${d.sweep[d.sweep.length-1][1].toFixed(2)}) [${ok(sharpens)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }
@@ -276,7 +285,7 @@ for (const id of SIM.MODEL_ORDER) {
 console.log('\n=== mslib.js building blocks ===\n');
 try {
   const L = globalThis.MSLIB, g = () => { let u = Math.random() || 1e-9; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); }, U = () => Math.random();
-  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm','network','osc','belief','vision'].every(k => L[k]);
+  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm','network','osc','belief','vision','attn'].every(k => L[k]);
   const wgt = L.bayes.weight(0.9, 1);
   const fi = L.neuron.fI((s,I,dt)=>L.neuron.lifStep(s,I,null,dt), ()=>({v:-65,refr:0}), [0.1,0.3,0.6,1.0], 1e-4, 1.0);
   const mono = fi.every((p,i)=>i===0||p.rate>=fi[i-1].rate) && fi[3].rate>fi[0].rate;
@@ -314,6 +323,9 @@ try {
   const dks=L.vision.dogKernel(1.5,4,1); let dsum=0; for(const v of dks.k) dsum+=v; const dc=L.vision.dogKernel(1.5,4,0); let csum=0; for(const v of dc.k) csum+=v; const dogOK=Math.abs(dsum)<0.15 && csum>0.5;
   console.log(`  network: Hopfield recall [${ok(recOK)}]  ring local-excitation [${ok(ringOK)}]   osc: sync vs incoherent r [${ok(oscOK)}]`);
   console.log(`  belief: predict/update normalise + concentrate [${ok(bpOK&&buOK)}]   vision: DoG band-pass≈0 vs low-pass>0 [${ok(dogOK)}]`);
+  // attn: softmax sums to 1 and is monotone in logits; uniform attention has entropy ln(N)
+  const sm=L.attn.softmax([1,2,3]), smOK=Math.abs(sm.reduce((a,b)=>a+b,0)-1)<1e-9 && sm[2]>sm[1] && sm[1]>sm[0], entU=Math.abs(L.attn.entropy([.25,.25,.25,.25])-Math.log(4))<1e-9;
+  console.log(`  attn: softmax sums to 1 + monotone [${ok(smOK)}]   uniform entropy = ln(N) [${ok(entU)}]`);
 } catch (e) { console.log('  ' + ok(false) + ' mslib failed: ' + e.message); }
 
 console.log(`\n${fails===0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}\n`);

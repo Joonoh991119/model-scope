@@ -1130,8 +1130,54 @@
             g.marker(d.conf, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.conf)<Math.abs(b[0]-d.conf)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- TRANSFORMER self-attention: content-based routing as soft, learned connectivity.
+       STRUCTURE FIRST — the attention matrix (who attends to whom). Angles: Structure, Mix, Compare(temp). */
+    attention: {
+      id:'attention', name:'Self-attention (transformer)',
+      blurb:'A row of tokens, each with a type and a value. Self-attention lets every token attend to others by CONTENT (same type) and POSITION (nearby), via a softmax — then each token’s output is the attention-weighted mix of the others’ values. Attention is soft, content-based connectivity. Use the lens switch for the angles — structure first: Structure (the attention matrix — who attends to whom), Mix (how the values get routed and combined), Compare (how temperature sharpens or blurs attention).',
+      note:'For query i and key j: score(i,j) = −contentW·(type_i−type_j)² − posBias·|i−j|; attention = softmax(score / temperature) over j; output_i = Σ_j attention(i,j)·value_j. Low temperature → sharp, near-hard attention (each token copies its best match); high temperature → uniform averaging. Same type and nearby position both raise attention. This is the core transformer mechanism (one head), framed as content-addressable routing. Composed from MSLIB.attn.',
+      params:[
+        {name:'temp', label:'Temperature (softmax)', min:0.1, max:3, step:0.05, default:0.6},
+        {name:'posBias', label:'Positional locality', min:0, max:2, step:0.05, default:0.4},
+        {name:'query', label:'Inspect query token (condition)', min:0, max:9, step:1, default:3, int:true},
+      ],
+      simulate:(p, env)=>{ const A=global.MSLIB.attn, N=10, rng=makeRNG(env.seed+'#attn'), contentW=1.2;
+        const type=[], value=[]; for(let i=0;i<N;i++){ type.push(Math.floor(rng()*3)); value.push(Math.round((rng()*2-1)*100)/100); }
+        const score=(i,j,temp)=>(-contentW*(type[i]-type[j])*(type[i]-type[j]) - p.posBias*Math.abs(i-j))/temp;
+        const attn=[], out=[], ent=[]; for(let i=0;i<N;i++){ const row=A.softmax(Array.from({length:N},(_,j)=>score(i,j,p.temp))); attn.push(row);
+          let o=0; for(let j=0;j<N;j++) o+=row[j]*value[j]; out.push(o); ent.push(A.entropy(row)/Math.log(N)); }
+        const sweep=[]; for(let s=0;s<=20;s++){ const tp=0.1+s*(3-0.1)/20; let he=0; for(let i=0;i<N;i++){ const row=A.softmax(Array.from({length:N},(_,j)=>score(i,j,tp))); he+=A.entropy(row)/Math.log(N); } sweep.push([tp, he/N]); }
+        const q=Math.max(0,Math.min(N-1,Math.round(p.query)));
+        const TYPECOL=['#4a7a93','#c25b42','#2e8b7a'];
+        return { N, type, value, attn, out, ent, sweep, q, qWeights:attn[q], temp:p.temp, meanEnt:ent.reduce((a,b)=>a+b,0)/N, TYPECOL };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the attention matrix — which token (row) attends to which (col)',
+          views:[ { title:'attention matrix: query i (row) attends to key j (column)', draw:(g,d)=>{ const T=TH(), N=d.N, amax=Math.max(...d.attn.flat());
+            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'bright blocks = tokens attend to others of the same type (and nearby)'});
+            g.heat(N, N, (i,j)=>d.attn[N-1-j][i], v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {smooth:false});
+            g.colorbar(0, amax, v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {label:'attention'});
+          }} ] },
+        mix:{ label:'Mix', about:'how one token’s output is the attention-weighted mix of the values',
+          views:[
+            { title:'the inspected token attends to these keys', draw:(g,d)=>{ const T=TH(), N=d.N, q=d.q;
+              g.frame({x:[-0.5,N-0.5], y:[0, Math.max(...d.qWeights)*1.2], xticklabels:Array.from({length:N},(_,i)=>String(i)), xlabel:'key token (colour = type)', ylabel:'attention weight', title:`token ${q} (type ${d.type[q]}) attends mostly to same-type, nearby tokens`});
+              const ctx=g.ctx; for(let j=0;j<N;j++){ const x0=g.X(j-0.34), x1=g.X(j+0.34), y0=g.Y(0), y1=g.Y(d.qWeights[j]); ctx.fillStyle=d.TYPECOL[d.type[j]]; ctx.globalAlpha=j===q?1:0.85; ctx.fillRect(x0, y1, x1-x0, y0-y1); ctx.globalAlpha=1; } }},
+            { title:'values in → attention-mixed values out', draw:(g,d)=>{ const T=TH(), N=d.N, lo=Math.min(...d.value,...d.out), hi=Math.max(...d.value,...d.out);
+              g.frame({x:[-0.5,N-0.5], y:[lo-0.1, hi+0.1], xlabel:'token position', ylabel:'value', title:'each output = the attention-weighted average of the input values'});
+              g.points(d.value.map((v,i)=>[i,v]),{color:T.dim,r:4}); g.line(d.out.map((v,i)=>[i,v]),{color:T.accent,width:2}); g.points(d.out.map((v,i)=>[i,v]),{color:T.accent,r:3.5});
+              g.legend([{label:'input values',color:T.dim},{label:'attention output',color:T.accent}],{corner:'tr'}); }},
+          ] },
+        compare:{ label:'Compare', about:'how temperature sharpens or blurs attention',
+          views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard attention; high = uniform averaging'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.temp, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.temp)<Math.abs(b[0]-d.temp)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

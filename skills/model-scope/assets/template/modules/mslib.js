@@ -237,5 +237,10 @@
   const rfSizeVsEcc = (ecc, base, slope) => base*(1 + slope*ecc);   // receptive-field size grows ~linearly with eccentricity
   const vision = { dogKernel, rfSizeVsEcc };
 
-  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief, vision };
+  /* ---- attn: self-attention building blocks (transformer-style content-based routing) ---- */
+  const attnSoftmax = (logits) => { let m=-Infinity; for(const x of logits) if(x>m) m=x; const e=logits.map(x=>exp(x-m)); let z=0; for(const v of e) z+=v; return e.map(v=>v/z); };   // numerically-stable softmax → sums to 1
+  const attnEntropy = (p) => { let H=0; for(const q of p) if(q>1e-12) H -= q*Math.log(q); return H; };   // attention entropy (nats); 0 = peaked, ln(N) = uniform
+  const attn = { softmax: attnSoftmax, entropy: attnEntropy };
+
+  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief, vision, attn };
 })(typeof window !== 'undefined' ? window : globalThis);
