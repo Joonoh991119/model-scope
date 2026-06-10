@@ -26,7 +26,7 @@ functions you compose.
 | [network.md](network.md) | Recurrent networks & plasticity | associative memory, attractor dynamics, Hebbian learning, capacity, connectivity | `network` |
 | [oscillation.md](oscillation.md) | Oscillations & synchronization | coupled oscillators, phase-locking, neural-mass rhythms, sync transitions | `osc` |
 | [belief-tracking.md](belief-tracking.md) | Belief tracking & partial observability | Bayes filters / HMMs, belief evolution, volatility, the filtering core of POMDPs | `belief` |
-| [vision.md](vision.md) | Vision & layered sensory | image input, oriented-energy / DoG / CNN stacks, receptive fields, tuning | (inline / `bayes`) |
+| [vision.md](vision.md) | Vision & layered sensory | image input, oriented-energy / DoG / CNN stacks, receptive fields, tuning | `vision` (+ inline) |
 | [causal-graph.md](causal-graph.md) | Causal graphs & interventions | structural causal models / DAGs, the do-operator, confounding, backdoor paths, treatment effects | (inline) |
 | [transformer.md](transformer.md) | Attention & transformers | self-attention, content-based routing, the attention matrix, temperature/heads, soft connectivity | `attn` |
 

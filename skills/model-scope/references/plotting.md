@@ -22,8 +22,13 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
 - `g.bars(hist,{dir:'up'|'down', baseY, color, max, height})` — `hist` from `Plot.histify`.
 - `g.heat(nx,ny,(i,j)=>value, (value)=>[r,g,b])` — fills the frame with a colour map (the value
   can be raw, e.g. Hz, if your cmap maps it; return a background colour for "not yet" cells).
+  Pass `frame({…,cbar:true})` and `g.colorbar(...)` so the scale fits; pass `{smooth:false}` for discrete/tiled maps.
 - `g.colorbar(vmin,vmax,cmap,{ticks:[{v,label}],label,x,y,w,h})` — a vertical colour scale; pass the
-  **same** cmap. **Give every heatmap a colorbar** (reserve right margin); labels auto-flip left if they'd clip.
+  **same** cmap. **Give every heatmap a colorbar** (reserve right margin via `frame({cbar:true})`).
+- `g.image(nx,ny,(i,j)=>value, cmap, {x,y,w,h,smooth})` — like `heat` but into an arbitrary PIXEL
+  sub-rect (no colorbar implied) — for layer/channel/RF maps, small multiples, binary pattern grids.
+- `g.graph(nodes,edges,{r})` — node-link diagram: `nodes:[{x,y in 0..1, label, color?, fill?}]`,
+  `edges:[{from,to, label?, color?, dash?, inhib?}]` — for DAGs / connectomes / circuit schematics.
 - `g.raster(rows,{color,width})` — `rows[i]` = array of event x-positions → lane of ticks.
 - `g.text(x,y,str,{color,size,font,align})`, `g.legend([{label,color}],{x,y} | {corner:'tl'|'tr'|'bl'|'br'})`
   (translucent panel; height auto-clamps to the frame; `corner` anchors it to a frame corner so you can

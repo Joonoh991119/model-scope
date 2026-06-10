@@ -342,7 +342,9 @@ their meaning and typical ranges, the views that make it intuitive, a ready-to-c
 | **Recurrent networks & plasticity** | associative memory, attractor dynamics, Hebbian learning, capacity | `network` |
 | **Oscillations & synchronization** | coupled oscillators, phase-locking, neural-mass rhythms, sync transitions | `osc` |
 | **Belief tracking & partial observability** | Bayes filters / HMMs, belief evolution, volatility | `belief` |
-| **Vision & layered sensory** | image input, oriented-energy / DoG / CNN stacks, receptive fields | inline |
+| **Vision & layered sensory** | image input, oriented-energy / DoG / CNN stacks, receptive fields | `vision` |
+| **Causal graphs & interventions** | structural causal models / DAGs, the do-operator, confounding, treatment effects | inline |
+| **Attention & transformers** | self-attention, content-based routing, the attention matrix, temperature / heads | `attn` |
 
 These are **recipes, not prescriptions** — start from a family, then adapt it to your exact
 equations and compose the small `MSLIB` functions rather than copying a whole repo. The

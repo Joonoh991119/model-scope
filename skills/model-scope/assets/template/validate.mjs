@@ -59,7 +59,8 @@ function stubG(){
   const g = { ctx, w:600, h:400, FS:1, _rec:rec, TH: globalThis.Plot.TH,
     frame(o){ o=o||{}; if(o.x&&(!num(o.x[0])||!num(o.x[1]))) rec.badFrame=true; if(o.y&&(!num(o.y[0])||!num(o.y[1]))) rec.badFrame=true; if(o.x)fr.x=o.x; if(o.y)fr.y=o.y; return g; },
     line:()=>g, band:()=>g, points:()=>g, marker:()=>g, arrow:()=>g, vline:()=>g, hline:()=>g, bars:()=>g, raster:()=>g, text:()=>g, legend:()=>g, flow:()=>g, note:()=>g, clip:()=>g, unclip:()=>g,
-    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; }, graph:()=>g,
+    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; },
+    graph(nodes, edges){ nodes=nodes||[]; for(const e of (edges||[])){ const a=nodes[e.from], b=nodes[e.to]; if(!a||!b||!num(a.x)||!num(a.y)||!num(b.x)||!num(b.y)) rec.badData=true; } for(const nd of nodes){ if(nd&&(!num(nd.x)||!num(nd.y))) rec.badData=true; } return g; },
     X(v){ return fr.px+(v-fr.x[0])/((fr.x[1]-fr.x[0])||1)*fr.pw; }, Y(v){ return fr.py+fr.ph*(1-(v-fr.y[0])/((fr.y[1]-fr.y[0])||1)); }, frameRect(){ return fr; } };
   return g;
 }
@@ -93,10 +94,12 @@ for (const id of SIM.MODEL_ORDER) {
 // ---- parameter property pass: simulate() returns finite data at each parameter's MIN and MAX,
 //      not just defaults — catches NaN/throws at a slider extreme (e.g. zero drift, tiny dt). ----
 console.log('\n--- parameter extremes (simulate stays finite at each slider min/max) ---');
-const allFinite = (v, depth=0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤4)
+const allFinite = (v, depth=0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤6)
   if (typeof v === 'number') return isFinite(v);
-  if (Array.isArray(v) || ArrayBuffer.isView(v)) { if (depth>4) return true; const n=Math.min(v.length,3000); for (let i=0;i<n;i++) if (!allFinite(v[i], depth+1)) return false; return true; }
-  return true;   // strings / functions / nested objects: skip
+  if (depth > 6) return true;
+  if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n=Math.min(v.length,3000); for (let i=0;i<n;i++) if (!allFinite(v[i], depth+1)) return false; return true; }
+  if (v && typeof v === 'object') { for (const k in v) if (!allFinite(v[k], depth+1)) return false; return true; }   // recurse into the returned object's fields (models return an object, so this is the live path)
+  return true;   // strings / functions / null: skip
 };
 for (const id of SIM.MODEL_ORDER) {
   const m = SIM.MODELS[id]; const base = {}; (m.params||[]).forEach(s => base[s.name] = s.default);

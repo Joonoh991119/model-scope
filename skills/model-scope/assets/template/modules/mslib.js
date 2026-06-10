@@ -238,7 +238,8 @@
   const vision = { dogKernel, rfSizeVsEcc };
 
   /* ---- attn: self-attention building blocks (transformer-style content-based routing) ---- */
-  const attnSoftmax = (logits) => { let m=-Infinity; for(const x of logits) if(x>m) m=x; const e=logits.map(x=>exp(x-m)); let z=0; for(const v of e) z+=v; return e.map(v=>v/z); };   // numerically-stable softmax → sums to 1
+  const attnSoftmax = (logits) => { let m=-Infinity; for(const x of logits) if(isFinite(x)&&x>m) m=x; if(!isFinite(m)) return logits.map(()=>1/logits.length);   // all non-finite → uniform
+    const e=logits.map(x=>isFinite(x)?exp(x-m):0); let z=0; for(const v of e) z+=v; return z>0 ? e.map(v=>v/z) : logits.map(()=>1/logits.length); };   // numerically-stable softmax → sums to 1
   const attnEntropy = (p) => { let H=0; for(const q of p) if(q>1e-12) H -= q*Math.log(q); return H; };   // attention entropy (nats); 0 = peaked, ln(N) = uniform
   const attn = { softmax: attnSoftmax, entropy: attnEntropy };
 

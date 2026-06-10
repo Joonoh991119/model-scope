@@ -1094,8 +1094,7 @@
         const obs=[]; for(let i=0;i<n;i++){ const U=g(), X=wUX*U+sig*g(), M=wXM*X+sig*g(), Y=wMY*M+wUY*U+sig*g(); obs.push([X,Y]); }
         const doPts=[]; for(let i=0;i<n;i++){ const x=-3+6*rng(), U=g(), M=wXM*x+sig*g(), Y=wMY*M+wUY*U+sig*g(); doPts.push([x,Y]); }   // do(X=x): X is SET, U independent of X
         const fo=fit(obs), fd=fit(doPts), causal=wXM*wMY;
-        const sweep=[]; for(let s=0;s<=20;s++){ const c=s*1.5/20, r2=makeRNG(env.seed+'#cgs'+s), gg=()=>gaussian(r2), buf=[];
-          for(let i=0;i<300;i++){ const U=gg(), X=c*U+sig*gg(), M=wXM*X+sig*gg(), Y=wMY*M+c*U+sig*gg(); buf.push([X,Y]); } sweep.push([c, fit(buf).slope-causal]); }
+        const sweep=[]; for(let s=0;s<=20;s++){ const c=s*1.5/20; sweep.push([c, (c*c)/(c*c + sig*sig)]); }   // analytic backdoor bias = conf²/(conf²+noise²): observed slope − causal effect (exact, monotone, 0 at conf=0)
         let xlo=0,xhi=0,ylo=0,yhi=0; for(const[a,b]of obs.concat(doPts)){ if(a<xlo)xlo=a; if(a>xhi)xhi=a; if(b<ylo)ylo=b; if(b>yhi)yhi=b; }
         return { obs, doPts, obsSlope:fo.slope, doSlope:fd.slope, obsMx:fo.mx, obsMy:fo.my, doMx:fd.mx, doMy:fd.my, causal, conf:p.conf, wXM, sweep, xlo, xhi, ylo, yhi };
       },
@@ -1155,7 +1154,7 @@
       lenses:{
         structure:{ label:'Structure', about:'the attention matrix — which token (row) attends to which (col)',
           views:[ { title:'attention matrix: query i (row) attends to key j (column)', draw:(g,d)=>{ const T=TH(), N=d.N, amax=Math.max(...d.attn.flat());
-            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'bright blocks = tokens attend to others of the same type (and nearby)'});
+            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'dark cells = strong attention; same-type / nearby tokens form blocks'});
             g.heat(N, N, (i,j)=>d.attn[N-1-j][i], v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {smooth:false});
             g.colorbar(0, amax, v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {label:'attention'});
           }} ] },

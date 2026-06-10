@@ -40,6 +40,10 @@ that fit its class; the payoff is comparing what changes across parameters and m
   (working memory), the decoded heading holding the cue, and bump width vs the E/I balance.
 - **Retina → V1 (layered vision)** *(lens switch)* — architecture first: the layer stack and receptive
   fields, the image transformed stage by stage, the RF profiles, and output vs the horizontal-cell surround.
+- **Causal graph — intervention** *(lens switch)* — a Pearl-style DAG: the graph (a confounder behind
+  X and Y), the observed (confounded) association, do(X) vs what you see, and the gap vs confounding.
+- **Self-attention (transformer)** *(lens switch)* — the attention matrix (who attends to whom), how a
+  token’s output mixes the values, and attention sharpness (entropy) vs softmax temperature.
 
 The process-mode models use `stages` instead of `anim`: the transport becomes a step-by-step stepper
 and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the pipeline strip.
