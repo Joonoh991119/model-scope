@@ -157,7 +157,7 @@
         {name:'theta',   label:'True stimulus θ', min:-3, max:3, step:0.05, default:1.1},
         {name:'sigma',   label:'Sensory noise σ', min:0.02, max:0.5, step:0.005, default:0.1},
         {name:'priorSD', label:'Prior width σ_prior', min:0.4, max:2.5, step:0.05, default:1},
-        {name:'lossMAP', label:'Loss: BLS(0) / MAP(1)', min:0, max:1, step:1, default:0, int:true},
+        {name:'lossMAP', label:'Loss function', type:'enum', options:['BLS','MAP'], default:0},
       ],
       simulate:(p,env)=>{ const E=global.MSLIB.efficient, B=global.MSLIB.bayes, lo=-4, hi=4, NG=241;
         const grid=B.linspace(lo,hi,NG), prior=Array.from(grid,x=>npdf(x,0,p.priorSD)), F=E.cdf(grid,prior);
@@ -226,7 +226,7 @@
         {name:'sigA',    label:'Auditory noise σₐ', min:0.5, max:15, step:0.5, default:8},
         {name:'sigP',    label:'Prior width σ_p', min:2, max:30, step:1, default:15},
         {name:'pCommon', label:'p(common cause)', min:0.05, max:0.95, step:0.05, default:0.5},
-        {name:'strategy',label:'Avg(0)/Select(1)/Match(2)', min:0, max:2, step:1, default:0, int:true},
+        {name:'strategy', label:'Combination rule', type:'enum', options:['average','select','match'], default:0},
       ],
       simulate:(p,env)=>{ const C=global.MSLIB.causal, strat=['average','select','match'][p.strategy]||'average';
         const xv=p.sV+p.sigV*gaussian(env.rng), xa=p.sA+p.sigA*gaussian(env.rng);
@@ -436,7 +436,7 @@
         {name:'z', label:'DDM bound z', min:0.2, max:2.5, step:0.01, default:1.0},
         {name:'T', label:'Single-sample obs. time T', min:0.05, max:2.0, step:0.01, default:0.5, unit:'s'},
         {name:'Ter', label:'Non-decision time', min:0, max:0.6, step:0.01, default:0.2, unit:'s'},
-        {name:'metric', label:'Heatmap metric: accuracy / RT / reward', min:0, max:2, step:1, default:0, int:true},
+        {name:'metric', label:'Heatmap metric', type:'enum', options:['accuracy','RT','reward'], default:0},
         {name:'useDDM', label:'Model: single-sample vs DDM', type:'bool', default:true},
       ],
       simulate:(p, env)=>{ const Phi=global.MSLIB.sde.normcdf, c2=p.c*p.c;
@@ -492,11 +492,11 @@
     },
 
     /* ---- An IMAGE-input exemplar (a different model class): early-vision orientation readout.
-       Angles fit a sensory model: the input image, the channel transform, the readout.
-       Shows the harness generalises to image models. */
+       STRUCTURE FIRST (the filter-bank architecture + receptive fields), then the input image,
+       the channel transform, and the readout. Shows the harness generalises to image/CNN models. */
     vision: {
       id:'vision', name:'Early vision — orientation',
-      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the lens switch for the angles: the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch all three update.',
+      blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the lens switch for the angles — structure first: the filter-bank architecture (the channels and their receptive fields), the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch them update.',
       note:'Each channel is a quadrature Gabor pair (energy = even² + odd²) tuned to one orientation, so the image becomes one energy map per channel. Pooled energy across channels is an orientation tuning curve whose population-vector peak is the decoded orientation. Higher contrast or lower noise gives sharper tuning and a more accurate read-out. A different model class from the trial-based models (no time axis) — same harness, angles chosen to fit.',
       params:[
         {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:45, unit:'°'},
@@ -512,9 +512,26 @@
           let s=0; for(let t=0;t<N*N;t++){ const e=ev[t]*ev[t]+od[t]*od[t]; en[t]=e; if(e>emax)emax=e; s+=e; } maps.push(en); pooled.push(s/(N*N)); }
         let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=pooled[k]*Math.cos(a); sy+=pooled[k]*Math.sin(a); }   // orientation is π-periodic → decode on 2θ
         let dec=Math.atan2(sy,sx)*90/Math.PI; dec=((dec%180)+180)%180;
-        return { N, K, oris, img, imgLim, maps, pooled, dec, emax, pmax:Math.max(...pooled,1e-9), ori:p.ori };
+        return { N, K, oris, img, imgLim, maps, pooled, dec, emax, pmax:Math.max(...pooled,1e-9), ori:p.ori, sf:p.sf };
       },
       lenses:{
+        architecture:{ label:'Architecture', about:'the model structure — a bank of oriented Gabor channels and their receptive fields, before any input',
+          views:[ { title:'filter-bank architecture — oriented Gabor receptive fields', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS, K=d.K, M=26, sig=M/5, sfD=Math.max(1.2, d.sf*M/d.N);
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif';
+            ctx.fillText('the architecture: '+K+' oriented Gabor channels, each a receptive field', W/2, 22*F);
+            const pw=Math.min(86*F, (W-40*F)/K - 8*F), gap=(W-40*F - K*pw)/Math.max(1,K-1), y0=46*F, x0=20*F;
+            for(let k=0;k<K;k++){ const x=x0 + k*(pw+gap), gk=gaborKernel(d.oris[k], sfD, sig, 0, M), sz=gk.sz;
+              let lim=1e-6; for(let t=0;t<gk.k.length;t++) lim=Math.max(lim, Math.abs(gk.k[t]));
+              g.image(sz, sz, (i,j)=>gk.k[j*sz+i], v=>VGRAY(v,lim), {x, y:y0, w:pw, h:pw});
+              ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x,y0,pw,pw);
+              const hit=Math.abs(((d.oris[k]-d.ori+90)%180)-90)<16; ctx.fillStyle=hit?T.accent:T.dim; ctx.font=(11*F)+'px monospace'; ctx.textAlign='center';
+              ctx.fillText(d.oris[k].toFixed(0)+'°', x+pw/2, y0+pw+15*F); }
+            const fy=y0+pw+44*F; ctx.textAlign='center';
+            ctx.fillStyle=T.dim; ctx.font=(12*F)+'px sans-serif';
+            ctx.fillText('input image, filtered by each oriented channel, energy = even² + odd², pooled across channels, decoded to θ̂', W/2, fy);
+            ctx.fillStyle=T.faint; ctx.font=(11*F)+'px sans-serif';
+            ctx.fillText('The channel matching the stimulus responds most; tuning width and accuracy depend on contrast, frequency, and noise.', W/2, fy+20*F);
+          }} ] },
         input:{ label:'Input', about:'the stimulus image — a noisy grating at orientation θ (all the model sees)',
           views:[ { title:'input image', draw:(g,d)=>{ const N=d.N;
             g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'pixels', title:`input image — θ=${d.ori}° (vary θ, frequency, contrast, noise)`});

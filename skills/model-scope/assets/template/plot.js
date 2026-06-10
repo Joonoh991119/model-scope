@@ -88,6 +88,10 @@
       heat(nx,ny,val,cmap,opt={}){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), img=oc.createImageData(nx,ny);
         for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), o=((ny-1-j)*nx+i)*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
         oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=opt.smooth!==false; ctx.drawImage(off,fr.px,fr.py,fr.pw,fr.ph); ctx.imageSmoothingEnabled=true; return g; },   // smooth:false for discrete/tiled maps (no cell bleed)
+      // like heat() but into an arbitrary PIXEL sub-rect {x,y,w,h} (defaults to the frame) — for layer/channel/RF maps, small multiples, architecture views
+      image(nx,ny,val,cmap,o={}){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), im=oc.createImageData(nx,ny);
+        for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), q=((ny-1-j)*nx+i)*4; im.data[q]=c[0];im.data[q+1]=c[1];im.data[q+2]=c[2];im.data[q+3]=255; }
+        oc.putImageData(im,0,0); ctx.imageSmoothingEnabled=o.smooth!==false; ctx.drawImage(off, o.x!=null?o.x:fr.px, o.y!=null?o.y:fr.py, o.w!=null?o.w:fr.pw, o.h!=null?o.h:fr.ph); ctx.imageSmoothingEnabled=true; return g; },
       raster(rows,o={}){ const col=o.color||TH.ink, n=rows.length, lane=fr.ph/Math.max(1,n);
         ctx.strokeStyle=col; ctx.lineWidth=o.width||1; for(let r=0;r<n;r++){ const y0=fr.py+r*lane+lane*0.15, y1=fr.py+(r+1)*lane-lane*0.15; for(const x of rows[r]){ const X=sx(x); ctx.beginPath(); ctx.moveTo(X,y0); ctx.lineTo(X,y1); ctx.stroke(); } } return g; },
       text(x,y,str,o={}){ ctx.fillStyle=o.color||TH.dim; ctx.font=o.font||MONO(o.size||10); ctx.textAlign=o.align||'left'; ctx.fillText(str,sx(x),sy(y)); return g; },

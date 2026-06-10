@@ -62,7 +62,7 @@ active views + playhead per lens, over the **same `simulate()` data** (no recomp
 lens *keys/labels are free* — name them for the model's own angles:
 
 - **Decision / dynamical / RL**: e.g. `step` (one update), `trial` (one trial), `simulation` (the statistics).
-- **Sensory / image**: e.g. `input`, `transform` (how channels re-represent it), `readout` (static, slider-driven).
+- **Sensory / image / CNN**: e.g. `architecture` (the filter bank / receptive fields, structure first), then `input`, `transform` (how channels re-represent it), `readout`.
 - **Network**: e.g. `structure`, `dynamics`, `landscape`.  **Inference**: a `stages` pipeline.
 
 A lens in code:

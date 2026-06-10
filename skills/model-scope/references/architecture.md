@@ -28,7 +28,7 @@ deterministic). `npdf(x,μ,σ)` (normal pdf) is also exported for distribution v
 |---|---|---|
 | `id`, `name` | ✓ | id, display name (the tab) |
 | `blurb`, `note` | ✓ | one-line description; the key qualitative effect to point out |
-| `params[]` | ✓ | `{name,label,min,max,step,default,unit?,int?}` — sliders are generated from this |
+| `params[]` | ✓ | `{name,label,min,max,step,default,unit?,int?}` — a slider per param. Also `{type:'bool',default}` → a toggle, and `{type:'enum',options:['a','b','c'],default:0}` → a segmented control (value is the option index) for a model/condition choice |
 | `simulate(p,env)` | ✓ | run the whole model; **return any data object** the views need |
 | `views[]` | ✓ | `[{title, draw(g,data,ui)}]` — each panel draws its own axes/graphics |
 | `anim` | – | `{length:(p,data)=>N}` → **continuous** sequential: play/scrub, `ui.head∈[0,N]` (a trial index, a time, an iteration) |

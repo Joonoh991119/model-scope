@@ -54,11 +54,12 @@ for (const id of SIM.MODEL_ORDER) {
 //      axis (blank panel), or a heatmap with no scale, all FAIL the gate instead of shipping. ----
 function stubG(){
   const ctx = new Proxy({}, { get(t,p){ if(p==='measureText') return s=>({width:String(s).length*6}); if(p in t) return t[p]; return ()=>{}; }, set(t,p,v){ t[p]=v; return true; } });
-  const fr = {px:40,py:20,pw:520,ph:340,x:[0,1],y:[0,1]}, rec = {badFrame:false,heat:0,colorbar:0}, num = v => (typeof v==='number' && isFinite(v));
+  const fr = {px:40,py:20,pw:520,ph:340,x:[0,1],y:[0,1]}, rec = {badFrame:false,badData:false,heat:0,colorbar:0}, num = v => (typeof v==='number' && isFinite(v));
+  const sample = (nx,ny,val) => { if(!val) return; for(const [i,j] of [[0,0],[nx-1,ny-1],[nx>>1,ny>>1]]) if(!num(val(i,j))) rec.badData=true; };   // a heatmap/image that feeds non-finite values renders black — flag it
   const g = { ctx, w:600, h:400, FS:1, _rec:rec, TH: globalThis.Plot.TH,
     frame(o){ o=o||{}; if(o.x&&(!num(o.x[0])||!num(o.x[1]))) rec.badFrame=true; if(o.y&&(!num(o.y[0])||!num(o.y[1]))) rec.badFrame=true; if(o.x)fr.x=o.x; if(o.y)fr.y=o.y; return g; },
     line:()=>g, band:()=>g, points:()=>g, marker:()=>g, arrow:()=>g, vline:()=>g, hline:()=>g, bars:()=>g, raster:()=>g, text:()=>g, legend:()=>g, flow:()=>g, note:()=>g, clip:()=>g, unclip:()=>g,
-    heat(){ rec.heat++; return g; }, colorbar(){ rec.colorbar++; return g; },
+    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; },
     X(v){ return fr.px+(v-fr.x[0])/((fr.x[1]-fr.x[0])||1)*fr.pw; }, Y(v){ return fr.py+fr.ph*(1-(v-fr.y[0])/((fr.y[1]-fr.y[0])||1)); }, frameRect(){ return fr; } };
   return g;
 }
@@ -67,7 +68,7 @@ for (const id of SIM.MODEL_ORDER) {
   const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
   let data; try { data = m.simulate(p, env('r-'+id)); } catch(e) { continue; }   // simulate-throw already reported above
   const specs = m.lenses ? Object.entries(m.lenses) : [['', m]];
-  const drew=[], axis=[], cbar=[];
+  const drew=[], axis=[], cbar=[], dat=[];
   for (const [key, spec] of specs) {
     let stageList=null, length=1;
     try { stageList = spec.stages ? ((typeof spec.stages==='function')?spec.stages(p,data):spec.stages) : null; } catch(e){}
@@ -80,11 +81,12 @@ for (const id of SIM.MODEL_ORDER) {
         const ui = { head, params:p, playing:false, frac:0, stage, stageKey:(stage!=null&&stageList)?stageList[stage].key:null, stages:stageList, nStages:stageList?stageList.length:1 };
         try { v.draw(g, data, ui); } catch(e){ if(!drew.find(f=>f.tag===tag)) drew.push({tag,msg:e.message}); }
         if (g._rec.badFrame && !axis.includes(tag)) axis.push(tag);
+        if (g._rec.badData && !dat.includes(tag)) dat.push(tag);
         if (g._rec.heat>0 && g._rec.colorbar===0 && !cbar.includes(tag)) cbar.push(tag);
       } });
   }
-  const good = !drew.length && !axis.length && !cbar.length;
-  console.log(`  ${m.name.padEnd(28)}[${ok(good)}]`+(drew.length?`  threw: ${drew.map(f=>f.tag).join(',')}`:'')+(axis.length?`  non-finite axis: ${axis.join(',')}`:'')+(cbar.length?`  heatmap w/o colorbar: ${cbar.join(',')}`:''));
+  const good = !drew.length && !axis.length && !cbar.length && !dat.length;
+  console.log(`  ${m.name.padEnd(28)}[${ok(good)}]`+(drew.length?`  threw: ${drew.map(f=>f.tag).join(',')}`:'')+(axis.length?`  non-finite axis: ${axis.join(',')}`:'')+(dat.length?`  non-finite heatmap/image data: ${dat.join(',')}`:'')+(cbar.length?`  heatmap w/o colorbar: ${cbar.join(',')}`:''));
   drew.forEach(f => console.log('    '+f.tag+': '+f.msg));
 }
 
@@ -94,10 +96,16 @@ console.log('\n--- parameter extremes (simulate stays finite at each slider min/
 for (const id of SIM.MODEL_ORDER) {
   const m = SIM.MODELS[id]; const base = {}; (m.params||[]).forEach(s => base[s.name] = s.default);
   const bad = [];
-  for (const s of (m.params||[])) for (const ext of ['min','max']) {
-    const p = { ...base, [s.name]: s[ext] };
-    try { const d = m.simulate(p, env('p-'+id+'-'+s.name+ext)); if(!d || typeof d!=='object') bad.push(`${s.name}.${ext}=no-data`); }
-    catch(e){ bad.push(`${s.name}.${ext}: ${e.message}`); }
+  for (const s of (m.params||[])) {
+    let vals;   // extremes to probe, per control type
+    if (s.type==='enum') vals = [0, (s.options?.length||1)-1];
+    else if (s.type==='bool') vals = [false, true];
+    else if (typeof s.min==='number' && typeof s.max==='number') vals = [s.min, s.max];
+    else continue;
+    for (const v of vals) { const p = { ...base, [s.name]: v };
+      try { const d = m.simulate(p, env('p-'+id+'-'+s.name+v)); if(!d || typeof d!=='object') bad.push(`${s.name}=${v}(no data)`); }
+      catch(e){ bad.push(`${s.name}=${v}: ${e.message}`); }
+    }
   }
   console.log(`  ${m.name.padEnd(28)}[${ok(!bad.length)}]`+(bad.length?'  '+bad.slice(0,3).join(' | '):''));
 }
