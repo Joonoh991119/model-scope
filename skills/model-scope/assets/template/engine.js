@@ -1175,8 +1175,75 @@
             g.marker(d.temp, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.temp)<Math.abs(b[0]-d.temp)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- POMDP CONTROL: the classic Tiger problem, solved by value iteration over the BELIEF.
+       Beyond belief tracking — the agent chooses actions (listen vs open) to maximise reward.
+       STRUCTURE FIRST. Angles: Structure, Policy (value function + regions), Episode, Compare. */
+    pomdp: {
+      id:'pomdp', name:'POMDP — the tiger (value iteration)',
+      blurb:'The classic Tiger POMDP. A tiger is behind one of two doors; you cannot see which. You may LISTEN (a noisy roar, small cost) to sharpen your belief, or OPEN a door — the safe one for a reward, the tiger one for a big penalty. Solving it is value iteration over the BELIEF (the probability the tiger is on the left): the optimal policy listens while uncertain and opens once confident. Use the lens switch for the angles — structure first: Structure (the problem), Policy (the value function and when to listen vs open), Episode (belief updating until you act), Compare (how listening accuracy reshapes the strategy).',
+      note:'Belief b = P(tiger left). Reward: open the safe door +10, the tiger door −(penalty); listening costs 1 and returns a roar from the true side with accuracy a, updating b by Bayes. Value iteration on a belief grid: V(b)=max over actions of Q; Q(listen)=−1+γ·E_obs V(b′); Q(open)=immediate reward + γ·V(½) (the game resets). The value function is convex and piecewise-linear; the policy splits into open-left / listen / open-right regions. Less accurate listening WIDENS the listen region — you must gather more evidence before acting. This is POMDP control (beyond the belief-tracking model). Composed inline.',
+      params:[
+        {name:'obsAcc', label:'Listening accuracy', min:0.55, max:0.98, step:0.01, default:0.85},
+        {name:'rTiger', label:'Tiger penalty', min:20, max:200, step:5, default:100},
+        {name:'gamma', label:'Discount γ', min:0.8, max:0.99, step:0.01, default:0.95},
+      ],
+      simulate:(p, env)=>{ const N=101, gb=k=>k/(N-1), a=p.obsAcc, rSafe=10, rTiger=-p.rTiger, c=-1, gamma=p.gamma;
+        const Vat=(V,b)=>{ const x=Math.max(0,Math.min(N-1,b*(N-1))), lo=Math.floor(x), hi=Math.min(N-1,lo+1), f=x-lo; return V[lo]*(1-f)+V[hi]*f; };
+        const backup=(V,b)=>{ const pHL=b*a+(1-b)*(1-a), pHR=1-pHL, bHL=pHL>1e-9?b*a/pHL:b, bHR=pHR>1e-9?b*(1-a)/pHR:b;
+          return { QL:c+gamma*(pHL*Vat(V,bHL)+pHR*Vat(V,bHR)), QOL:(1-b)*rSafe+b*rTiger+gamma*Vat(V,0.5), QOR:b*rSafe+(1-b)*rTiger+gamma*Vat(V,0.5) }; };
+        const solve=(iters)=>{ let V=new Float64Array(N); for(let it=0;it<iters;it++){ const nV=new Float64Array(N); for(let k=0;k<N;k++){ const q=backup(V,gb(k)); nV[k]=Math.max(q.QL,q.QOL,q.QOR); } V=nV; } return V; };
+        const V=solve(200), bs=[], val=[], qL=[], qOL=[], qOR=[], pol=[];
+        for(let k=0;k<N;k++){ const b=gb(k), q=backup(V,b); bs.push(b); qL.push([b,q.QL]); qOL.push([b,q.QOL]); qOR.push([b,q.QOR]); val.push([b,Math.max(q.QL,q.QOL,q.QOR)]); pol.push(q.QL>=q.QOL&&q.QL>=q.QOR?0:(q.QOL>=q.QOR?1:2)); }
+        const policyAt=(b)=>{ const q=backup(V,b); return q.QL>=q.QOL&&q.QL>=q.QOR?0:(q.QOL>=q.QOR?1:2); };
+        let listenFrac=0; for(const x of pol) if(x===0) listenFrac++; listenFrac/=N;
+        const rng=makeRNG(env.seed+'#pomdp'), trueTL=rng()<0.5; let b=0.5; const traj=[0.5], acts=[]; let reward=null;
+        for(let step=0; step<14; step++){ const act=policyAt(b); acts.push(act);
+          if(act!==0){ reward = act===1 ? (trueTL?rTiger:rSafe) : (trueTL?rSafe:rTiger); break; }
+          const hearTL = rng() < (trueTL?a:1-a), pHL=b*a+(1-b)*(1-a); b = hearTL ? b*a/pHL : b*(1-a)/(1-pHL); traj.push(b); }
+        const sweep=[]; for(let s=0;s<=15;s++){ const pen=20+s*(200-20)/15, rT=-pen;   // sweep the tiger penalty (accuracy fixed): a bigger penalty → demand more confidence → listen more
+          let Vs=new Float64Array(N); const bk=(V,bb)=>{ const pHL=bb*a+(1-bb)*(1-a),pHR=1-pHL,bHL=pHL>1e-9?bb*a/pHL:bb,bHR=pHR>1e-9?bb*(1-a)/pHR:bb; return Math.max(c+gamma*(pHL*Vat(V,bHL)+pHR*Vat(V,bHR)),(1-bb)*rSafe+bb*rT+gamma*Vat(V,0.5),bb*rSafe+(1-bb)*rT+gamma*Vat(V,0.5)); };
+          for(let it=0;it<90;it++){ const nV=new Float64Array(N); for(let k=0;k<N;k++) nV[k]=bk(Vs,gb(k)); Vs=nV; }
+          let lf=0; for(let k=0;k<N;k++){ const bb=gb(k),pHL=bb*a+(1-bb)*(1-a),pHR=1-pHL,bHL=pHL>1e-9?bb*a/pHL:bb,bHR=pHR>1e-9?bb*(1-a)/pHR:bb; const QL=c+gamma*(pHL*Vat(Vs,bHL)+pHR*Vat(Vs,bHR)),QOL=(1-bb)*rSafe+bb*rT+gamma*Vat(Vs,0.5),QOR=bb*rSafe+(1-bb)*rT+gamma*Vat(Vs,0.5); if(QL>=QOL&&QL>=QOR) lf++; } sweep.push([pen, lf/N]); }
+        return { N, bs, val, qL, qOL, qOR, pol, listenFrac, traj, acts, reward, trueTL, obsAcc:a, rSafe, rTiger, gamma, sweep, vmin:Math.min(...val.map(q=>q[1])), vmax:Math.max(...val.map(q=>q[1])) };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the decision problem — states, actions, rewards, and the noisy listen',
+          views:[ { title:'the Tiger problem: two doors, three actions, a noisy ear', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS;
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('reward for each action, given where the tiger really is', W/2, 22*F);
+            const rows=['Open left','Open right','Listen'], cols=['tiger LEFT','tiger RIGHT'], cell=[[d.rTiger,d.rSafe],[d.rSafe,d.rTiger],[-1,-1]];
+            const x0=W*0.30, y0=52*F, cw=(W*0.62)/2, rh=42*F;
+            ctx.font=(11.5*F)+'px sans-serif'; ctx.fillStyle=T.dim; for(let j=0;j<2;j++) ctx.fillText(cols[j], x0+cw*(j+0.5), y0-8*F);
+            for(let i=0;i<3;i++){ ctx.textAlign='right'; ctx.fillStyle=T.ink; ctx.fillText(rows[i], x0-10*F, y0+rh*(i+0.62));
+              for(let j=0;j<2;j++){ const v=cell[i][j], x=x0+cw*j, y=y0+rh*i; ctx.fillStyle = v>0?'rgba(46,139,122,.22)':(v<-1?'rgba(194,91,66,.22)':'rgba(0,0,0,.04)'); ctx.fillRect(x+2,y+2,cw-4,rh-4);
+                ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x+2,y+2,cw-4,rh-4); ctx.fillStyle=T.ink; ctx.textAlign='center'; ctx.font=(13*F)+'px monospace'; ctx.fillText((v>0?'+':'')+v, x+cw/2, y+rh*0.62); ctx.font=(11.5*F)+'px sans-serif'; } }
+            ctx.textAlign='center'; ctx.fillStyle=T.dim; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText(`Listening returns a roar from the correct side with accuracy ${(d.obsAcc*100).toFixed(0)}% (discount γ=${d.gamma}).`, W/2, y0+rh*3+24*F);
+            ctx.fillStyle=T.faint; ctx.fillText('You never see the state — you act on the BELIEF that the tiger is left vs right.', W/2, y0+rh*3+42*F);
+          }} ] },
+        policy:{ label:'Policy', about:'the value function over belief, and where to listen vs open',
+          views:[ { title:'value iteration: listen while uncertain, open when confident', draw:(g,d)=>{ const T=TH(), COL=['rgba(74,122,147,.14)','rgba(46,139,122,.14)','rgba(176,125,42,.14)'];
+            g.frame({x:[0,1], y:[d.vmin-2, d.vmax+2], xlabel:'belief b = P(tiger left)', ylabel:'value / Q', title:'V(b) is the upper envelope; background = optimal action'});
+            const ctx=g.ctx, y0=g.Y(d.vmin-2), y1=g.Y(d.vmax+2); for(let k=0;k<d.N;k++){ ctx.fillStyle=COL[d.pol[k]]; const xa=g.X((k-0.5)/(d.N-1)), xb=g.X((k+0.5)/(d.N-1)); ctx.fillRect(xa, y1, xb-xa, y0-y1); }
+            g.line(d.qOL,{color:T.pos,width:1.5,dash:[4,3]}); g.line(d.qOR,{color:T.warn,width:1.5,dash:[4,3]}); g.line(d.qL,{color:T.accent,width:1.5,dash:[4,3]});
+            g.line(d.val,{color:T.ink,width:2.6});
+            g.legend([{label:'open-left',color:T.pos},{label:'open-right',color:T.warn},{label:'listen',color:T.accent},{label:'V (max)',color:T.ink}],{corner:'bl'});
+          }} ] },
+        episode:{ label:'Episode', about:'one run: listen, updating the belief, until confident enough to open',
+          anim:{ length:(p,d)=>d.traj.length },
+          views:[ { title:'belief over the episode — listen until confident, then open', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.traj.length-1,Math.floor(ui.head)), ACTN=['listen','open-left','open-right'];
+            g.frame({x:[-0.3, Math.max(1,d.traj.length-1)+0.3], y:[0,1], yticks:4, xlabel:'listen step', ylabel:'belief b = P(tiger left)', title: d.reward!=null ? `opened → ${d.acts[d.acts.length-1]===1?'left':'right'} door, reward ${d.reward>0?'+':''}${d.reward} (tiger was ${d.trueTL?'left':'right'})` : 'listening…'});
+            g.hline(0.5,{color:T.faint,dash:[4,3],label:'uncertain'});
+            const pts=d.traj.slice(0,k+1).map((v,i)=>[i,v]); g.line(pts,{color:T.accent,width:2.4}); g.points(pts,{color:T.accent,r:3.5});
+            if(k>=d.traj.length-1 && d.reward!=null){ const xo=d.traj.length-1; g.marker(xo, d.traj[xo], {color:d.reward>0?T.pos:T.neg, stroke:'#fff', r:6, label:'open'}); } }} ] },
+        compare:{ label:'Compare', about:'how the stakes reshape the strategy — listen region vs tiger penalty',
+          views:[ { title:'caution vs the tiger penalty', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[20,200], y:[0,1.0], xlabel:'tiger penalty', ylabel:'fraction of beliefs where you listen', title:'a bigger penalty → demand more confidence before opening → listen more'});
+            g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            const pen=-d.rTiger; g.marker(pen, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-pen)<Math.abs(b[0]-pen)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

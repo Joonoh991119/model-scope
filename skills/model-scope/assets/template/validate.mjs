@@ -276,10 +276,19 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  attention: rows are softmax (sum=1) [${ok(rowsum1)}]; entropy rises with temperature (${d.sweep[0][1].toFixed(2)} → ${d.sweep[d.sweep.length-1][1].toFixed(2)}) [${ok(sharpens)}]`);
 }
 
+// POMDP (tiger): the value-iteration policy is open-left | listen | open-right; a less accurate ear widens the listen region
+{
+  const m = SIM.MODELS.pomdp, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('pom'));
+  const ends = d.pol[0]===1 && d.pol[d.N-1]===2, listensMid = d.pol[Math.floor(d.N/2)]===0, hasListen = d.listenFrac>0.05 && d.listenFrac<0.999;
+  const widens = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.05;   // bigger penalty → wider listen region
+  console.log(`  pomdp: policy open-left|listen|open-right (listen ${(d.listenFrac*100).toFixed(0)}% of beliefs); a bigger penalty widens it (${(d.sweep[0][1]*100).toFixed(0)}% → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}%)   [${ok(ends && listensMid && hasListen && widens)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

@@ -6,9 +6,9 @@ filtering, HMMs, Kalman/volatility tracking, change-point and hazard-rate infere
 *filtering* core of POMDPs. **Show the structure first** (the hidden states, the transition,
 the observation model), then the belief evolving, then how noise/volatility shape it.
 
-> Scope honestly: this family covers belief **tracking/filtering**. Full POMDP *control*
-> (value iteration over beliefs, optimal actions) is a larger undertaking — say so rather than
-> implying it. The template's `belief` exemplar is a discrete Bayes filter, not a POMDP solver.
+> Two shipped exemplars span the spectrum: `belief` is pure **tracking/filtering** (a discrete Bayes
+> filter), while `pomdp` adds **control** — actions, rewards, and value iteration over the belief (the
+> Tiger problem), giving an optimal listen/open policy over the belief simplex.
 
 ## Canonical forms
 
