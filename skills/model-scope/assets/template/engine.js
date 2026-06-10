@@ -767,8 +767,73 @@
             g.marker(d.R0, (function(){ let best=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.R0)<Math.abs(best[0]-d.R0)) best=q; return best[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- NETWORK with PLASTICITY: a Hopfield associative memory (Hebbian). STRUCTURE FIRST —
+       the weight matrix IS the stored memory. Angles: Structure (W) · Store (the memories + the
+       Hebbian rule) · Recall (a noisy cue settles into an attractor) · Capacity (load sweep). */
+    hopfield: {
+      id:'hopfield', name:'Hopfield memory (Hebbian)',
+      blurb:'An associative memory: ±1 patterns are stored by Hebbian plasticity into a symmetric weight matrix W = Σ ξξᵀ; a noisy cue then settles, by repeated sign updates, into the nearest stored pattern (an attractor). Use the lens switch for the angles — structure first: Structure (the weight matrix), Store (the stored memories and the rule that wrote them), Recall (the cue settling in), Capacity (how recall fails as you store more).',
+      note:'Plasticity writes the memories into the connectivity: W_ij = (1/P)Σ_p ξ_i^p ξ_j^p (zero diagonal). Recall runs async sign updates s_i ← sign(Σ_j W_ij s_j), which never increase the Lyapunov energy E = −½ Σ s_i W_ij s_j, so the state rolls downhill into a stored pattern. Capacity is finite: above ≈0.138·N stored patterns the memories interfere and recall breaks down. Raise the cue corruption or the load and watch recall fail. Composed from MSLIB.network.',
+      params:[
+        {name:'nStore', label:'Patterns stored (load)', min:1, max:12, step:1, default:3, int:true},
+        {name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.5, step:0.01, default:0.18},
+      ],
+      simulate:(p, env)=>{ const NET=global.MSLIB.network, side=8, N=side*side, nStore=Math.max(1,Math.round(p.nStore));
+        const rpat=(k)=>{ const r=makeRNG(env.seed+'#pat'+k), v=new Int8Array(N); for(let i=0;i<N;i++) v[i]= r()<0.5?-1:1; return v; };
+        const shuffle=(rng)=>{ const a=Array.from({length:N},(_,i)=>i); for(let i=N-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); const t=a[i]; a[i]=a[j]; a[j]=t; } return a; };
+        const patterns=[]; for(let k=0;k<nStore;k++) patterns.push(rpat(k));
+        const W=NET.hopfieldStore(patterns, N), target=patterns[0], nflip=Math.round(p.cueFlip*N);
+        const rng=makeRNG(env.seed+'#cue'), cue=Int8Array.from(target); { const idx=shuffle(rng); for(let f=0;f<nflip;f++) cue[idx[f]]*=-1; }
+        const states=[Array.from(cue)], energies=[NET.hopfieldEnergy(W,cue,N)], ovs=[NET.overlap(cue,target,N)];
+        let s=Int8Array.from(cue); for(let sw=0;sw<8;sw++){ NET.hopfieldStep(W,s,N,shuffle(rng)); states.push(Array.from(s)); energies.push(NET.hopfieldEnergy(W,s,N)); ovs.push(NET.overlap(s,target,N));
+          if(NET.overlap(states[states.length-1],states[states.length-2],N)>0.999) break; }
+        const sweep=[]; for(let m=1;m<=20;m++){ const pats=[]; for(let k=0;k<m;k++) pats.push(rpat(k)); const Wm=NET.hopfieldStore(pats,N);
+          let acc=0; const trials=Math.min(m,5); for(let t=0;t<trials;t++){ const tg=pats[t], st=Int8Array.from(tg), rr=makeRNG(env.seed+'#cap'+m+'_'+t), id2=shuffle(rr); for(let f=0;f<nflip;f++) st[id2[f]]*=-1;
+            for(let sw=0;sw<6;sw++) NET.hopfieldStep(Wm,st,N,shuffle(rr)); if(Math.abs(NET.overlap(st,tg,N))>0.95) acc++; }
+          sweep.push([m/N, acc/trials]); }
+        let Wmax=1e-9; for(let t=0;t<W.length;t++) Wmax=Math.max(Wmax,Math.abs(W[t]));
+        return { side, N, nStore, patterns, W, Wmax, target, cue:Array.from(cue), states, energies, ovs, nF:states.length, sweep, cap:0.138, load:nStore/N, finalOv:ovs[ovs.length-1] };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the symmetric weight matrix W = Σ ξξᵀ — the stored memories ARE the connectivity',
+          views:[ { title:'weight matrix W (Hebbian): the memories live in the connections', draw:(g,d)=>{ const N=d.N;
+            const cmapW=v=>{ const t=Math.max(-1,Math.min(1,v/(d.Wmax||1))); if(t>=0) return [Math.round(245-(245-194)*t),Math.round(243-(243-91)*t),Math.round(238-(238-66)*t)]; const u=-t; return [Math.round(245-(245-74)*u),Math.round(243-(243-122)*u),Math.round(238-(238-147)*u)]; };
+            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'unit j', ylabel:'unit i', title:`W = (1/P) Σ ξ ξᵀ over ${d.nStore} stored pattern(s) — symmetric, zero diagonal`});
+            g.heat(N,N,(i,j)=>d.W[j*N+i], cmapW, {smooth:false});
+            g.colorbar(-d.Wmax, d.Wmax, cmapW, {ticks:[{v:-d.Wmax,label:'−'},{v:0,label:'0'},{v:d.Wmax,label:'+'}], label:'weight'});
+          }} ] },
+        store:{ label:'Store', about:'the stored memories — Hebbian plasticity writes each pattern into W',
+          views:[ { title:'stored memories (Hebbian plasticity wrote these into W)', draw:(g,d)=>{ const T=TH(), ctx=g.ctx, W=g.w, H=g.h, F=g.FS, side=d.side, K=d.nStore, show=Math.min(K,8);
+            ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText(`${K} stored ±1 pattern(s) — each written into the weights by an outer product ξξᵀ`, W/2, 22*F);
+            const pw=Math.min(96*F,(W-40*F)/show-8*F), gap=show>1?(W-40*F-show*pw)/(show-1):0, y0=46*F, x0=20*F;
+            for(let k=0;k<show;k++){ const x=x0+k*(pw+gap), pat=d.patterns[k];
+              g.image(side, side, (i,j)=>pat[j*side+i], v=> v>0?[51,49,44]:[235,232,224], {x, y:y0, w:pw, h:pw, smooth:false});
+              ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x,y0,pw,pw); ctx.fillStyle=k===0?T.accent:T.dim; ctx.font=(11*F)+'px monospace'; ctx.textAlign='center';
+              ctx.fillText('memory '+(k+1)+(k===0?' (cued)':''), x+pw/2, y0+pw+15*F); }
+            ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('More memories share the same weights, so they interfere — recall stays perfect only up to a capacity (see the Capacity lens).', W/2, y0+pw+44*F);
+          }} ] },
+        recall:{ label:'Recall', about:'a corrupted cue settles, by sign updates, into the nearest stored memory',
+          anim:{ length:(p,d)=>d.nF-1 },
+          views:[
+            { title:'the state settling in (sweep by sweep)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), side=d.side, st=d.states[k];
+              g.frame({x:[0,side], y:[0,side], xticks:1, yticks:1, title:`sweep ${k} of ${d.nF-1}: overlap with the target = ${(d.ovs[k]).toFixed(2)} (1 = recalled)`});
+              g.image(side,side,(i,j)=>st[j*side+i], v=> v>0?[51,49,44]:[235,232,224], {smooth:false}); }},
+            { title:'overlap rises to 1 and energy falls as it settles', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), emin=Math.min(...d.energies), emax=Math.max(...d.energies,emin+1);
+              g.frame({x:[0,d.nF-1], y:[-1.05,1.05], xlabel:'async sweep', ylabel:'overlap with target', title:'overlap → 1 means the cue has been recalled as the stored memory'});
+              g.hline(1,{color:T.faint,dash:[4,3]}); g.line(d.ovs.map((v,i)=>[i,v]),{color:T.pos,width:2.4}); g.points(d.ovs.map((v,i)=>[i,v]),{color:T.pos,r:3});
+              g.line(d.energies.map((v,i)=>[i, -1+2*(v-emin)/(emax-emin)]),{color:T.warn,width:1.8,dash:[5,3]});
+              g.vline(k,{color:T.ink,dash:[2,3]}); g.legend([{label:'overlap',color:T.pos},{label:'energy (scaled)',color:T.warn}],{corner:'br'}); }},
+          ] },
+        capacity:{ label:'Capacity', about:'recall accuracy vs memory load — the ≈0.14·N capacity cliff',
+          views:[ { title:'recall accuracy vs load (capacity ≈ 0.14·N)', draw:(g,d)=>{ const T=TH();
+            g.frame({x:[0, d.sweep[d.sweep.length-1][0]*1.02], y:[0,1.05], xlabel:'memory load (patterns / N)', ylabel:'recall accuracy', title:'reliable recall up to ≈ 0.14·N, then it breaks down'});
+            g.hline(1,{color:T.faint,dash:[4,3]}); g.vline(d.cap,{color:'#7a5a93',dash:[5,4],label:'≈0.14·N'}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.load, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.load)<Math.abs(b[0]-d.load)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);

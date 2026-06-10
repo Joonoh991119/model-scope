@@ -195,5 +195,30 @@
     const m=nontargetOffsets.length; if(m) for(const phi of nontargetOffsets) p += (pSwap/m)*vmPdf(err,phi,kappa); return p; };
   const wm = { wrap:vmWrap, besselI0, besselI1, vmPdf, vmSample, kappaToSD, sdToKappa, fisherInfo, precisionFromSetsize, mixtureRecall, mixturePdf };
 
-  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm };
+  /* ---- network: Hopfield associative memory (Hebbian plasticity, attractor recall) ---- */
+  const hopfieldStore = (patterns, N) => {   // patterns: array of ±1 vectors (length N) → weight matrix W, zero diagonal
+    const W = new Float64Array(N*N), s = patterns.length||1;
+    for(const p of patterns) for(let i=0;i<N;i++) for(let j=0;j<N;j++){ if(i!==j) W[i*N+j] += p[i]*p[j]; }
+    for(let t=0;t<W.length;t++) W[t] /= s; return W; };
+  const hopfieldEnergy = (W, s, N) => { let E=0; for(let i=0;i<N;i++) for(let j=0;j<N;j++) E -= 0.5*W[i*N+j]*s[i]*s[j]; return E; };  // Lyapunov energy (non-increasing under async sign updates)
+  const hopfieldStep = (W, s, N, order) => {   // one ASYNC sweep of sign updates; `order` = index order (defaults 0..N-1)
+    const o = order || Array.from({length:N},(_,i)=>i);
+    for(const i of o){ let h=0; for(let j=0;j<N;j++) h += W[i*N+j]*s[j]; s[i] = h>=0 ? 1 : -1; } return s; };
+  const overlap = (a, b, N) => { let m=0; for(let i=0;i<N;i++) m += a[i]*b[i]; return m/N; };   // pattern overlap ∈ [-1,1]
+  const network = { hopfieldStore, hopfieldEnergy, hopfieldStep, overlap };
+
+  /* ---- osc: Kuramoto coupled phase oscillators (synchronisation) ---- */
+  const kuramotoOrder = (phases) => { let C=0,S=0; const n=phases.length; for(const th of phases){ C+=Math.cos(th); S+=Math.sin(th); } return { r:Math.hypot(C,S)/Math.max(1,n), psi:Math.atan2(S,C) }; };  // r = global synchrony ∈ [0,1]
+  const kuramotoStep = (phases, omega, K, dt, sigma, g) => {   // mean-field: dθ_i = [ω_i + K·r·sin(ψ−θ_i)]·dt + noise
+    const n=phases.length, { r, psi }=kuramotoOrder(phases), out=new Float64Array(n);
+    for(let i=0;i<n;i++){ const d = omega[i] + K*r*Math.sin(psi - phases[i]); out[i] = phases[i] + d*dt + (sigma ? sigma*sqrt(dt)*g() : 0); } return out; };
+  const osc = { kuramotoOrder, kuramotoStep };
+
+  /* ---- belief: discrete Bayes filter (HMM forward / belief tracking over a hidden state) ---- */
+  const beliefPredict = (b, T) => { const S=b.length, out=new Float64Array(S); for(let i=0;i<S;i++) for(let j=0;j<S;j++) out[j] += b[i]*T[i][j]; return out; };  // propagate through transition T[i][j]=P(j|i)
+  const beliefUpdate  = (b, lik) => { const S=b.length, out=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ out[j]=b[j]*lik[j]; z+=out[j]; } if(z>0) for(let j=0;j<S;j++) out[j]/=z; return out; };  // multiply by P(obs|state) and renormalise
+  const beliefEntropy = (b) => { let H=0; for(const p of b) if(p>1e-12) H -= p*Math.log(p); return H; };   // uncertainty (nats); 0 = certain
+  const belief = { predict:beliefPredict, update:beliefUpdate, entropy:beliefEntropy };
+
+  global.MSLIB = { sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief };
 })(typeof window !== 'undefined' ? window : globalThis);

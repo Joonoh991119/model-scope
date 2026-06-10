@@ -207,10 +207,18 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  wm: reports concentrate toward target (resultant R=${R.toFixed(2)} » ~0 uniform)   [${ok(finite && R>0.15)}]`);
 }
 
+// Hopfield: at low load a corrupted cue is recalled (final overlap≈1); recall accuracy falls with load (capacity)
+{
+  const m = SIM.MODELS.hopfield, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('hop'));
+  const recalled = d.finalOv > 0.9, lowLoadOk = d.sweep[0][1] >= 0.8, falls = d.sweep[d.sweep.length-1][1] <= d.sweep[0][1];
+  console.log(`  hopfield: cue recalled (overlap=${d.finalOv.toFixed(2)}); accuracy ${(d.sweep[0][1]*100).toFixed(0)}% at low load → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}% at high load   [${ok(recalled && lowLoadOk && falls)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }
