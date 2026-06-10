@@ -223,10 +223,19 @@ for (const id of SIM.MODEL_ORDER) {
   console.log(`  kuramoto: synchrony rises with coupling (r=${lowK.toFixed(2)} at K=0 → ${hiK.toFixed(2)} at K=8; K_c≈${d.Kc.toFixed(2)})   [${ok(lowK<0.5 && hiK>0.6 && rises)}]`);
 }
 
+// Belief tracking: the belief concentrates below the uniform prior, and tracking error grows with observation noise
+{
+  const m = SIM.MODELS.belief, p = {}; m.params.forEach(s => p[s.name] = s.default);
+  const d = m.simulate(p, env('bel'));
+  let he=0,c=0; for (let t=Math.floor(d.nF/2);t<d.nF;t++){ he+=d.entropy[t]; c++; } const meanH=he/c;
+  const concentrates = meanH < d.Huniform*0.85, errRises = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.3;
+  console.log(`  belief: concentrates below uniform (H=${meanH.toFixed(2)} < ${d.Huniform.toFixed(2)}); tracking error rises with noise (${d.sweep[0][1].toFixed(1)} → ${d.sweep[d.sweep.length-1][1].toFixed(1)})   [${ok(concentrates && errRises)}]`);
+}
+
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
 // above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
 {
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto']);   // models with an analytic check above
+  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief']);   // models with an analytic check above
   const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
   if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
 }

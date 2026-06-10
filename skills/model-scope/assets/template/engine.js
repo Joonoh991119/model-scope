@@ -886,8 +886,68 @@
             g.marker(d.K, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.K)<Math.abs(b[0]-d.K)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
+
+    /* ---- PARTIAL OBSERVABILITY: belief tracking with a discrete Bayes filter (HMM forward).
+       A hidden location diffuses on a ring; each step gives a noisy reading; the filter keeps a
+       BELIEF over where it is. STRUCTURE FIRST. Angles: Structure · Belief · Compare(noise). */
+    belief: {
+      id:'belief', name:'Belief tracking (Bayes filter)',
+      blurb:'A hidden location moves on a ring and is never seen directly — each step gives only a noisy reading. A Bayes filter keeps a BELIEF (a probability distribution) over where it is: predict (diffuse the belief through the transition), then correct (multiply by the observation likelihood). Use the lens switch for the angles — structure first: Structure (the hidden states, the transition, the observation model), Belief (the belief distribution evolving as observations arrive), Compare (how observation noise blurs tracking).',
+      note:'Discrete Bayes filter / HMM forward: predict b⁻(s′)=Σ_s T(s′|s) b(s), then update b(s′) ∝ P(obs|s′) b⁻(s′). The belief sharpens when observations are informative (low noise) and spreads when they are not, or when the state diffuses fast (high volatility). Tracking error and belief entropy both grow with observation noise. Honestly scoped as belief TRACKING (filtering), not full POMDP control. Composed from MSLIB.belief.',
+      params:[
+        {name:'obsNoise', label:'Observation noise σ', min:0.3, max:6, step:0.1, default:1.5},
+        {name:'vol', label:'State volatility (diffusion)', min:0.4, max:4, step:0.1, default:1},
+      ],
+      simulate:(p, env)=>{ const BF=global.MSLIB.belief, S=24, Tn=40, rng=makeRNG(env.seed+'#bel');
+        const wrap=i=>((i%S)+S)%S, ringD=(a,b)=>{ const d=Math.abs(a-b); return Math.min(d,S-d); }, volK=Math.max(0.4,p.vol);
+        const T=[]; for(let i=0;i<S;i++){ const row=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ const dd=ringD(i,j), w=Math.exp(-0.5*(dd/volK)*(dd/volK)); row[j]=w; z+=w; } for(let j=0;j<S;j++) row[j]/=z; T.push(Array.from(row)); }
+        const onS=Math.max(0.4,p.obsNoise); let x=Math.floor(S/2), b=new Float64Array(S).fill(1/S);
+        const beliefs=[Array.from(b)], trueX=[x], obs=[null], entropy=[BF.entropy(b)];
+        for(let t=0;t<Tn;t++){ x=wrap(Math.round(x+volK*gaussian(rng))); const y=wrap(Math.round(x+onS*gaussian(rng)));
+          b=BF.predict(b, T); const lik=new Float64Array(S); for(let j=0;j<S;j++){ const dd=ringD(j,y); lik[j]=Math.exp(-0.5*(dd/onS)*(dd/onS)); } b=BF.update(b, Array.from(lik));
+          beliefs.push(Array.from(b)); trueX.push(x); obs.push(y); entropy.push(BF.entropy(b)); }
+        const bmean=(bb)=>{ let cx=0,cy=0; for(let j=0;j<S;j++){ const a=2*Math.PI*j/S; cx+=bb[j]*Math.cos(a); cy+=bb[j]*Math.sin(a); } return wrap(Math.round(Math.atan2(cy,cx)/(2*Math.PI)*S)); };
+        const sweep=[]; for(let n=0;n<=20;n++){ const on=Math.max(0.4,0.3+n*(6/20)); let bb=new Float64Array(S).fill(1/S), xx=Math.floor(S/2), rr=makeRNG(env.seed+'#bsw'+n), errAcc=0,cnt=0;
+          for(let t=0;t<Tn;t++){ xx=wrap(Math.round(xx+volK*gaussian(rr))); const yy=wrap(Math.round(xx+on*gaussian(rr))); bb=BF.predict(bb,T); const lk=new Float64Array(S); for(let j=0;j<S;j++){ const dd=ringD(j,yy); lk[j]=Math.exp(-0.5*(dd/on)*(dd/on)); } bb=BF.update(bb,Array.from(lk));
+            if(t>Tn/2){ errAcc+=ringD(bmean(bb),xx); cnt++; } } sweep.push([on, errAcc/Math.max(1,cnt)]); }
+        let bmax=1e-9; for(const bb of beliefs) for(const v of bb) if(v>bmax) bmax=v;
+        return { S, Tn, beliefs, trueX, obs, entropy, nF:beliefs.length, T, sweep, obsNoise:onS, vol:volK, bmax, Huniform:Math.log(S) };
+      },
+      lenses:{
+        structure:{ label:'Structure', about:'the model: a hidden state that diffuses (transition) and is seen only through noisy observations',
+          views:[ { title:'the two ingredients: a transition kernel and an observation likelihood', draw:(g,d)=>{ const T=TH(), S=d.S, c=Math.floor(S/2);
+            g.frame({x:[0,S], y:[0,1.05], xlabel:'state (a ring of locations)', ylabel:'probability (relative)', title:'predict with the transition, then correct with the observation likelihood'});
+            const tr=d.T[c], trm=Math.max(...tr); g.band(tr.map((v,i)=>[i+0.5, v/trm]),{color:'rgba(74,122,147,.20)'}); g.line(tr.map((v,i)=>[i+0.5, v/trm]),{color:T.accent,width:2});
+            const onS=d.obsNoise, ll=[]; for(let j=0;j<S;j++){ const dd=Math.min(Math.abs(j-c), S-Math.abs(j-c)); ll.push([j+0.5, Math.exp(-0.5*(dd/onS)*(dd/onS))]); } g.line(ll,{color:T.neg,width:2,dash:[5,3]});
+            g.vline(c+0.5,{color:T.faint,dash:[3,3],label:'current / observed state'});
+            g.legend([{label:'transition P(next|state)',color:T.accent},{label:'observation P(obs|state)',color:T.neg}],{corner:'tr'});
+          }} ] },
+        belief:{ label:'Belief', about:'the belief distribution evolving as observations arrive',
+          anim:{ length:(p,d)=>d.nF-1 },
+          views:[
+            { title:'belief over states across time (brighter = more probable)', draw:(g,d,ui)=>{ const T=TH(), S=d.S, k=Math.min(d.nF-1,Math.floor(ui.head));
+              const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.bmax||1))); return [Math.round(247-(247-74)*t), Math.round(245-(245-122)*t), Math.round(240-(240-147)*t)]; };
+              g.frame({cbar:true, x:[0,S], y:[0,d.Tn], xlabel:'state (location)', ylabel:'time step', title:'the belief trajectory; the line is the true hidden state'});
+              g.heat(S, d.nF, (i,j)=>d.beliefs[j][i], cmap, {smooth:false});
+              const path=[]; for(let t=0;t<d.trueX.length;t++){ if(t>0 && Math.abs(d.trueX[t]-d.trueX[t-1])>S/2) path.push([NaN,NaN]); path.push([d.trueX[t]+0.5, t]); } g.line(path,{color:'rgba(255,255,255,.9)',width:1.8});
+              g.hline(k,{color:T.ink,dash:[2,3],label:'now'}); g.colorbar(0,d.bmax,cmap,{label:'belief'});
+            }},
+            { title:'belief at this step: where the filter thinks it is', draw:(g,d,ui)=>{ const T=TH(), S=d.S, k=Math.min(d.nF-1,Math.floor(ui.head)), bb=d.beliefs[k], bm=Math.max(...bb)*1.18;
+              g.frame({x:[0,S], y:[0,bm], xlabel:'state (location)', ylabel:'belief probability', title:`step ${k}: belief (bars) vs the true state and the noisy observation`});
+              g.band(bb.map((v,i)=>[i+0.5,v]),{color:'rgba(74,122,147,.18)'}); g.line(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,width:2}); g.points(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,r:2.4});
+              g.vline(d.trueX[k]+0.5,{color:T.pos,width:2,label:'true state'}); if(d.obs[k]!=null) g.marker(d.obs[k]+0.5, bm*0.06, {color:T.neg,r:5,label:'observation'});
+              g.legend([{label:'belief',color:T.accent},{label:'true',color:T.pos},{label:'obs',color:T.neg}],{corner:'tr'});
+            }},
+          ] },
+        compare:{ label:'Compare', about:'how observation noise blurs tracking — error vs noise',
+          views:[ { title:'tracking error grows with observation noise', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.5,...d.sweep.map(q=>q[1]))*1.12;
+            g.frame({x:[d.sweep[0][0], d.sweep[d.sweep.length-1][0]], y:[0,ymax], xlabel:'observation noise σ', ylabel:'tracking error (states)', title:'noisier observations → blurrier belief → larger tracking error'});
+            g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
+            g.marker(d.obsNoise, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.obsNoise)<Math.abs(b[0]-d.obsNoise)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+      },
+    },
   };
-  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto'];
+  const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief'];
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, ddmPath, ddmSteps, runChunks, MODELS, MODEL_ORDER };
 })(typeof window !== 'undefined' ? window : globalThis);
