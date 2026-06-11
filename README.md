@@ -56,10 +56,10 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
   decision model gets one trial and the many-trial statistics; a network gets its structure, then
   activity, representation, and landscape; an image/CNN model gets its architecture first, then the
   layer-by-layer transforms — each driven by a continuous playhead or a step-by-step stepper.
-- **No build step, no `npm install`, runs from `file://`.** Plain `<script>` tags — open
-  `index.html`, or read the source top to bottom (the UI font is a webfont with a system
-  fallback). The *same* `engine.js` is re-checked by a Node validation gate, so the math you
-  read is the math that runs.
+- **No build step, no `npm install`, runs from `file://`.** Plain `<script>` tags and **zero
+  external resources** — open `index.html` directly (offline too; fonts fall back to the system
+  UI / monospace stack). The *same* `engine.js` is re-checked by a Node validation gate, so the
+  math you read is the math that runs.
 - **Readable by default.** The plotting helper carries the conventions that make a figure
   self-interpretable — axis labels with units, a colorbar on every heatmap, categorical ticks,
   legends that don't occlude data, and a **Text size** control that scales every label (handy for
@@ -339,8 +339,8 @@ their meaning and typical ranges, the views that make it intuitive, a ready-to-c
 | **Causal inference & Bayesian cognition** | multisensory fusion, ventriloquism, cue combination, concept learning | `causal` |
 | **Working memory & mixture models** | continuous report, precision / capacity, swap errors, von Mises mixtures | `wm` |
 | **Evidence accumulation & attractor decision** | 2AFC decisions, RT distributions, speed–accuracy, winner-take-all | `decision`, `sde` |
-| **Single neurons & small networks** | membrane dynamics, *f–I* curves, spike trains, gain | `neuron` |
-| **Reinforcement learning & belief update** | value learning, choice, volatility, prior updating | `rl` |
+| **Single-neuron & small networks** | membrane dynamics, *f–I* curves, spike trains, gain | `neuron` |
+| **Learning & belief update** | value learning, choice, volatility, prior updating | `rl` |
 | **Psychometrics & detection** | psychometric curves, SDT, thresholds, scalar timing | `psy` |
 | **Recurrent networks & plasticity** | associative memory, attractor dynamics, Hebbian learning, capacity | `network` |
 | **Oscillations & synchronization** | coupled oscillators, phase-locking, neural-mass rhythms, sync transitions | `osc` |
