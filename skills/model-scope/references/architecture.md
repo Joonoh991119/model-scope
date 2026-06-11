@@ -7,6 +7,11 @@ modules, so `index.html` loads them from `file://` (modules are CORS-blocked the
 `engine.js` is also `eval`-able in Node, so `validate.mjs` tests the *same* math the app
 runs. No bundler, no install — a researcher opens or reads it directly.
 
+**Zero external resources.** `index.html` loads no CDN, font, or analytics — only its three
+local scripts (`plot.js`, `mslib.js`, `engine.js`). Fonts fall back to the system UI /
+monospace stack (`IBM Plex …, system-ui` / `…, ui-monospace`), so the app is self-contained
+and works offline. Nothing to delete, nothing to phone home.
+
 ## RNG (seedable, per-trial)
 
 ```js
@@ -26,11 +31,11 @@ deterministic). `npdf(x,μ,σ)` (normal pdf) is also exported for distribution v
 
 | field | required | meaning |
 |---|---|---|
-| `id`, `name` | ✓ | id, display name (the tab) |
-| `blurb`, `note` | ✓ | one-line description; the key qualitative effect to point out |
-| `params[]` | ✓ | `{name,label,min,max,step,default,unit?,int?}` — a slider per param. Also `{type:'bool',default}` → a toggle, and `{type:'enum',options:['a','b','c'],default:0}` → a segmented control (value is the option index) for a model/condition choice |
-| `simulate(p,env)` | ✓ | run the whole model; **return any data object** the views need |
-| `views[]` | ✓ | `[{title, draw(g,data,ui)}]` — each panel draws its own axes/graphics |
+| `id`, `name` | yes | id, display name (the tab) |
+| `blurb`, `note` | yes | one-line description; the key qualitative effect to point out |
+| `params[]` | yes | `{name,label,min,max,step,default,unit?,int?}` — a slider per param. Also `{type:'bool',default}` → a toggle, and `{type:'enum',options:['a','b','c'],default:0}` → a segmented control (value is the option index) for a model/condition choice |
+| `simulate(p,env)` | yes | run the whole model; **return any data object** the views need |
+| `views[]` | yes | `[{title, draw(g,data,ui)}]` — each panel draws its own axes/graphics |
 | `anim` | – | `{length:(p,data)=>N}` → **continuous** sequential: play/scrub, `ui.head∈[0,N]` (a trial index, a time, an iteration) |
 | `stages` | – | `(p,data)=>[{key,name,about}]` (or a static array) → **process mode**: the playhead steps through the model's named pipeline stages; views switch on `ui.stage`/`ui.stageKey` to reveal each computation in turn |
 | `lenses` | – | `{angleA,angleB,…}` — several ANGLES on the same `simulate()` data (keys are free); each is `{label,about,views,anim?\|stages?}`. The toolbox shows a lens switch and binds the active lens's views + playhead (no recompute on switch). Use instead of top-level `views`/`anim`/`stages`. See the skill's "Angles as first-class UI" + `references/levels.md` |
@@ -75,6 +80,37 @@ stages stay drawn, the current one is emphasised. The playhead auto-advances slo
 as a few screens (mechanism → condition comparisons → prediction), each its own `MODELS` entry
 — see the skill's "Scaling to a whole paper". You normally never touch `index.html` — adding a
 screen is purely an `engine.js` edit.
+
+## The validation gate (`validate.mjs`)
+
+`node validate.mjs` is the single gate — it loads the real `engine.js`/`plot.js`/`mslib.js`
+(no mocks of the math) and **must exit 0 before any commit**. It enforces, for every model:
+
+1. **simulate runs** at defaults and returns an object; `MODEL_ORDER` and `MODELS` agree.
+2. **Every view renders** without throwing — at the playhead head=0 **and** end, for **each lens** —
+   onto a recording stub `g`. The stub flags: a heatmap drawn without a colorbar, a non-finite axis
+   range, and any non-finite value sampled from `heat`/`image`/`graph` data (bad node/edge included).
+3. **Parameter extremes** — `simulate` stays finite at every slider's min and max (including `bool`
+   and `enum` choices); the returned data object is scanned for any non-finite number.
+4. **A per-model analytic check** — a property the science guarantees (e.g. Hopfield recall at low
+   load then a capacity cliff; do(X) recovers the causal slope; the POMDP listen-region widens with the
+   penalty; a Hopf bifurcation in Wilson–Cowan). Every model in `MODEL_ORDER` must be in the `checked`
+   set or the gate warns.
+5. **Per-`MSLIB`-block checks** — each library family has a sanity test (softmax sums to 1, a DoG is
+   band-pass, predict/update normalise, …).
+
+This is what the optional edit hook runs after each change (see `MIGRATION.md`); the gate biting is
+the contract that "the math you read is the math that runs."
+
+## The `MSLIB` library (`modules/mslib.js`)
+
+`window.MSLIB` is an **optional, reusable library** of canonical building blocks
+(`sde, bayes, neuron, decision, rl, psy, efficient, causal, wm, network, osc, belief, vision, attn`)
+to compose inside `simulate()`. It is deliberately **broader than the shipped examples** — knowledge
+accretes here so the next model is a few lines, not a rebuild. A block (or a function in it, e.g.
+`neuron.izhStep`, `rl.kalman`) being unused by a current example is **intended breadth, not dead code**;
+each is small, exported, documented in the modelbook, and covered by a block check. Add to it when a
+model needs a primitive others will reuse.
 
 ## Keep `simulate` honest & fast
 - Implement the equations exactly; if a coarse step (Euler `dt`) biases a result, say so
