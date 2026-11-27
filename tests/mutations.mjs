@@ -64,7 +64,7 @@ export const MUTATIONS = [
   ['param-renamed', 'examples.js', "{name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.5, step:0.01, default:0.18},", "{name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.9, step:0.01, default:0.18},", 'a slider range silently changed'],
   ['plotjs-histify-offbyone', 'plot.js', 'const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop', 'const k=Math.floor((v-lo)/bw)+1; if(k>=0&&k<n) counts[k]++; } // drop', 'the real histogram helper bins one bin to the right'],
   ['plotjs-syntax-error', 'plot.js', "global.Plot = { make, setup, TH, histify };", "global.Plot = { make, setup, TH, histify ;", 'plot.js does not even parse'],
-  ['indexhtml-broken', 'index.html', "buildModelTabs(); setModel(S.modelId);", "buildModelTabs(); setModel(S.modelIdd.x);", 'the toolbox throws on load'],
+  ['indexhtml-broken', 'index.html', "buildModelTabs(); setModel(startModel, startLens); }", "buildModelTabs(); setModel(startModell.x, startLens); }", 'the toolbox throws on load'],
   ['view-blank', 'examples.js', "g.line(d.fI,{color:T.accent,width:2}); g.points(d.fI,{color:T.accent,r:2.4}); g.vline(d.I,{color:T.pos,dash:[5,4],label:'current I'});", "", 'the f-I view draws axes but no data'],
 ];
 const A = args();

@@ -57,6 +57,8 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   files and the `<script src="examples.js">` line in `index.html` to ship only your own models.
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
+  Link a screen with `index.html#<model>-<lens>`; add `?p.<name>=<value>&seed=<seed>` to open with
+  given parameters (the **Copy link** button writes that link for you).
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
   efficient, causal, wm, network, osc, belief, vision, attn`) of canonical building blocks you compose inside `simulate()`.
 - `validate.mjs` — the gate. `node validate.mjs` loads what `index.html` loads and checks every model:

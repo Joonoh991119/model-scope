@@ -17,7 +17,7 @@ const node = (file, ...rest) => ['node', [path.join(HERE, file), ...rest], { cwd
 const steps = [
   ['gate', 'node validate.mjs (the shipped gate)', ['node', ['validate.mjs'], { cwd: DEFAULT_TEMPLATE }]],
   ['baseline', 'golden baseline of the 21 examples', node('baseline.mjs', '--check')],
-  ['mutations', 'mutation probe (gate + baseline)', node('mutations.mjs')],
+  ['mutations', A.flag('--browser') ? 'mutation probe (gate + baseline + browser smoke)' : 'mutation probe (gate + baseline)', A.flag('--browser') ? node('mutations.mjs', '--pw', PW) : node('mutations.mjs')],
   ['bare', 'the template without its examples', A.flag('--browser') ? node('bare-app.mjs', '--pw', PW) : node('bare-app.mjs')],
 ];
 const hasClaude = spawnSync('claude', ['--version'], { encoding: 'utf8' }).status === 0;
@@ -25,7 +25,7 @@ if (hasClaude) steps.push(['plugin', 'claude plugin validate --strict .', ['clau
 else console.log('note: the `claude` CLI is not on PATH — skipping `claude plugin validate --strict .`');
 if (A.flag('--browser')) {
   if (!fs.existsSync(path.join(PW, 'node_modules', 'playwright'))) { console.error(`--browser needs playwright under ${PW}\n  npm i --prefix ${path.relative(ROOT, PW) || '.'} playwright@1.56.1 axe-core@4.14.1`); process.exit(2); }
-  steps.push(['smoke', 'browser smoke (headless Chrome, file://)', node('smoke.mjs', '--pw', PW, '--sliders')]);
+  steps.push(['smoke', 'browser smoke (headless Chrome, file://)', node('smoke.mjs', '--pw', PW, '--sliders', '--a11y', '--phone')]);
 }
 
 let failed = 0; const t0 = Date.now();

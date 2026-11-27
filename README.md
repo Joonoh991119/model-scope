@@ -136,9 +136,14 @@ One harness, many control + view types — every plot is live, so you build intu
 </tr>
 </table>
 
-Every state is **deep-linkable** for sharing or screenshots: open `index.html?model=lif&lens=raster&head=30`
-(`model`, `lens`, `head`, `still=1`, `text=`). The **Text size** control on the left rail scales
-every label for talks.
+A screen can be **linked** for sharing or screenshots. `index.html#lif-raster` opens a model and a
+lens (`#<model id>` or `#<model id>-<lens key>`), and the address follows as you move between tabs
+and lenses. A query string adds the rest of the opening state:
+`index.html?model=ddm&lens=sim&p.z=2&seed=abc&head=30` sets parameters (`p.<name>=`), the RNG seed,
+the playhead (`head=`, or `still=1` for the last frame) and the plot text size (`text=`). The
+**Copy link** button on the rail writes that link for the state you are looking at. Parameter values
+are remembered per model while the page is open. The **Text size** control on the rail scales every
+label for talks.
 
 ---
 

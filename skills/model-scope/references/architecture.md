@@ -67,14 +67,53 @@ stages stay drawn, the current one is emphasised. The playhead auto-advances slo
    cached; `length = anim?anim.length(...):1`; reset `head`; redraw all views.
 3. If `anim`, a `requestAnimationFrame` loop advances `head` by `speed/60` per frame while
    playing; ⏭ jumps to the end; the scrubber sets `head`; views read `ui.head`.
-4. A generation counter (`S.gen`, bumped on every (re)start, mirrored to `window.__simGen`)
-   makes superseded async work bail — so rapid slider drags or model switches never interleave
-   stale state.
+4. A generation counter (`S.gen`, mirrored to `window.__simGen`) is bumped whenever `simulate()`
+   is run again (a slider move, a model switch, Re-simulate), which makes superseded async work
+   bail — so rapid slider drags or model switches never interleave stale state. A **lens switch
+   does not bump it**: the data is the same, so a `runChunks` computation that is still filling in
+   keeps going while the other lens is shown. Stopping playback and superseding a simulation are
+   separate operations (`stopPlayback()` and `supersede()` in `index.html`).
 5. For **heavy** screens it exposes a loading overlay: `window.__setLoading(on,prog,label)`,
    `window.__redraw()` (repaint), and `window.__simGen` (the live generation). `SIM.runChunks`
    in `engine.js` uses all three — a `simulate()` returns `{loading:true}` immediately and the
    batch fills in across frames. In Node (no rAF) `runChunks` runs synchronously, so the same
    code validates.
+
+6. If `simulate()` throws or returns no object, the view area says so (with the message) instead
+   of showing blank panels, and the views come back as soon as it runs again.
+7. It remembers each model's parameter values and lens while the page is open, keeps the active tab
+   inside the tab strip, and stops auto-play when the system asks for reduced motion (also when
+   that setting changes while the page is open).
+
+### Links
+
+| form | meaning |
+|---|---|
+| `#<modelId>` or `#<modelId>-<lensKey>` | the model and lens. Read on load and on `hashchange`; rewritten with `history.replaceState` as you navigate. A plain `#name` is the only link state a hosted page (for example a Claude Artifact) passes through, which is why ids should stick to letters, digits and hyphens. |
+| `?model=&lens=` | the same, as a query (kept for existing links and screenshot commands; the hash wins if both are given) |
+| `?p.<name>=<value>` | a parameter of that model: a number (clamped to the control's range), `1`/`0` for a toggle, an option label or index for an `enum` |
+| `?seed=` | the RNG seed |
+| `?head=N`, `?still=1` | open paused at playhead `N`, or at the last frame |
+| `?text=1.4` | plot text size |
+
+The query describes the state to **open** with and is applied once; when you then click another tab
+or lens the address becomes the plain `#model-lens` form. The **Copy link** button builds the full
+link (query plus hash) for the current model, lens, seed and every parameter that differs from its
+default.
+
+### Naming the page
+
+An app built for one paper can set `SIM.APP = { title: 'Wei & Stocker 2015', tagline: 'efficient
+coding predicts repulsion' }` in `engine.js`; the toolbox uses it for the heading and the page title.
+
+### Accessibility the toolbox provides
+
+One `<h1>`, a `<main>` landmark, a named control for every parameter (slider and number field), a
+`role="img"` name on every canvas taken from the view's `title` (so write titles that say what the
+view shows), a polite live region that announces pause, step and end (never every frame), a play
+button whose label toggles, a visible focus ring, and text at 4.5:1 or better. At phone width the
+layout is one column with the plots before the controls. What it cannot provide is a text
+alternative for the *content* of a plot; the model's `note` and each lens's `about` carry that.
 
 **Multiple models = screens.** Each `MODEL_ORDER` entry is a top tab. A whole paper is built
 as a few screens (mechanism → condition comparisons → prediction), each its own `MODELS` entry

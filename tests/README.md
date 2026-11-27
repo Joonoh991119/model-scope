@@ -15,9 +15,11 @@ node tests/run.mjs --browser    # ... plus the headless-Chrome smoke test
 | `mutations.mjs` | The gate bites: 46 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
 | `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the commented skeleton model and check in `engine.js` / `engine.checks.mjs` are real code; deleting one example leaves the gate green. | Node (+ Playwright with `--pw`) |
 | `smoke.mjs` | The page works in a real browser from `file://`: every model and lens paints, no console or page error, no network request, plus accessibility (axe), phone width, and toolbox behaviour. | Playwright |
+| `shots.mjs` | Regenerates the README gallery (`docs/shots/*.png`, `docs/ddm-trial.gif`) from the current template, and with `--all <dir>` a contact sheet of every screen. Run it in the same commit as a change that alters how a screen looks. | Playwright, ffmpeg for the GIF |
 | `run.mjs` | Runs the above in order and reports. | Node |
 | `lib/harness.mjs` | Loads a template exactly as `index.html` does and digests what it computes and draws. | |
 | `fixtures/heavy.js` | A model that fills in through `SIM.runChunks`, so the async path has a test. | |
+| `fixtures/broken.js` | A model whose `simulate()` throws or returns nothing on demand, so the error display has a test. | |
 | `baseline/v1.21.1.json` | The reference digests. | |
 
 ## The baseline
@@ -66,3 +68,18 @@ node tests/smoke.mjs --pw .scratch/pw                            # add --a11y --
 
 It drives the installed Chrome (`channel: 'chrome'`) from `file://`. Only Chrome is covered;
 Firefox, WebKit and real phones are not.
+
+What it checks, on every model and lens (60 screens for the shipped template):
+
+- each screen paints, by click navigation and by link, at the largest text size; no console error,
+  no page error, no request that is not `file://`;
+- axe (wcag2a, wcag2aa, wcag21aa, best-practice): no critical or serious violation, one `<main>`,
+  one `<h1>` (`--a11y` makes this fail the run);
+- at 400 x 800: no horizontal overflow, and the first plot is on the first screen (`--phone`);
+- the active tab is inside the tab strip; a typed 0 stays 0; parameters survive leaving a tab;
+- links: `#model-lens` on load and on hash change, the address rewritten on navigation, the older
+  `?model=&lens=&head=` form, `?p.<name>=&seed=`, and the **Copy link** round trip;
+- the play button's label toggles, the live region speaks on pause and end, every canvas has a name;
+- reduced motion: nothing auto-plays, and playback stops when the setting changes mid-session;
+- `runChunks` (fixture): a keyboard lens switch mid-compute lets it finish; a slider move supersedes it;
+- a `simulate()` that throws (fixture) is reported in the view area and recovers.

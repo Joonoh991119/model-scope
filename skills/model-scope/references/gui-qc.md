@@ -35,7 +35,10 @@ the code, then `node validate.mjs --against before.json`.
 ## 2. Visual QC — open `index.html`, screenshot EVERY screen
 
 Walk this checklist on each screen, at the **default** text size **and one larger** size (the
-Text-size control reflows fonts/margins — larger text is where overlap shows up).
+Text-size control reflows fonts/margins — larger text is where overlap shows up). Open a screen
+directly with `index.html#<model>-<lens>`, or freeze a frame for a screenshot with
+`index.html?model=<id>&lens=<key>&head=<N>&still=1&text=1.4`. Check one screen at phone width too
+(about 400 px): one column, plots first, nothing scrolling sideways.
 
 **No text damage** (the strict one — the user cares about this most):
 - [ ] No title clipped at the panel edge. Titles auto-ellipsise to the canvas width, so keep
