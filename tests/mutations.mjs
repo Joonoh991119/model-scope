@@ -13,10 +13,10 @@ import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 // Thresholds. Raise them when the gate gets stronger; never lower them to make a run pass.
 export const THRESHOLDS = {
-  total: 52,            // mutations in the table
-  gateMin: 49,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
-  gateBaselineMin: 51,  // killed by validate.mjs or the baseline
-  allWithSmoke: 52,     // with --pw: killed by any layer
+  total: 54,            // mutations in the table
+  gateMin: 51,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
+  gateBaselineMin: 53,  // killed by validate.mjs or the baseline
+  allWithSmoke: 54,     // with --pw: killed by any layer
 };
 
 // [id, file, find, replace, what is now wrong]
@@ -34,6 +34,8 @@ export const MUTATIONS = [
   ['kalman-variance', 'modules/mslib.js', 'sigma:sqrt((1-K)*s2)', 'sigma:sqrt(K*s2)', 'Kalman posterior variance uses K instead of 1-K (a block no example uses)'],
   ['izhikevich-140', 'modules/mslib.js', '5*s.v + 140 - s.u + I', '5*s.v + 150 - s.u + I', 'Izhikevich constant 150 instead of 140 (a block no example uses)'],
   ['central-tendency-sd', 'modules/mslib.js', "sd:w*sm }", "sd:sm }", 'central-tendency SD not shrunk by the weight (a block no example uses)'],
+  ['softmax-no-beta', 'modules/mslib.js', 'e=vals.map(v=>exp(beta*(v-m)))', 'e=vals.map(v=>exp(v-m))', 'softmax ignores the inverse temperature'],
+  ['popvector-unnormalised', 'modules/mslib.js', 'length: tot>1e-9 ? Math.hypot(cx,cy)/tot : 0', 'length: Math.hypot(cx,cy)', 'population-vector length not divided by the total rate'],
   ['besselI1-series', 'modules/mslib.js', 't*=(k*k)/(4*m*(m+1));', 't*=(k*k)/(4*m*m);', 'I1 series uses the I0 recurrence (a block no example uses)'],
   ['ww-noise-scale', 'modules/mslib.js', 'sN=p.sigma*sqrt(2/p.tauN)', 'sN=p.sigma*sqrt(1/p.tauN)', 'Wong-Wang noise SD off by sqrt(2) from the documented convention (stationary SD = sigma, as the paper text defines sigma^2)'],
   ['ww-gamma', 'modules/mslib.js', 'gamma:0.641,', 'gamma:0.5,', 'Wong-Wang gamma constant wrong'],

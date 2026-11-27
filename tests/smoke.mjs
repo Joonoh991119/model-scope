@@ -40,6 +40,10 @@ function check(id, ok, detail, { enforce = true } = {}) {
   console.log(`${ok ? 'PASS ' : known ? 'KNOWN' : soft ? 'INFO ' : 'FAIL '} ${id.padEnd(26)} ${detail}`);
 }
 
+// A check that needs a model this template does not have is not run: say so, so a short run is visibly short.
+const skipped = [];
+function skip(ids, why) { for (const id of ids) { skipped.push(id); console.log(`SKIP  ${id.padEnd(26)} ${why}`); } }
+
 const browser = await chromium.launch({ channel: A.opt('--channel') || 'chrome', headless: true });
 const errs = [], warns = [], reqs = []; let tag = '';
 async function newPage(opts = {}) {
@@ -125,11 +129,14 @@ if (A.flag('--sliders')) { let n = 0; const bad = [];
 // ---- D. toolbox behaviour ----
 const zeroables = order.flatMap(m => m.nums.filter(s => s.min <= 0 && s.max >= 0 && s.def !== 0).map(s => ({ m, s })));
 const zeroable = zeroables.find(z => z.m.id === 'ddm' && z.s.name === 'A') || zeroables[0];
+if (!zeroable) skip(['zero-on-blur'], 'needs a numeric parameter whose range includes 0 and whose default is not 0');
 if (zeroable) { tag = 'zero'; await p.goto(pageUrl(T, `?model=${zeroable.m.id}&still=1`)); await p.waitForTimeout(160);
   const f = p.locator('#f_' + zeroable.s.name); await f.fill('0'); await f.blur(); await p.waitForTimeout(320);
   const v = await f.inputValue(); await f.fill(''); await f.blur(); await p.waitForTimeout(120); const v2 = await f.inputValue();
   check('zero-on-blur', parseFloat(v) === 0 && parseFloat(v2) === 0, `${zeroable.m.id}.${zeroable.s.name}: typed 0, left the field, value is now ${v} (default ${zeroable.s.def}); emptied the field and left it: ${v2} (keeps the current value)`); }
 const keep = order.find(m => m.nums.length), other = order.find(m => keep && m.id !== keep.id);
+if (!(keep && other)) skip(['params-remembered'], 'needs two models, one with a numeric parameter');
+if (!keep) skip(['rapid-input-and-tabs'], 'needs a model with a numeric parameter');
 if (keep && other) { tag = 'remember'; const s = keep.nums[0], want = s.max; await p.goto(pageUrl(T, `?model=${keep.id}&still=1`)); await p.waitForTimeout(160);
   const f = p.locator('#f_' + s.name); await f.fill(String(want)); await p.waitForTimeout(320);
   await (await tabOf(p, other)).click(); await p.waitForTimeout(160); await (await tabOf(p, keep)).click(); await p.waitForTimeout(200);
@@ -163,6 +170,7 @@ if (keep) { tag = 'rapid'; const before = errs.length; await p.goto(pageUrl(T, `
 // ---- D2. links, remembered state, error display, announcements ----
 const byId = Object.fromEntries(order.map(m => [m.id, m]));
 const lensed = order.filter(m => m.lenses.length > 1), lastLensed = lensed[lensed.length - 1];
+if (!lastLensed) skip(['hash-link', 'hash-change', 'hash-written', 'bad-link-falls-back'], 'needs a model with two or more lenses');
 if (lastLensed) { tag = 'hash'; const m = lastLensed, [k] = m.lenses[m.lenses.length - 1];
   await p.goto(pageUrl(T, `?still=1#${m.id}-${k}`)); await p.waitForTimeout(220); const a = await state(p), pt = await painted(p);
   check('hash-link', a.model === m.id && a.lens === k && !blank(pt), `#${m.id}-${k} opens model ${a.model}, lens ${a.lens}`);
@@ -174,6 +182,8 @@ if (lastLensed) { tag = 'hash'; const m = lastLensed, [k] = m.lenses[m.lenses.le
   await p.goto('about:blank'); await p.goto(pageUrl(T, '#no-such-model')); await p.waitForTimeout(200); const e = await state(p);   // a fresh load, not a hash change
   await p.goto('about:blank'); await p.goto(pageUrl(T, '?model=constructor')); await p.waitForTimeout(200); const f = await state(p);
   check('bad-link-falls-back', e.model === order[0].id && f.model === order[0].id, `an unknown #name or ?model= opens the first model (${e.model}, ${f.model})`); }
+if (!(byId.lif && byId.lif.lenses.some(([k]) => k === 'raster'))) skip(['query-link'], "needs the shipped 'lif' example (lens 'raster')");
+if (!byId.ddm) skip(['query-params', 'query-params-remembered', 'copy-link-round-trip'], "needs the shipped 'ddm' example (parameter z)");
 if (byId.lif && byId.lif.lenses.some(([k]) => k === 'raster')) { tag = 'query-legacy'; await p.goto(pageUrl(T, '?model=lif&lens=raster&head=30')); await p.waitForTimeout(260); const a = await state(p), pt = await painted(p);
   check('query-link', a.model === 'lif' && a.lens === 'raster' && /^30\b/.test(a.read.trim()) && !blank(pt), `?model=lif&lens=raster&head=30 opens ${a.model}/${a.lens} frozen at "${a.read.trim()}"`); }
 if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&seed=abc&still=1')); await p.waitForTimeout(260);
@@ -294,5 +304,5 @@ check('no-external-requests', reqs.length === 0, `${reqs.length} requests that a
 await browser.close();
 for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });
 const fatal = results.filter(r => r.fatal).length, known = results.filter(r => !r.ok && !r.fatal).length;
-console.log(`\n${fatal ? `SMOKE FAILED: ${fatal} check(s)` : 'smoke OK'} — ${results.filter(r => r.ok).length} passed${known ? `, ${known} reported but not enforced` : ''}`);
+console.log(`\n${fatal ? `SMOKE FAILED: ${fatal} check(s)` : 'smoke OK'} — ${results.filter(r => r.ok).length} passed${known ? `, ${known} reported but not enforced` : ''}${skipped.length ? `, ${skipped.length} skipped (${skipped.join(', ')})` : ''}`);
 process.exit(fatal ? 1 : 0);

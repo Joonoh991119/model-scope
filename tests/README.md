@@ -12,8 +12,8 @@ node tests/run.mjs --browser    # ... plus the headless-Chrome smoke test
 | File | What it proves | Needs |
 |---|---|---|
 | `baseline.mjs` | The 21 shipped examples behave as they did at v1.21.1: same parameter ids, ranges and defaults; the same numbers out of `simulate()` at defaults and at every control's min and max; the same drawing through the real `plot.js` (draws are recorded at default parameters only, at the start and end of the playhead; a drawing error that only shows away from the defaults is not caught here). | Node |
-| `mutations.mjs` | The gate bites: 52 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
-| `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the commented skeleton model and check in `engine.js` / `engine.checks.mjs` are real code; deleting one example leaves the gate green. | Node (+ Playwright with `--pw`) |
+| `mutations.mjs` | The gate bites: 54 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
+| `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the commented skeleton model and check in `engine.js` / `engine.checks.mjs` are real code; deleting one example leaves the gate green; a model of yours with an example's id hides that example and its check with a warning; `env.params` reaches `simulate()` in the gate as on the page. | Node (+ Playwright with `--pw`) |
 | `docs-check.mjs` | The docs say what the code is: model and family counts equal the registry and the modelbook INDEX; every MSLIB block and function named exists; every path named in the skill, command and agent files exists; vendored files use `${CLAUDE_PLUGIN_ROOT}` and the literal `model-scope:` only in the two command names; description lengths; one plugin version field. | Node |
 | `smoke.mjs` | The page works in a real browser from `file://`: every model and lens paints, no console or page error, no network request, plus accessibility (axe), phone width, and toolbox behaviour. | Playwright |
 | `shots.mjs` | Regenerates the README gallery (`docs/shots/*.png`, `docs/ddm-trial.gif`) from the current template, and with `--all <dir>` a contact sheet of every screen. Run it in the same commit as a change that alters how a screen looks. | Playwright, ffmpeg for the GIF |
@@ -50,7 +50,7 @@ Rules:
 
 ## The mutation probe
 
-`node tests/mutations.mjs` copies the template 52 times, applies one wrong edit to each copy
+`node tests/mutations.mjs` copies the template 54 times, applies one wrong edit to each copy
 (a reliability weight inverted, a drift 10% low, a leak term removed, a default changed, a script
 that no longer parses, a bundler that stops escaping a closing script tag, ...) and runs the layers in order: the gate, then the baseline, then (with
 `--pw <dir>`) the browser smoke. Thresholds live at the top of the file. Raise them when the gate
@@ -69,6 +69,10 @@ node tests/smoke.mjs --pw .scratch/pw                            # add --a11y --
 
 It drives the installed Chrome (`channel: 'chrome'`) from `file://`. Only Chrome is covered;
 Firefox, WebKit and real phones are not.
+
+With `--template <dir>` it tests another copy. Checks that need a shipped example (`ddm` for the
+query and Copy link round trip, `lif` for the legacy query link) or a model of a given shape are
+printed as `SKIP <check> (needs ...)` and counted in the final line, so a short run is visibly short.
 
 What it checks, on every model and lens (60 screens for the shipped template):
 

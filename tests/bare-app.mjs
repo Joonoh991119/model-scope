@@ -12,7 +12,11 @@
 //   3. bare + skeleton, no check: the gate is green with exactly one warning (a missing check never fails).
 //   4. examples minus one    the `mha` example is deleted from examples.js while its check stays in
 //                            examples.checks.mjs: the gate is green (checks are keyed by id and skipped).
-//   5. same id twice         a model of yours named like an example keeps its tab; the example is skipped.
+//   5. same id twice         a model of yours named like an example keeps its tab; the example is skipped,
+//                            and the gate says so in a warning and does not run the example's check.
+//   6. same id, no check     a model of yours named 'lif' with no check of its own: the gate stays green
+//                            (the LIF example's check is not run against your model) and warns about it.
+//   7. env.params            the skeleton reading its parameter from env.params, as documented: gate green.
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -74,6 +78,18 @@ const d5 = copy(); addSkeleton(d5, { withCheck: true });
 edit(d5, 'engine.js', s => s.replace(/mymodel/g, 'ddm')); edit(d5, 'engine.checks.mjs', s => s.replace(/mymodel/g, 'ddm'));
 { const r = spawnSync('node', ['-e', `globalThis.window=globalThis;globalThis.document={createElement:()=>({getContext:()=>({})})};for(const f of ['plot.js','modules/mslib.js','engine.js','examples.js'])(0,eval)(require('fs').readFileSync(f,'utf8'));console.log(SIM.MODEL_ORDER[0],SIM.MODELS.ddm.name,SIM.MODEL_ORDER.length)`], { cwd: d5, encoding: 'utf8' });
   check((r.stdout || '').trim() === 'ddm My model 21', `a model of yours with an example's id keeps the id and comes first (${(r.stdout || r.stderr || '').trim().slice(0, 80)})`); }
+{ const g = gate(d5); check(g.status === 0 && /model 'ddm' from engine\.js hides the examples\.js model/.test(g.out) && !/already defined/.test(g.out), `the gate names the hidden example and skips its check: exit ${g.status}`); }
+
+// 6. your model takes an example's id and has no check of its own
+const d6 = copy(); addSkeleton(d6, { withCheck: false }); edit(d6, 'engine.js', s => s.replace(/mymodel/g, 'lif'));
+{ const g = gate(d6); check(g.status === 0 && /model 'lif' from engine\.js hides the examples\.js model/.test(g.out) && /no analytic check for 1 model: lif/.test(g.out), `a model of yours named 'lif' without a check: gate exit ${g.status}, warned, the example's check not run against it`);
+  if (g.status !== 0) console.log(g.out.split('\n').filter(l => /FAIL|threw|Error/.test(l)).slice(0, 6).join('\n')); }
+
+// 7. simulate(p, env) reads env.params, which the page passes (index.html run())
+const d7 = copy(); makeBare(d7); addSkeleton(d7, { withCheck: true });
+edit(d7, 'engine.js', s => { must(s.includes('1-Math.exp(-p.gain*x)'), 'the skeleton no longer computes 1-Math.exp(-p.gain*x)'); return s.split('1-Math.exp(-p.gain*x)').join('1-Math.exp(-env.params.gain*x)'); });   // the commented copy and the live one
+{ const g = gate(d7); check(g.status === 0 && /ALL CHECKS PASSED/.test(g.out), `a model that reads env.params: gate exit ${g.status}`);
+  if (g.status !== 0) console.log(g.out.split('\n').filter(l => /FAIL|threw|Error/.test(l)).slice(0, 6).join('\n')); }
 
 // browser: the empty state and the skeleton app
 if (PW) {
@@ -91,6 +107,6 @@ if (PW) {
   await browser.close();
 } else console.log('note: pass --pw <dir> to also open the bare app in a browser');
 
-for (const d of tmp) fs.rmSync(d, { recursive: true, force: true });
+if (!process.env.KEEP) for (const d of tmp) fs.rmSync(d, { recursive: true, force: true });
 console.log(bad ? `\nbare-app FAILED: ${bad} check(s)` : '\nbare-app OK');
 process.exit(bad ? 1 : 0);

@@ -34,10 +34,11 @@
      Pattern inside simulate():
        const d = { perCond:[…], loading:true };           // views show a placeholder while loading
        const acc = …;                                      // mutable accumulators
-       const doItem = k => { … ; Object.assign(d.perCond[i], summarise(acc[i])); };  // update progressively
-       if (env.batch===false) { for(let k=0;k<total;k++) doItem(k); d.loading=false; } // sync for validate.mjs / Node
+       const doItem = k => { … ; Object.assign(d.perCond[i], summarise(acc[i])); if(k===total-1) d.loading=false; };  // the LAST item clears loading
+       if (env.batch===false) { for(let k=0;k<total;k++) doItem(k); }              // sync for validate.mjs / Node
        else runChunks(total, doItem, 'sweeping conditions');
-       return d;                                           // returns immediately; chunks fill it in + call __redraw
+       return d;                                           // returns immediately; chunks fill it in, then ONE __redraw at the end
+     While it runs only the overlay's progress bar moves; the views are redrawn once, after the last chunk.
      In Node (no rAF) it runs synchronously. */
   function runChunks(total, doItem, label){
     if(typeof window==='undefined' || !window.requestAnimationFrame){ for(let k=0;k<total;k++) doItem(k); return; }
@@ -76,7 +77,8 @@
 
   /* register(models, order) — append models to the registry (examples.js uses it; so can any
      extra script you load after engine.js). The first model registered under an id keeps it, so
-     an entry of yours above is never replaced by an example with the same id. */
+     an entry of yours above is never replaced by an example with the same id (that example is
+     dropped, with its check; validate.mjs warns). */
   function register(models, order){
     for(const id of (order || Object.keys(models))){ if(MODELS[id] || !models[id]) continue; MODELS[id]=models[id]; MODEL_ORDER.push(id); }
   }

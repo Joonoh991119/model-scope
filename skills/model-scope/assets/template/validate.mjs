@@ -66,11 +66,22 @@ const scripts = tags.filter(t => t.src).map(t => t.src), inline = tags.filter(t 
 const isRemote = s => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(s);
 const sources = {};   // file → text, for the static scan
 console.log(`--- page: index.html loads ${scripts.length} script${scripts.length === 1 ? '' : 's'} (${scripts.join(', ')}) ---`);
+// OWNER: model id → the script that registered it. SHADOWED: script → ids it tried to register but an
+// earlier script already had (engine.js register() keeps the first), so that script's check for the id
+// must not run against somebody else's model.
+const OWNER = {}, SHADOWED = {}; let current = null;
 for (const s of scripts) {
   if (isRemote(s)) continue;                                   // reported by the static scan below
   if (!fs.existsSync(new URL(s, HERE))) fatal(`index.html loads ${s} but that file is missing`);
   sources[s] = fs.readFileSync(new URL(s, HERE), 'utf8');
+  const before = new Set((globalThis.SIM && globalThis.SIM.MODEL_ORDER) || []); current = s;
   try { (0, eval)(sources[s]); } catch (e) { fatal(`${s} failed to load: ${e.message}`); }
+  const G = globalThis.SIM;
+  if (G && Array.isArray(G.MODEL_ORDER)) for (const id of G.MODEL_ORDER) if (!before.has(id) && !OWNER[id]) OWNER[id] = s;
+  if (G && typeof G.register === 'function' && !G.register.gateWrapped) {
+    const reg = G.register;
+    G.register = Object.assign((models, order) => { for (const id of (order || Object.keys(models || {}))) if (models && models[id] && G.MODELS[id]) (SHADOWED[current] = SHADOWED[current] || []).push(id); return reg(models, order); }, { gateWrapped: true });
+  }
 }
 const SIM = globalThis.SIM, Plot = globalThis.Plot, MSLIB = globalThis.MSLIB;
 if (!SIM || !SIM.MODELS || !Array.isArray(SIM.MODEL_ORDER)) fatal('no script defined window.SIM with MODELS and MODEL_ORDER (engine.js)');
@@ -115,7 +126,7 @@ if (fs.existsSync(new URL('bundle.mjs', HERE))) {
 // ---------------------------------------------------------------------------------------------
 // Helpers shared by the generic passes and the analytic checks.
 // ---------------------------------------------------------------------------------------------
-const env = seed => ({ rng: SIM.makeRNG(seed), seed, params: {}, batch: false });   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks)
+const env = (seed, p) => ({ rng: SIM.makeRNG(seed), seed, params: { ...(p || {}) }, batch: false });   // params as the page passes them (index.html run())   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks)
 const def = id => { const p = {}; (SIM.MODELS[id].params || []).forEach(s => { p[s.name] = s.default; }); return p; };
 const isNum = v => typeof v === 'number' && isFinite(v);
 const allFinite = (v, depth = 0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤6)
@@ -238,12 +249,12 @@ if (ORDER.length === 0) fatal('no model is registered — add one to MODELS and 
 const usable = [];   // models whose simulate() ran at defaults — the later passes skip the rest (already reported)
 for (const id of ORDER) {
   const m = SIM.MODELS[id], lint = lintModel(id, m), p = def(id);
-  let data, threw = null; try { data = m.simulate({ ...p }, env('v-' + id)); } catch (e) { threw = e; }
+  let data, threw = null; try { data = m.simulate({ ...p }, env('v-' + id, p)); } catch (e) { threw = e; }
   const specs = m.lenses ? Object.values(m.lenses) : [m];   // a lens model carries its views per lens
   const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
   const nv = specs.reduce((a, s) => a + ((s.views && s.views.length) || 0), 0);
   const ran = !threw && !!data && typeof data === 'object';
-  let same = false; if (ran) { try { same = digest(m.simulate({ ...p }, env('det-' + id))) === digest(m.simulate({ ...p }, env('det-' + id))); } catch (e) { same = false; } }
+  let same = false; if (ran) { try { same = digest(m.simulate({ ...p }, env('det-' + id, p))) === digest(m.simulate({ ...p }, env('det-' + id, p))); } catch (e) { same = false; } }
   console.log(`  ${label(m)}schema [${ok(lint.length === 0)}]  simulate=${threw ? '\x1b[31mthrew\x1b[0m' : 'ok'}  views=${nv}${m.lenses ? ` (${specs.length} lenses)` : ''}  [${ok(ran && viewsOk)}]  deterministic [${ok(ran && same)}]`);
   lint.forEach(l => console.log('    schema: ' + l));
   if (threw) console.log('    ' + threw.message);
@@ -261,7 +272,7 @@ for (const id of ORDER) {
 console.log('\n--- view render at defaults (draws · finite axes · colorbar on heatmaps · not empty) ---');
 for (const id of usable) {
   const m = SIM.MODELS[id], p = def(id);
-  let data; try { data = m.simulate({ ...p }, env('r-' + id)); } catch (e) { continue; }   // simulate-throw already reported above
+  let data; try { data = m.simulate({ ...p }, env('r-' + id, p)); } catch (e) { continue; }   // simulate-throw already reported above
   const r = renderModel(m, p, data, { nonEmpty: true });
   console.log(`  ${label(m)}[${ok(r.good)}]  ${r.draws} draws${r.text}`);
   r.threw.forEach(f => console.log('    ' + f.tag + ': ' + f.msg));
@@ -278,7 +289,7 @@ for (const id of usable) {
   for (const s of (m.params || [])) for (const v of extremesOf(s)) {
     const p = { ...base, [s.name]: v };
     try {
-      const d = m.simulate({ ...p }, env('p-' + id + '-' + s.name + v));
+      const d = m.simulate({ ...p }, env('p-' + id + '-' + s.name + v, p));
       if (!d || typeof d !== 'object') { bad.push(`${s.name}=${v}(no data)`); continue; }
       if (!allFinite(d)) bad.push(`${s.name}=${v}(non-finite data)`);
       const r = renderModel(m, p, d); draws += r.draws; if (!r.good) bad.push(`${s.name}=${v}(views:${r.text.replace(/\s+/g, ' ')}${r.threw.length ? ' — ' + r.threw[0].msg : ''})`);
@@ -297,8 +308,8 @@ const rel = (a, b) => Math.abs(a - b) / Math.max(1e-300, Math.abs(b));
 let nAsserts = 0;   // t.ok calls so far — a check that asserts nothing does not count as a check
 const toolkit = {
   SIM, Plot, L: MSLIB, env, def, rel,
-  has: id => !!SIM.MODELS[id],
-  sim: (id, over, seed) => SIM.MODELS[id].simulate({ ...def(id), ...(over || {}) }, env(seed)),
+  has: id => !!SIM.MODELS[id] && !(SHADOWED[checkScript] || []).includes(id),   // false when the model under that id is not the one the running check's script registered
+  sim: (id, over, seed) => { const p = { ...def(id), ...(over || {}) }; return SIM.MODELS[id].simulate({ ...p }, env(seed, p)); },
   ok: (cond, text) => { nAsserts++; console.log(`    ${text}   [${ok(!!cond)}]`); },
   info: text => console.log(`    ${text}`),
 };
@@ -321,7 +332,7 @@ const CORE_CHECKS = t => {
 /* Per-model checks live next to the script that registers the model: for every `X.js` that
    index.html loads, `X.checks.mjs` is imported when it exists. Its default export is a table
    keyed by model id (see examples.checks.mjs for the worked examples, engine.checks.mjs for yours). */
-const MODEL_CHECKS = {}, CHECK_FILES = [];
+const MODEL_CHECKS = {}, CHECK_SRC = {}, CHECK_FILES = []; let checkScript = null;
 for (const s of scripts) {
   if (isRemote(s) || !/\.js$/i.test(s)) continue;
   const file = s.replace(/\.js$/i, '.checks.mjs'), url = new URL(file, HERE);
@@ -329,9 +340,13 @@ for (const s of scripts) {
   let table; try { table = (await import(url.href)).default; } catch (e) { fatal(`${file} failed to load: ${e.message}`); }
   if (!table || typeof table !== 'object') fatal(`${file} must export default { modelId(t) { ... } }`);
   const ids = Object.keys(table).filter(id => typeof table[id] === 'function');
-  for (const id of ids) { if (MODEL_CHECKS[id]) warn(`${file}: a check for '${id}' is already defined by an earlier checks file — keeping the first`); else MODEL_CHECKS[id] = table[id]; }
+  for (const id of ids) {
+    if ((SHADOWED[s] || []).includes(id)) continue;   // this file's model of that id is hidden (warned below): its check is not for the model that runs
+    if (MODEL_CHECKS[id]) warn(`${file}: a check for '${id}' is already defined by an earlier checks file — keeping the first`); else { MODEL_CHECKS[id] = table[id]; CHECK_SRC[id] = s; } }
   CHECK_FILES.push(`${file} (${ids.length})`);
 }
+for (const [s, ids] of Object.entries(SHADOWED)) for (const id of ids)
+  warn(`model '${id}' from ${OWNER[id] || 'an earlier script'} hides the ${s} model with the same id: that model's tab and its analytic check are skipped — rename yours to keep both`);
 
 /* modules/mslib.js building blocks, keyed by family. g = N(0,1), U = uniform [0,1), both seeded. */
 const LIBRARY_CHECKS = t => {
@@ -441,6 +456,29 @@ const LIBRARY_CHECKS = t => {
     t.ok(ef < 1e-5, `wm: fisherInfo = κ·I1(κ)/I0(κ) (max rel err ${ef.toExponential(1)})`);
     t.ok(Math.abs(L.wm.precisionFromSetsize(4, { P1: 2, k: 0.5 }) - 1) < 1e-12, 'wm: precisionFromSetsize = P1·N^(−k)'); }
   { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
+  // Exports that the checks above reach only through another function (or not at all): each called directly.
+  { const gp = L.bayes.gaussPosterior(1, 1, 0, 1); t.ok(Math.abs(gp.mu - 0.5) < 1e-12 && Math.abs(gp.sigma - Math.SQRT1_2) < 1e-12, 'bayes: gaussPosterior(m=1, σm=1, μ0=0, σ0=1) = N(0.5, 1/2)');
+    const xs = L.bayes.linspace(-4, 4, 161), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) ** 2), post = L.bayes.gridPost(Array.from(xs, x => npd(x, 1, 1)), Array.from(xs, x => npd(x, 0, 1)));
+    t.ok(Math.abs(post.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(L.bayes.gridMean(post, xs) - 0.5) < 1e-5 && Math.abs(L.bayes.gridMode(post, xs) - 0.5) < 1e-9, 'bayes: gridPost normalises like·prior; gridMean and gridMode of that Gaussian posterior = 0.5'); }
+  { const p = L.rl.softmax([1, 2, 3], 2), u = L.rl.softmax([1, 2, 3], 0);
+    t.ok(Math.abs(p.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(p[1] / p[0] - Math.exp(2)) < 1e-9 && u.every(v => Math.abs(v - 1 / 3) < 1e-12) && L.rl.softmax([1000, 0], 1)[0] === 1, 'rl: softmax sums to 1, odds = e^{β·Δv}, β=0 is uniform, no overflow at large values'); }
+  { const xs = L.bayes.linspace(-4, 4, 241), F = L.efficient.cdf(xs, Array.from(xs, x => Math.exp(-0.5 * x * x)));
+    t.ok(Math.abs(L.efficient.interp(0.25, [0, 1], [0, 10]) - 2.5) < 1e-12 && Math.abs(L.efficient.inv(L.efficient.encode(1.2, xs, F), xs, F) - 1.2) < 1e-3, 'efficient: interp is linear; inv undoes encode (F⁻¹(F(θ)) = θ)');
+    t.ok(Math.abs(L.efficient.measure(1, 0.1, xs, F, () => 1) - (L.efficient.encode(1, xs, F) + 0.1)) < 1e-12, 'efficient: measure = F(θ) + σ·noise'); }
+  { const [xv, xa, sv, sa, sp, pc] = [2, -1, 1, 2, 10, 0.4], e = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc), pC = L.causal.ciPosteriorCommon(xv, xa, sv, sa, sp, pc), sF = L.causal.ciFusedEstimate(xv, xa, sv, sa, sp);
+    const sV = (xv / sv ** 2) / (1 / sv ** 2 + 1 / sp ** 2), sel = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc, { strategy: 'select' });
+    t.ok(Math.abs(e.pCommon - pC) < 1e-12 && Math.abs(e.sSegV - sV) < 1e-12 && Math.abs(e.sHatV - (pC * sF + (1 - pC) * sV)) < 1e-12 && sel.sHatV === (pC > 0.5 ? sF : e.sSegV), 'causal: ciEstimate averages fused and segregated estimates by p(C=1) (select picks one)'); }
+  { const w = L.wm.wrap; t.ok(Math.abs(w(3 * Math.PI / 2) + Math.PI / 2) < 1e-12 && Math.abs(w(-3 * Math.PI / 2) - Math.PI / 2) < 1e-12 && Math.abs(w(0.3) - 0.3) < 1e-15, 'wm: wrap maps angles into (−π, π]');
+    let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.vmPdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, 0.7, 6) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-6 && L.wm.vmPdf(0.7, 0.7, 6) > L.wm.vmPdf(2, 0.7, 6), `wm: vmPdf integrates to 1 and peaks at μ (${z.toFixed(8)})`); }
+  { const pat = [1, -1, 1, 1, -1, -1, 1, -1], W = L.network.hopfieldStore([pat], 8), s = Int8Array.from(pat); s[0] = -s[0]; s[3] = -s[3];
+    const E0 = L.network.hopfieldEnergy(W, s, 8); L.network.hopfieldStep(W, s, 8); const E1 = L.network.hopfieldEnergy(W, s, 8);
+    t.ok(E1 <= E0 && Math.abs(E1 - L.network.hopfieldEnergy(W, Int8Array.from(pat), 8)) < 1e-12, `network: hopfieldEnergy falls under an async sweep to the stored pattern's energy (${E0.toFixed(3)} → ${E1.toFixed(3)})`);
+    const N = 12, r = L.network.ringStep(new Float64Array(N).fill(0.2), new Float64Array(N * N), null, 0.5, 1, 1, 0, 0, () => 0);
+    t.ok(r.every(v => Math.abs(v - (0.2 + 0.5 * (0.5 - 0.2))) < 1e-12), 'network: ringStep is one Euler step of τ dr/dt = −r + f(·) (no input: f = 1/2)');
+    const one = new Float64Array(8); one[3] = 2.5; const pv = L.network.popVector(one, 8), flat = L.network.popVector(new Float64Array(8).fill(1), 8);
+    t.ok(Math.abs(pv.angle - 2 * Math.PI * 3 / 8) < 1e-12 && Math.abs(pv.length - 1) < 1e-12 && flat.length < 1e-12, 'network: popVector decodes a one-unit bump at its angle (length 1 whatever its rate), a flat profile has length 0'); }
+  { const p = { wEE: 12, wEI: 10, wIE: 10, wII: 2, P: 1, Q: 0, theta: 4, k: 1, tauE: 1, tauI: 2 }, S = x => 1 / (1 + Math.exp(-(x - p.theta) / p.k)), s0 = { E: 0.3, I: 0.2 }, dt = 0.01, o = L.osc.wilsonCowanStep(s0, p, dt);
+    t.ok(Math.abs(o.E - (0.3 + dt * (-0.3 + S(12 * 0.3 - 10 * 0.2 + 1)) / 1)) < 1e-12 && Math.abs(o.I - (0.2 + dt * (-0.2 + S(10 * 0.3 - 2 * 0.2 + 0)) / 2)) < 1e-12, 'osc: wilsonCowanStep is one Euler step of the Wilson–Cowan equations'); }
 };
 
 const guarded = (label, fn) => { try { fn(toolkit); } catch (e) { console.log(`    ${label} check threw: ${e.message}   [${ok(false)}]`); } };
@@ -448,7 +486,7 @@ console.log('\n--- engine + plot helpers ---');
 guarded('core', CORE_CHECKS);
 console.log(`\n--- analytic checks (tied to each model's science) — from ${CHECK_FILES.join(', ') || 'no checks file'} ---`);
 const asserted = new Set();
-for (const id of usable) { if (!MODEL_CHECKS[id]) continue; console.log(`  ${id}`); const n0 = nAsserts; guarded(id, MODEL_CHECKS[id]); if (nAsserts > n0) asserted.add(id); }
+for (const id of usable) { if (!MODEL_CHECKS[id]) continue; console.log(`  ${id}`); const n0 = nAsserts; checkScript = CHECK_SRC[id]; guarded(id, MODEL_CHECKS[id]); checkScript = null; if (nAsserts > n0) asserted.add(id); }
 // Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic passes
 // above only prove it ran and drew). A model without one is a counted warning, not a failure — a
 // vacuous check written to silence the gate would be worse than none (see gui-qc.md §1).
@@ -475,7 +513,8 @@ if (ARGV.includes('--snapshot') || ARGV.includes('--against')) {
       for (const [id, r] of Object.entries(ref.models || {})) { const now = snap.models[id]; if (!now) { diffs.push(`${id}: model missing`); continue; }
         if (r.params.join(';') !== now.params.join(';')) diffs.push(`${id}: parameter schema changed`);
         for (const [k, v] of Object.entries(r.simulate)) if (now.simulate[k] !== v) diffs.push(`${id}: simulate(${k}) ${v} → ${now.simulate[k]}`); }
-      console.log(`  ${Object.keys(ref.models || {}).length} model(s) match ${file}   [${ok(diffs.length === 0)}]`); diffs.slice(0, 20).forEach(d => console.log('    ' + d)); }
+      const n = Object.keys(ref.models || {}).length, nDiff = new Set(diffs.map(d => d.split(':')[0])).size;
+      console.log(`  ${nDiff === 0 ? `${n} model(s) match ${file}` : `${nDiff} of ${n} model(s) differ from ${file}`}   [${ok(diffs.length === 0)}]`); diffs.slice(0, 20).forEach(d => console.log('    ' + d)); if (diffs.length > 20) console.log(`    … and ${diffs.length - 20} more`); }
   }
   if (ARGV.includes('--snapshot')) { const file = optOf('--snapshot'); if (!file) console.log(`  --snapshot needs a file name   [${ok(false)}]`); else { fs.writeFileSync(file, JSON.stringify(snap, null, 1) + '\n'); console.log(`  wrote ${file}: ${Object.keys(snap.models).length} model(s), ${Object.values(snap.models).reduce((a, m) => a + Object.keys(m.simulate).length, 0)} simulate digests`); } }
 }

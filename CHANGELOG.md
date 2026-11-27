@@ -18,17 +18,20 @@ golden baseline (`tests/baseline/v1.21.1.json`, captured from v1.21.1) passes on
 - Schema lint for every model; same seed gives the same result; every view drawn at the start,
   middle and end of its playhead, at defaults and at every control's min and max; a view must draw
   data, not only axes.
-- Analytic checks keyed by model id in `<script>.checks.mjs` files, skipped for absent models. The
+- Analytic checks keyed by model id in `<script>.checks.mjs` files, skipped for absent models. A
+  model of yours with an example's id hides that example: the gate warns and does not run the
+  example's check against your model. `simulate(p, env)` gets `env.params` in the gate as on the page. The
   examples gained checks against independent references (drift-diffusion error rate and decision
   time against the closed forms with the continuity correction, the Bayes filter against an
   independent recursion, and others). A model with no check is still a counted warning.
 - The page itself: missing scripts, external hosts or network APIs fail; the bundle is checked when
   `bundle.mjs` is present.
 - `--snapshot f.json` / `--against f.json`: an opt-in regression lock for a researcher's own models.
-- Seeded-error probe: the gate alone now catches 49 of 52 (before: 7 of 46).
-- Every exported `MSLIB` block has at least one closed-form check, including the ones no shipped
+- Seeded-error probe: the gate alone now catches 51 of 54 (before: 7 of 46).
+- Every exported `MSLIB` function is called directly by at least one closed-form check, including the ones no shipped
   example uses (Kalman update, Izhikevich step, `qUpdate`, `choose`, `besselI1`, `fisherInfo`,
-  central tendency, the efficient-coding bias curve, the number-game helpers, and others).
+  central tendency, the efficient-coding bias curve, the number-game helpers, `rl.softmax`,
+  `popVector`, `ringStep`, `wilsonCowanStep`, `ciEstimate`, and others).
 
 ### Template
 
