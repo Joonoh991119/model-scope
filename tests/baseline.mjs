@@ -1,0 +1,59 @@
+// Golden baseline of the 21 shipped example models: the regression lock that proves a refactor left
+// their behaviour alone (same parameter ids, ranges and defaults; numerically equivalent simulate();
+// the same drawing).
+//
+//   node tests/baseline.mjs --check                 compare the working tree with tests/baseline/v1.21.1.json
+//   node tests/baseline.mjs --check --no-draw       ... schema and simulate() only (use while a view is being changed)
+//   node tests/baseline.mjs --write-draw            re-record ONLY the draw section, and only if schema + simulate still match
+//   node tests/baseline.mjs --list                  print the default-case digests stored in the reference
+//   --template <dir>                                check another copy of the template (default: the shipped one)
+//   --ref <file>                                    another reference file
+//   --capture <file>                                write a complete new reference (refuses to overwrite). The shipped
+//                                                   reference was captured ONCE, from `git archive 4517c70`, never from a working tree.
+import fs from 'node:fs';
+import path from 'node:path';
+import { loadTemplate, capture, compare, countCases, args, DEFAULT_TEMPLATE, SEED, CANVAS } from './lib/harness.mjs';
+
+const A = args();
+const REF = path.resolve(A.opt('--ref') || new URL('./baseline/v1.21.1.json', import.meta.url).pathname);
+const T = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE);
+const write = o => JSON.stringify(o, null, 1) + '\n';
+
+if (A.flag('--list')) {
+  const ref = JSON.parse(fs.readFileSync(REF, 'utf8'));
+  console.log(ref.order.map(id => `${id}=${ref.simulate[id].default}`).join(' '));
+  process.exit(0);
+}
+
+const out = capture(loadTemplate(T), { draw: !A.flag('--no-draw') });
+
+if (A.opt('--capture')) {
+  const file = path.resolve(A.opt('--capture'));
+  if (fs.existsSync(file)) { console.error(`refusing to overwrite ${file}`); process.exit(2); }
+  const src = A.opt('--source') || 'unspecified';
+  fs.writeFileSync(file, write({ format: 1, source: src, captured_with: 'node ' + process.version, seed: SEED, canvas: CANVAS, ...out }));
+  console.log(`wrote ${file}: ${out.order.length} models, ${countCases(out, 'simulate')} simulate cases, ${countCases(out, 'draw')} view draws`);
+  process.exit(0);
+}
+
+const ref = JSON.parse(fs.readFileSync(REF, 'utf8'));
+
+if (A.flag('--write-draw')) {
+  const locked = compare(ref, out, { draw: false });
+  if (locked.length) { console.error(`refusing to re-record the draw section: schema or simulate() differ from the baseline (${locked.length})\n  ` + locked.slice(0, 12).join('\n  ')); process.exit(1); }
+  const before = compare(ref, out, { draw: true });
+  const draw = {}; for (const id of ref.order) draw[id] = out.draw[id];
+  fs.writeFileSync(REF, write({ ...ref, draw }));
+  console.log(`re-recorded the draw section of ${path.relative(process.cwd(), REF)}: ${before.length} view draw(s) changed`);
+  for (const d of before.slice(0, 40)) console.log('  ' + d);
+  if (before.length > 40) console.log(`  ... and ${before.length - 40} more`);
+  process.exit(0);
+}
+
+// default: --check
+const diffs = compare(ref, out, { draw: !A.flag('--no-draw') });
+if (diffs.length) {
+  console.log(`BASELINE MISMATCH (${diffs.length})\n  ` + diffs.slice(0, 20).join('\n  ') + (diffs.length > 20 ? `\n  ... and ${diffs.length - 20} more` : ''));
+  process.exit(1);
+}
+console.log(`baseline OK: ${ref.order.length} models identical to ${path.basename(REF)} (parameter schema, ${countCases(ref, 'simulate')} simulate cases at defaults and extremes${A.flag('--no-draw') ? '' : `, ${countCases(ref, 'draw')} view draw streams`})`);
