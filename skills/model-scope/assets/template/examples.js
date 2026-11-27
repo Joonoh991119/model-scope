@@ -14,7 +14,7 @@
 (function (global) {
   'use strict';
   const SIM = global.SIM, { makeRNG, gaussian, trialRng, npdf } = SIM;
-  const TH = ()=> (global.Plot ? global.Plot.TH : {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',warn:'#b07d2a',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91',grid:'#e7e3d8',edge:'#d6d2c5'});
+  const TH = ()=> global.Plot.TH;                    // the one palette lives in plot.js
   const HIST = (v,b,lo,hi,q)=> global.Plot.histify(v,b,lo,hi,q);
 
   // regenerate one drift-diffusion trial's path (for the animated "this trial" view)
@@ -434,7 +434,7 @@
           g.marker(d.T+d.Ter, Math.max(0.5,Math.min(1,d.accS)), {color:T.neg,stroke:'#fff',r:5,label:'1-sample'});
           g.legend([{label:'DDM (sweep bound z)',color:T.accent},{label:'1-sample (sweep T)',color:T.neg}],{corner:'br'}); }},
         { title:'metric over (drift, noise) — heatmap', draw:(g,d)=>{ const T=TH();
-          const cmap=v=>{ const t=Math.max(0,Math.min(1,(v-d.gmin)/((d.gmax-d.gmin)||1))); return [Math.round(246-150*t), Math.round(241-78*t), Math.round(228-92*t)]; };
+          const cmap=v=>Plot.RAMPS.green((v-d.gmin)/((d.gmax-d.gmin)||1));
           g.frame({cbar:true, x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM, ':'1-sample, ')+d.metricName+' over (A × c)'});
           g.heat(d.NX, d.NY, (i,j)=>d.grid[j*d.NX+i], cmap);
           const fmt=v=>d.metric===0?v.toFixed(2):v.toFixed(2); g.colorbar(d.gmin, d.gmax, cmap, {ticks:[{v:d.gmin,label:fmt(d.gmin)},{v:(d.gmin+d.gmax)/2,label:fmt((d.gmin+d.gmax)/2)},{v:d.gmax,label:fmt(d.gmax)}], label:d.metricName});
@@ -682,7 +682,7 @@
           }} ] },
         landscape:{ label:'Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
           views:[ { title:'state-space flow (dark = attractor) + this trajectory', draw:(g,d)=>{ const T=TH();
-            const cmap=v=>{ const tt=Math.max(0,Math.min(1,v/(d.fmax||1))); return [Math.round(40+205*tt), Math.round(38+198*tt), Math.round(72+165*tt)]; };
+            const cmap=v=>Plot.RAMPS.night(v/(d.fmax||1));
             g.frame({cbar:true, x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
             g.heat(d.NG, d.NG, (i,j)=>d.flow[j*d.NG+i], cmap);
             g.line([[0,0],[1,1]],{color:'rgba(255,255,255,.35)',dash:[3,3]});
@@ -720,7 +720,7 @@
       lenses:{
         spread:{ label:'Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
           views:[ { title:'infected fraction over space (x) and time', draw:(g,d)=>{ const T=TH();
-            const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.iMax||1))); return [Math.round(245-20*t), Math.round(245-205*t), Math.round(232-150*t)]; }; // cream→deep red
+            const cmap=v=>Plot.RAMPS.red(v/(d.iMax||1)); // cream→deep red
             g.frame({cbar:true, x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
             g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap, {smooth:false});
             g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
@@ -733,7 +733,7 @@
           views:[ { title:'epidemic threshold: peak infected vs R₀', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.05,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[0,4], y:[0,ymax], xlabel:'basic reproduction number R₀', ylabel:'peak infected fraction', title:'no outbreak below R₀ = 1; epidemic above'});
             g.vline(1,{color:'#7a5a93',dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
-            g.marker(d.R0, (function(){ let best=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.R0)<Math.abs(best[0]-d.R0)) best=q; return best[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.R0, Plot.nearestY(d.sweep, d.R0), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -767,7 +767,7 @@
       lenses:{
         structure:{ label:'Structure', about:'the symmetric weight matrix W = Σ ξξᵀ — the stored memories ARE the connectivity',
           views:[ { title:'weight matrix W (Hebbian): the memories live in the connections', draw:(g,d)=>{ const N=d.N;
-            const cmapW=v=>{ const t=Math.max(-1,Math.min(1,v/(d.Wmax||1))); if(t>=0) return [Math.round(245-(245-194)*t),Math.round(243-(243-91)*t),Math.round(238-(238-66)*t)]; const u=-t; return [Math.round(245-(245-74)*u),Math.round(243-(243-122)*u),Math.round(238-(238-147)*u)]; };
+            const cmapW=v=>Plot.RAMPS.signed(v/(d.Wmax||1));
             g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'unit j', ylabel:'unit i', title:`W = (1/N) Σ ξ ξᵀ over ${d.nStore} stored pattern(s) — symmetric, zero diagonal`});
             g.heat(N,N,(i,j)=>d.W[j*N+i], cmapW, {smooth:false});
             g.colorbar(-d.Wmax, d.Wmax, cmapW, {ticks:[{v:-d.Wmax,label:'−'},{v:0,label:'0'},{v:d.Wmax,label:'+'}], label:'weight'});
@@ -798,7 +798,7 @@
           views:[ { title:'recall accuracy vs load (capacity ≈ 0.14·N)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0, d.sweep[d.sweep.length-1][0]*1.02], y:[0,1.05], xlabel:'memory load (patterns / N)', ylabel:'recall accuracy', title:'reliable recall up to ≈ 0.14·N, then it breaks down'});
             g.hline(1,{color:T.faint,dash:[4,3]}); g.vline(d.cap,{color:'#7a5a93',dash:[5,4],label:'≈0.14·N'}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.load, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.load)<Math.abs(b[0]-d.load)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.load, Plot.nearestY(d.sweep, d.load), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -852,7 +852,7 @@
           views:[ { title:'synchronization transition: r vs coupling K', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0,8], y:[0,1.05], xlabel:'coupling K', ylabel:'steady-state synchrony r', title:'incoherent (r≈0) below K_c, synchronised (r→1) above'});
             g.vline(d.Kc,{color:'#7a5a93',dash:[5,4],label:'K_c ≈ '+d.Kc.toFixed(2)}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.K, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.K)<Math.abs(b[0]-d.K)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.K, Plot.nearestY(d.sweep, d.K), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -898,7 +898,7 @@
           anim:{ length:(p,d)=>d.nF-1 },
           views:[
             { title:'belief over states across time (brighter = more probable)', draw:(g,d,ui)=>{ const T=TH(), S=d.S, k=Math.min(d.nF-1,Math.floor(ui.head));
-              const cmap=v=>{ const t=Math.max(0,Math.min(1,v/(d.bmax||1))); return [Math.round(247-(247-74)*t), Math.round(245-(245-122)*t), Math.round(240-(240-147)*t)]; };
+              const cmap=v=>Plot.RAMPS.blue(v/(d.bmax||1));
               g.frame({cbar:true, x:[0,S], y:[0,d.Tn], xlabel:'state (location)', ylabel:'time step', title:'the belief trajectory; the line is the true hidden state'});
               g.heat(S, d.nF, (i,j)=>d.beliefs[j][i], cmap, {smooth:false});
               const path=[]; for(let t=0;t<d.trueX.length;t++){ if(t>0 && Math.abs(d.trueX[t]-d.trueX[t-1])>S/2) path.push([NaN,NaN]); path.push([d.trueX[t]+0.5, t]); } g.line(path,{color:'rgba(255,255,255,.9)',width:1.8});
@@ -915,7 +915,7 @@
           views:[ { title:'tracking error grows with observation noise', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.5,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[d.sweep[0][0], d.sweep[d.sweep.length-1][0]], y:[0,ymax], xlabel:'observation noise σ', ylabel:'tracking error (states)', title:'noisier observations → blurrier belief → larger tracking error'});
             g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
-            g.marker(d.obsNoise, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.obsNoise)<Math.abs(b[0]-d.obsNoise)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.obsNoise, Plot.nearestY(d.sweep, d.obsNoise), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -962,7 +962,7 @@
               g.band(pts,{color:'rgba(74,122,147,.18)'}); g.line(pts,{color:T.accent,width:2.2});
               g.vline(d.cue,{color:T.dim,dash:[4,3],label:'cued'}); if(d.conf[k]>0.15) g.vline(((d.dec[k]%360)+360)%360,{color:T.pos,label:'decoded'}); }},
             { title:'the bump over time (a space-time kymograph)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), N=d.N;
-              const cmap=v=>{ const t=Math.max(0,Math.min(1,v)); return [Math.round(247-(247-74)*t), Math.round(245-(245-122)*t), Math.round(240-(240-147)*t)]; };
+              const cmap=v=>Plot.RAMPS.blue(v);
               g.frame({cbar:true, x:[0,360], y:[0, d.times[d.nF-1]||1], xlabel:'location (°)', ylabel:'time (s)', title:'a sustained stripe = a stable memory of the cued location'});
               g.heat(N, d.nF, (i,j)=>d.snaps[j][i], cmap, {smooth:false}); g.hline(d.offTime,{color:T.neg,dash:[4,3],label:'cue off'}); g.hline(d.times[k],{color:T.ink,dash:[2,3]}); g.colorbar(0,1,cmap,{label:'activity'}); }},
           ] },
@@ -977,7 +977,7 @@
           views:[ { title:'bump width vs inhibition (the E/I balance)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.4,2.5], y:[0,1.05], xlabel:'inhibition J_I', ylabel:'fraction of ring active', title:'too little inhibition floods the ring; more sharpens, then kills, the bump'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.JI, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.JI)<Math.abs(b[0]-d.JI)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.JI, Plot.nearestY(d.sweep, d.JI), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1042,7 +1042,7 @@
           views:[ { title:'edge enhancement vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;
             g.frame({x:[0,1.4], y:[0,ymax], xlabel:'horizontal-cell surround strength', ylabel:'output contrast (RMS)', title:'a stronger surround removes flat regions and sharpens edges (band-pass)'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.surround, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.surround)<Math.abs(b[0]-d.surround)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.surround, Plot.nearestY(d.sweep, d.surround), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1095,7 +1095,7 @@
           views:[ { title:'confounding inflates the observed effect (observed − causal)', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.1,...d.sweep.map(q=>q[1]))*1.15;
             g.frame({x:[0,1.5], y:[Math.min(0,...d.sweep.map(q=>q[1]))-0.05, ymax], xlabel:'confounding strength', ylabel:'observed slope − causal effect', title:'with no confounding the observed effect equals the causal effect; it inflates as U strengthens'});
             g.hline(0,{color:T.faint,dash:[4,3]}); g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
-            g.marker(d.conf, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.conf)<Math.abs(b[0]-d.conf)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.conf, Plot.nearestY(d.sweep, d.conf), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1124,8 +1124,8 @@
         structure:{ label:'Structure', about:'the attention matrix — which token (row) attends to which (col)',
           views:[ { title:'attention matrix: query i (row) attends to key j (column)', draw:(g,d)=>{ const T=TH(), N=d.N, amax=Math.max(...d.attn.flat());
             g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'dark cells = strong attention; same-type / nearby tokens form blocks'});
-            g.heat(N, N, (i,j)=>d.attn[N-1-j][i], v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {smooth:false});
-            g.colorbar(0, amax, v=>{ const t=Math.max(0,Math.min(1,v/amax)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {label:'attention'});
+            g.heat(N, N, (i,j)=>d.attn[N-1-j][i], v=>Plot.RAMPS.blue(v/amax), {smooth:false});
+            g.colorbar(0, amax, v=>Plot.RAMPS.blue(v/amax), {label:'attention'});
           }} ] },
         mix:{ label:'Mix', about:'how one token’s output is the attention-weighted mix of the values',
           views:[
@@ -1141,7 +1141,7 @@
           views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard attention; high = uniform averaging'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.temp, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.temp)<Math.abs(b[0]-d.temp)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1208,7 +1208,7 @@
           views:[ { title:'caution vs the tiger penalty', draw:(g,d)=>{ const T=TH();
             g.frame({x:[20,200], y:[0,1.0], xlabel:'tiger penalty', ylabel:'fraction of beliefs where you listen', title:'a bigger penalty → demand more confidence before opening → listen more'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            const pen=-d.rTiger; g.marker(pen, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-pen)<Math.abs(b[0]-pen)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            const pen=-d.rTiger; g.marker(pen, Plot.nearestY(d.sweep, pen), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1263,7 +1263,7 @@
           views:[ { title:'the bifurcation: oscillation amplitude vs drive', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0,3], y:[0, d.ampMax*1.12], xlabel:'excitatory drive P', ylabel:'oscillation amplitude (E)', title:'flat (a steady state) below the critical drive; a limit cycle grows above it'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.P, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.P)<Math.abs(b[0]-d.P)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.P, Plot.nearestY(d.sweep, d.P), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1293,7 +1293,7 @@
             ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('multi-head attention runs these in parallel, then combines them', W/2, 20*F);
             const pw=Math.min(150*F,(W-40*F)/nh-12*F), gap=(W-40*F-nh*pw)/Math.max(1,nh-1), y0=44*F, x0=20*F;
             for(let h=0;h<nh;h++){ const x=x0+h*(pw+gap), M=d.heads[h]; let mx=1e-9; for(const row of M) for(const vv of row) if(vv>mx)mx=vv;
-              g.image(N,N,(i,j)=>M[N-1-j][i], v=>{ const t=Math.max(0,Math.min(1,v/mx)); return [Math.round(247-(247-74)*t),Math.round(245-(245-122)*t),Math.round(240-(240-147)*t)]; }, {x,y:y0,w:pw,h:pw,smooth:false});
+              g.image(N,N,(i,j)=>M[N-1-j][i], v=>Plot.RAMPS.blue(v/mx), {x,y:y0,w:pw,h:pw,smooth:false});
               ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x,y0,pw,pw); ctx.fillStyle=T.ink; ctx.font=(11*F)+'px sans-serif'; ctx.textAlign='center'; ctx.fillText('head '+(h+1)+': '+d.HEADNAME[h], x+pw/2, y0+pw+15*F); }
             ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('Different heads capture different relations — content, order, locality — and combine into one representation.', W/2, y0+pw+42*F);
           }} ] },
@@ -1307,7 +1307,7 @@
           views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'mean attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard heads; high = uniform averaging'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.temp, (function(){ let b=d.sweep[0]; for(const q of d.sweep) if(Math.abs(q[0]-d.temp)<Math.abs(b[0]-d.temp)) b=q; return b[1]; })(), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
     },
   };
