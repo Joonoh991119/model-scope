@@ -76,6 +76,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .views::-webkit-scrollbar{width:9px}.views::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
 .empty{grid-column:1/-1; align-self:start; max-width:560px; margin:24px auto; padding:18px 20px; border:1px dashed var(--edge-2); border-radius:10px; background:var(--surface); color:var(--ink-dim); font-size:13px; line-height:1.6} .empty b{color:var(--ink)} .empty code{font-family:var(--mono); font-size:12px; color:var(--ink)}
 .plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:258px} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+/* pin and compare: each card holds the live view and, beside it, the same view of the pinned result */
+.views.pinned{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
+.plot.pinned{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.plot .pane{position:relative; min-width:0; min-height:0} .plot .pane.ref{border-left:1px dashed var(--edge-2)}
+.reftag{position:absolute; top:6px; right:8px; z-index:1; font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge); border-radius:4px; padding:0 5px; pointer-events:none}
+.pinline{margin:0; padding:9px 18px 0; font-family:var(--mono); font-size:11.5px; color:var(--ink); line-height:1.45; overflow-wrap:anywhere}
+.btn:disabled{opacity:.55; cursor:default}
 #loading{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:13px; background:rgba(244,243,238,.86); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); z-index:20}
 #loading.on{display:flex}
 #loading .ttl{font-family:var(--mono); font-size:12px; color:var(--ink-dim)}
@@ -94,6 +101,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   .tread{min-width:0; text-align:left; white-space:normal; flex:1 1 100%; order:9} .spd input{width:72px}
   .tip{padding:9px 16px 0}
   .views{overflow:visible; padding:12px 16px 16px; grid-template-columns:minmax(0,1fr); grid-auto-rows:280px}
+  .pinline{padding:9px 16px 0}
+  .views.pinned{grid-template-columns:minmax(0,1fr); grid-auto-rows:520px}
+  .plot.pinned{grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,1fr)} .plot .pane.ref{border-left:0; border-top:1px dashed var(--edge-2)}
 }
 @media (prefers-reduced-motion:reduce){ *{transition:none !important} }
 </style>
@@ -113,7 +123,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <div class="actions">
           <button class="btn primary" id="runBtn" type="button"><span aria-hidden="true">↻</span> Re-simulate</button>
           <button class="btn" id="resetBtn" type="button">Reset</button>
-          <button class="btn" id="linkBtn" type="button">Copy link</button>
+          <button class="btn" id="pinBtn" type="button" title="Keep this result as a reference beside every view">Pin</button>
+          <button class="btn" id="linkBtn" type="button" style="grid-column:1/-1">Copy link</button>
         </div>
         <input class="linkout" id="linkOut" type="text" readonly hidden aria-label="Link to this model, lens, seed and parameters"/>
         <div class="field">
@@ -142,6 +153,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         </div>
       </div>
       <p class="tip" id="tip"></p>
+      <p class="pinline" id="pinLine" hidden></p>
       <div class="views" id="views"></div>
       <div id="loading"><div class="ttl">computing…</div><div class="barwrap"><div class="bar" id="loadingBar"></div></div><div class="sub" id="loadingSub"></div></div>
       <div class="sr" id="live" aria-live="polite"></div>
@@ -165,7 +177,8 @@ let reduceMotion = !!(mqReduce && mqReduce.matches);
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:DEFAULT_SEED, data:null, simError:null, model:null,
   mem:{}, lensMem:{},                       // per-model parameters and lens, remembered while the page is open
   views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
-  stageMode:false, stageList:null, lens:null, lensKeys:null, loading:false };
+  stageMode:false, stageList:null, lens:null, lensKeys:null, loading:false,
+  pins:{}, ref:null, refCanvases:[], refDrawn:false };    // pins[modelId] = {params, seed, data}: a result kept as a reference (per model, while the page is open)
 // a model may declare lenses:{angleA,angleB,…} — several ANGLES over the SAME simulate() data.
 // activeSpec() is the object that supplies views/anim/stages right now: the active lens, or the model itself.
 function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
@@ -251,10 +264,29 @@ function setModel(id, lens){ S.suppress=true; S.modelId=id; const m=SIM.MODELS[i
   const box=$('#paramFields'); box.innerHTML=''; (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
   S.suppress=false; recompute(); }
 function onChange(){ if(!S.suppress) schedule(); }
-function buildCards(){ const vc=$('#views'); vc.innerHTML='';
-  S.canvases=S.views.map(v=>{ const d=document.createElement('div'); d.className='plot'; const cv=document.createElement('canvas');
-    cv.setAttribute('role','img'); cv.setAttribute('aria-label',(v&&v.title)||'view'); d.appendChild(cv); vc.appendChild(d); return cv; }); }
-function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.views=[]; S.canvases=[];
+const mkCanvas=name=>{ const cv=document.createElement('canvas'); cv.setAttribute('role','img'); cv.setAttribute('aria-label',name); return cv; };
+function buildCards(){ const vc=$('#views'); vc.innerHTML=''; const P=S.pins[S.modelId]||null;
+  S.ref = P ? {P, ...refFrame(activeSpec(), P)} : null; S.refCanvases=[]; S.refDrawn=false; vc.classList.toggle('pinned', !!P);
+  S.canvases=S.views.map(v=>{ const d=document.createElement('div'); d.className='plot'; const name=(v&&v.title)||'view', cv=mkCanvas(name);
+    if(P){ d.classList.add('pinned'); const a=document.createElement('div'), b=document.createElement('div'); a.className='pane'; b.className='pane ref';
+      const rc=mkCanvas(name+' (pinned reference)'), t=document.createElement('span'); t.className='reftag'; t.textContent='pinned'; t.setAttribute('aria-hidden','true');
+      a.appendChild(cv); b.appendChild(rc); b.appendChild(t); d.appendChild(a); d.appendChild(b); S.refCanvases.push(rc); }
+    else d.appendChild(cv);
+    vc.appendChild(d); return cv; }); }
+// the pinned result's own playhead range under the active lens (its data may have a different length or stage list)
+function refFrame(spec,P){ let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(P.params, P.data) : spec.stages) : null; }catch(e){ st=null; }
+  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(P.params, P.data); }catch(e){ len=1; } }
+  len = sm ? st.length : Math.max(1, (Number.isFinite(len)?Math.floor(len):1) || 1);
+  return { stages: sm?st:null, len, max: sm ? Math.max(0,len-1) : len }; }
+const fmtVal=(s,v)=> s.type==='bool' ? (v?'on':'off') : s.type==='enum' ? String((s.options||[])[v]!=null ? s.options[v] : v) : String(+(+v).toFixed(4));
+function pinUi(){ const P=S.pins[S.modelId], b=$('#pinBtn'), line=$('#pinLine');
+  b.textContent = P ? 'Unpin' : 'Pin'; b.title = P ? 'Remove the pinned reference' : 'Keep this result as a reference beside every view';
+  b.disabled = !P && (!S.data || !!S.simError || S.loading);
+  if(!P){ line.hidden=true; line.textContent=''; return; }
+  const diff=[]; for(const s of (S.model.params||[])){ const a=P.params[s.name], c=S.params[s.name]; if(a!==c) diff.push(`${s.label||s.name} ${fmtVal(s,a)} → ${fmtVal(s,c)}`); }
+  const seed=$('#seedInput').value||'seed'; if(P.seed!==seed) diff.push(`seed ${P.seed} → ${seed}`);
+  line.hidden=false; line.textContent = diff.length ? 'Pinned → now: '+diff.join(', ') : 'Pinned: the same parameters and seed as now'; }
+function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.views=[]; S.canvases=[]; S.refCanvases=[]; S.ref=null; vc.classList.remove('pinned');
   const d=document.createElement('div'); d.className='empty'; d.setAttribute('role','alert'); const b=document.createElement('b'); b.textContent=title;
   d.appendChild(b); d.appendChild(document.createElement('br')); d.appendChild(document.createTextNode(detail)); vc.appendChild(d); }
 
@@ -266,7 +298,7 @@ function recompute(){ clearTimeout(rt); supersede(); const myGen=S.gen; S.seed=$
   if(!S.simError && (!S.data || typeof S.data!=='object')){ S.data=null; S.simError='simulate() returned no data object'; console.error('[model-scope] '+S.simError, {model:S.modelId}); }
   if(myGen!==S.gen) return; bindLens(); }
 // bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
-function bindLens(){ const spec=activeSpec();
+function bindLens(){ const spec=activeSpec(); pinUi();
   if(S.simError){ S.stageList=null; S.stageMode=false; S.anim=null; S.length=1; S.maxHead=1; S.head=1; boot=false;       // say what failed where the plots would be
     $('#tbar').classList.toggle('hidden', !S.lensKeys); $('#transport').style.display='none'; $('#tip').textContent='';
     showProblem('This model could not be simulated with these values.', S.simError+'. Change a control, or fix the model in engine.js; the views come back as soon as it runs.'); return; }
@@ -293,7 +325,17 @@ function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, M
   for(let i=0;i<S.views.length;i++){
     try{ S.views[i].draw(Plot.make(S.canvases[i]), S.data, ui); }
     catch(e){ console.error('[model-scope] view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
-      try{ Plot.make(S.canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
+      try{ Plot.make(S.canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } }
+  if(S.ref && S.refCanvases.length && (!S.playing || !S.refDrawn)) drawRefs(); }
+// the pinned result, drawn by the same views: at the live stage (clamped), or at the same fraction of the run; at its end while the live one plays
+function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
+  const h = S.playing ? R.max : R.stages ? Math.min(R.max, Math.max(0, Math.floor(S.head))) : (S.maxHead ? S.head/S.maxHead*R.max : R.max), stg = R.stages ? Math.floor(h) : null;
+  const ui={ head:h, playing:false, params:P.params, frac:h-Math.floor(h), stage:stg, stageKey:(stg!=null && R.stages[stg]) ? R.stages[stg].key : null, stages:R.stages, nStages:R.stages?R.len:0 };
+  for(let i=0;i<S.views.length && i<S.refCanvases.length;i++){
+    try{ S.views[i].draw(Plot.make(S.refCanvases[i]), P.data, ui); }
+    catch(e){ console.error('[model-scope] pinned view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
+      try{ Plot.make(S.refCanvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
+function redrawAll(){ S.refDrawn=false; drawAll(); }
 let rt; function schedule(){ clearTimeout(rt); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
 
 /* ---- playhead (for sequential models) ---- */
@@ -320,7 +362,7 @@ function pico(){ const b=$('#playBtn'), t=S.playing?'Pause':'Play'; b.title=t; b
 window.__simGen=S.gen;
 window.__redraw=()=>drawAll();
 window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; on=!!on; el.classList.toggle('on',on);
-  if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); }
+  if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); pinUi(); }
   if(on){ const b=$('#loadingBar'); if(b)b.style.width=Math.round((prog||0)*100)+'%'; const s=$('#loadingSub'); if(s)s.textContent=label||(Math.round((prog||0)*100)+'%'); } };
 
 $('#runBtn').onclick=()=>recompute();
@@ -328,6 +370,10 @@ $('#resetBtn').onclick=()=>{ S.suppress=true; (S.model.params||[]).forEach(p=>{c
     if(f.classList&&f.classList.contains('seg')){ const def=p.default||0; S.params[p.name]=def; [...f.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===def)); }
     else if(f.type==='checkbox'){ f.checked=!!p.default; f.dispatchEvent(new Event('change')); }
     else { f.value=p.default; f.dispatchEvent(new Event('input')); }}); $('#seedInput').value=DEFAULT_SEED; S.suppress=false; recompute(); };
+$('#pinBtn').onclick=()=>{ const id=S.modelId;
+  if(S.pins[id]){ delete S.pins[id]; say('Unpinned.'); }
+  else { if(!S.data || S.simError || S.loading) return; S.pins[id]={ params:{...S.params}, seed:S.seed, data:S.data }; say('Pinned. Each view now shows this result beside the live one.'); }
+  pinUi(); if(!S.simError){ buildCards(); drawAll(); } };
 $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
 $('#linkBtn').onclick=()=>{ const url=stateUrl(), out=$('#linkOut'), btn=$('#linkBtn'); out.value=url; out.hidden=false; out.select();     // the link stays visible and selected, so it can be copied by hand where the clipboard is unavailable
@@ -342,8 +388,8 @@ $('#stepFwdBtn').onclick=()=>stepBy(1);
 $('#scrub').addEventListener('input',()=>{ stopPlayback(); S.head=clamp(+$('#scrub').value,0,S.maxHead); drawAll(); readout(); });
 $('#scrub').addEventListener('change',()=>say(readoutText()));
 $('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; });
-$('#fontScale').addEventListener('input',()=>{ window.__plotFontScale=+$('#fontScale').value; $('#fontScaleVal').textContent=Math.round(window.__plotFontScale*100)+'%'; drawAll(); });
-let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(drawAll,90); };
+$('#fontScale').addEventListener('input',()=>{ window.__plotFontScale=+$('#fontScale').value; $('#fontScaleVal').textContent=Math.round(window.__plotFontScale*100)+'%'; redrawAll(); });
+let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,90); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
 if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };   // the setting can change while the page is open
   if(mqReduce.addEventListener) mqReduce.addEventListener('change',onMotion); else if(mqReduce.addListener) mqReduce.addListener(onMotion); }
@@ -352,7 +398,7 @@ addEventListener('hashchange',()=>{ const h=parseHash(); if(!h) return;
 
 /* ---- start ---- */
 { let framed=false; try{ framed = window.self!==window.top; }catch(e){ framed=true; }      // inside a host page the frame's own address is not the link to share: the host's share link follows the #hash instead
-  if(framed){ $('#linkBtn').hidden=true; $('#resetBtn').style.gridColumn='1/-1'; } }
+  if(framed) $('#linkBtn').hidden=true; }
 const APP=SIM.APP||{};      // optional: SIM.APP = { title:'My paper', tagline:'…' } names the page
 if(APP.title){ $('#appTitle').textContent=APP.title; document.title=APP.title; }
 if(APP.tagline!=null) $('#appTagline').textContent=APP.tagline;
@@ -368,7 +414,7 @@ if(!SIM.MODEL_ORDER.length){   // nothing registered: say what to do instead of 
   if(any) S.mem[target]=mem;
   if(Q.seed!=null && Q.seed!=='') $('#seedInput').value=Q.seed;
   S.modelId=startModel; buildModelTabs(); setModel(startModel, startLens); }
-if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawAll);
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(redrawAll);
 })();
 </script>
 </body>

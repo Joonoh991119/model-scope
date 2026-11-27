@@ -83,6 +83,10 @@ What it checks, on every model and lens (60 screens for the shipped template):
 - reduced motion: nothing auto-plays, and playback stops when the setting changes mid-session;
 - `runChunks` (fixture): a keyboard lens switch mid-compute lets it finish; a slider move supersedes it;
 - a `simulate()` that throws (fixture) is reported in the view area and recovers;
+- **Pin**: on every screen the canvas count doubles (one reference per view), all painted, and unpin
+  restores it; after a parameter change the reference is unchanged and the line names the change;
+  resize and text size redraw the references; at 400 x 800 the reference stacks under the live view
+  without horizontal overflow (`--phone`);
 - with `--bundle`: the page `bundle.mjs` writes, wrapped the way a host wraps a fragment and locked
   down with `Content-Security-Policy: default-src 'none'; script-src 'unsafe-inline'; style-src
   'unsafe-inline'; img-src data: blob:`, opens every screen by `#link` with no error, no CSP

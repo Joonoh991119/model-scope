@@ -10,7 +10,8 @@
 //     --quick             load the page, check it paints without an error, exit (used by tests/mutations.mjs)
 //     --channel <name>    browser channel (default 'chrome' = the installed Chrome; 'chromium' = Playwright's build)
 //
-// Always enforced: every model x lens screen paints (click navigation and deep link, largest text size),
+// Always enforced: every model x lens screen paints (click navigation and deep link, largest text size), pinning
+// doubles the canvases on every screen and the reference survives a parameter change, resize and text size,
 // zero console errors, zero page errors, zero requests that are not file://.
 // Install the tooling OUTSIDE the plugin, e.g.  npm i --prefix .scratch/pw playwright@1.56.1 axe-core@4.14.1
 import { createRequire } from 'node:module';
@@ -211,6 +212,46 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
     const o = await ph.evaluate(() => { const c = document.querySelector('#views canvas'); return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, top: c ? Math.round(c.getBoundingClientRect().top + window.scrollY) : -1 }; });
     if (o.sw > o.cw) over.push(`${m.id} ${o.sw}px`); if (!(o.top >= 0 && o.top < 800)) low.push(`${m.id} ${o.top}px`); }
   check('phone-400px', over.length === 0 && low.length === 0, `400x800: ${over.length} of ${order.length} models overflow horizontally${over.length ? ' (' + over.slice(0, 4).join(', ') + (over.length > 4 ? ', ...' : '') + ')' : ''}; first plot below the first screen on ${low.length}${low.length ? ' (' + low.slice(0, 3).join(', ') + ', ...)' : ''}`, { enforce: A.flag('--phone') });
+  await ph.context().close(); }
+
+// ---- G. pin and compare: every screen shows a reference beside each view; it redraws on resize and text size; unpin restores ----
+{ tag = 'pin'; const pp = await newPage(); const bad = []; let n = 0;
+  const nViews = (id, k) => pp.evaluate(([id, k]) => { const m = SIM.MODELS[id]; return ((k ? m.lenses[k] : m).views || []).length; }, [id, k]);
+  const sig = sel => pp.evaluate(s => [...document.querySelectorAll(s)].map(c => { if (!c.width || !c.height) return 'empty';
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let h = 0; for (let i = 0; i < d.length; i += 4 * 7) h = (h * 31 + d[i] + d[i + 1] * 3 + d[i + 2] * 7) | 0; return c.width + 'x' + c.height + ':' + h; }), sel);
+  for (const m of order) { tag = 'pin:' + m.id; await pp.goto(pageUrl(T, `?model=${m.id}&still=1`)); await pp.waitForTimeout(160);
+    await pp.locator('#pinBtn').click(); await pp.waitForTimeout(80);
+    for (const [k, label] of (m.lenses.length ? m.lenses : [['', '']])) {
+      if (k && (await state(pp)).lens !== k) { await (await lensOf(pp, k, label)).click(); await pp.waitForTimeout(160); }
+      if (await pp.locator('#transport').isVisible()) { await pp.locator('#toEndBtn').click(); await pp.waitForTimeout(60); }
+      const nv = await nViews(m.id, k), cnt = await pp.locator('#views canvas').count(), ref = await pp.locator('#views .pane.ref canvas').count(), pt = await painted(pp); n++;
+      if (cnt !== 2 * nv || ref !== nv || blank(pt)) bad.push(`${m.id}:${k} views ${nv}, canvases ${cnt}, references ${ref} ${JSON.stringify(pt)}`); }
+    await pp.locator('#pinBtn').click(); await pp.waitForTimeout(80);
+    const nv = await nViews(m.id, (await state(pp)).lens || ''), after = await pp.locator('#views canvas').count();
+    if (after !== nv || await pp.locator('#pinLine').isVisible()) bad.push(`${m.id}: unpin leaves ${after} canvases for ${nv} views`); }
+  check('pin-every-screen', bad.length === 0 && n === screens, `${n} screens pinned: canvases double (one reference per view), all painted; unpin restores the count; ${bad.length} wrong${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}`);
+  // the reference keeps the pinned result; the line names what differs; resize and text size redraw it
+  tag = 'pin-compare'; const m0 = order.find(m => m.id === 'ddm') || order[0], np = m0.nums[0];
+  await pp.goto(pageUrl(T, `?model=${m0.id}&still=1`)); await pp.waitForTimeout(160); await pp.locator('#pinBtn').click(); await pp.waitForTimeout(100);
+  const r0 = await sig('#views .pane.ref canvas'), l0 = await sig('#views .pane:not(.ref) canvas'), same = await pp.locator('#pinLine').textContent();
+  let changed = 'no numeric parameter';
+  if (np) { const v = np.def === np.max ? np.min : np.max; await pp.locator('#f_' + np.name).fill(String(v)); await pp.locator('#f_' + np.name).blur(); await pp.waitForTimeout(450);
+    if (await pp.locator('#transport').isVisible()) { await pp.locator('#toEndBtn').click(); await pp.waitForTimeout(60); } changed = String(v); }
+  const r1 = await sig('#views .pane.ref canvas'), l1 = await sig('#views .pane:not(.ref) canvas'), line = await pp.locator('#pinLine').textContent();
+  await pp.setViewportSize({ width: 1000, height: 700 }); await pp.waitForTimeout(300); const r2 = await sig('#views .pane.ref canvas');
+  await pp.locator('#fontScale').evaluate(el => { el.value = '1.6'; el.dispatchEvent(new Event('input', { bubbles: true })); }); await pp.waitForTimeout(150); const r3 = await sig('#views .pane.ref canvas');
+  const keeps = JSON.stringify(r0) === JSON.stringify(r1), live = JSON.stringify(l0) !== JSON.stringify(l1), named = !np || line.includes(np.name) || line.includes('→ ' + changed);
+  const resized = r2.every((s, i) => s.split(':')[0] !== r1[i].split(':')[0]), retext = r3.every((s, i) => s !== r2[i]);
+  check('pin-compare', keeps && live && named && resized && retext && /same parameters/.test(same),
+    `${m0.id}: before a change "${same}"; ${np ? np.name : '-'} -> ${changed}: live ${live ? 'redrawn' : 'UNCHANGED'}, reference ${keeps ? 'kept' : 'CHANGED'}, line "${line}"; resize redraws ${r2.filter((s, i) => s.split(':')[0] !== r1[i].split(':')[0]).length}/${r1.length} references, text size ${r3.filter((s, i) => s !== r2[i]).length}/${r2.length}`);
+  await pp.context().close();
+  // phone: pinned cards stack and nothing overflows sideways
+  tag = 'pin-phone'; const ph = await newPage({ viewport: { width: 400, height: 800 } }); const over = [];
+  for (const m of order) { await ph.goto(pageUrl(T, `?model=${m.id}&still=1`)); await ph.waitForTimeout(140); await ph.locator('#pinBtn').click(); await ph.waitForTimeout(100);
+    const o = await ph.evaluate(() => { const r = [...document.querySelectorAll('#views .plot.pinned')].map(d => { const [a, b] = d.querySelectorAll('canvas'); return b && b.getBoundingClientRect().top >= a.getBoundingClientRect().bottom - 1; });
+      return { sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth, stacked: r.length > 0 && r.every(Boolean) }; });
+    if (o.sw > o.cw || !o.stacked) over.push(`${m.id} ${o.sw}px${o.stacked ? '' : ' not stacked'}`); }
+  check('pin-phone-400px', over.length === 0, `400x800 pinned: ${order.length - over.length} of ${order.length} models stack the reference under the live view without horizontal overflow${over.length ? ' — ' + over.slice(0, 4).join(', ') : ''}`, { enforce: A.flag('--phone') });
   await ph.context().close(); }
 
 // ---- F. the single-page bundle, wrapped like a hosted page, under a CSP that allows nothing external ----
