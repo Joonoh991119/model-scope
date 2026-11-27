@@ -1,6 +1,6 @@
 {
   "name": "joonoh-modeling",
-  "owner": { "name": "Joonoh Park", "email": "joonop99@snu.ac.kr" },
+  "owner": { "name": "Joonoh Park", "url": "https://github.com/Joonoh991119" },
   "metadata": {
     "description": "Tools for turning scientific models into interactive, explorable GUIs.",
     "version": "1.0.0"

@@ -426,4 +426,4 @@ fixed-axis histograms — and generalised into a builder for any model.
 
 ---
 
-MIT licensed, Joonoh Park ([joonop99@snu.ac.kr](mailto:joonop99@snu.ac.kr))
+MIT licensed, Joonoh Park ([github.com/Joonoh991119](https://github.com/Joonoh991119))
