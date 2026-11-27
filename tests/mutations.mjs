@@ -13,7 +13,7 @@ import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 // Thresholds. Raise them when the gate gets stronger; never lower them to make a run pass.
 export const THRESHOLDS = {
   total: 46,            // mutations in the table
-  gateMin: 7,           // killed by validate.mjs alone
+  gateMin: 43,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
   gateBaselineMin: 45,  // killed by validate.mjs or the baseline
   allWithSmoke: 46,     // with --pw: killed by any layer
 };

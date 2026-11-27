@@ -16,6 +16,8 @@ variability, adaptation, the effect of input current / conductance / noise.
 ## Parameters (meaning · typical)
 - LIF: `τ` membrane time const (10–30 ms), `R` resistance, `V_th, V_reset, E_L` (mV),
   `t_ref` refractory (1–5 ms); input `I` (nA) and noise.
+  `MSLIB.neuron.LIF_DEFAULT`: `τ=20 ms, E_L=−65 mV, R=100 MΩ, V_th=−50 mV, V_reset=−65 mV,
+  t_ref=3 ms`, so rheobase is `(V_th−E_L)/R = 0.15 nA` (the gate checks these values).
 - Izhikevich: `(a,b,c,d)` set the dynamical class (RS `0.02,0.2,−65,8`; FS `0.1,0.2,−65,2`;
   IB `0.02,0.2,−55,4`; CH `0.02,0.2,−50,2`).
 

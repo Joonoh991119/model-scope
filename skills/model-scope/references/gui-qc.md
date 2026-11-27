@@ -6,22 +6,31 @@ Re-run stages 1–2 after each fix.
 ## 1. Static gate
 
 ```bash
-node --check engine.js && node --check plot.js   # syntax
-node validate.mjs                                 # every simulate() runs + analytic checks
+node validate.mjs      # loads what index.html loads; exits non-zero on any failure
 ```
 
 `validate.mjs` enforces, for every model, the machine-checkable slice of this QC doc — so a model
 that violates it **fails the gate**, it is not left to a human walking the checklist:
-- **simulate runs** and returns data; **every view is a function**.
-- **View-render pass**: each view is actually *drawn* (against a recording stub) at the start AND end
-  of its playhead, for every lens — it must not throw, must use **finite axis ranges** (no blank
-  NaN panel), and any view that draws a **heatmap must also draw a colorbar**.
-- **Parameter property pass**: `simulate()` must stay finite at **each slider's min and max**, not
-  just defaults (catches a NaN/throw at a slider extreme).
-- Add **≥1 analytic check per model tied to the science** — a closed-form limit, a monotonic
-  trend, a normalisation identity, a signature shape (e.g. the ventriloquism bias is N-shaped;
-  working-memory reports concentrate toward the target). For a paper, encode its *signatures*. These
-  are what make the gate meaningful rather than "it ran." A model with no dedicated check is flagged.
+- **The page is self-contained**: every script `index.html` lists exists and loads, nothing points
+  at another host or calls a network API, and the inline script parses.
+- **Schema lint**: ids, parameter names, labels, ranges, defaults, enum and bool controls, view
+  titles and lens labels are well-formed.
+- **simulate runs**, returns data, and is **deterministic** for a given seed.
+- **View-render pass**: each view is actually *drawn* through the real `plot.js` (onto a recording
+  canvas) at the start, middle AND end of its playhead, for every lens — it must not throw, must
+  use **finite axis ranges** (no blank NaN panel), any view that draws a **heatmap must also draw a
+  colorbar**, and at the end of its playhead it must draw **data, not just axes**.
+- **Parameter property pass**: at **each control's min and max**, `simulate()` must stay finite
+  and every view must still draw (catches a NaN or a throw at a slider extreme).
+- Add **≥1 analytic check per model tied to the science** — a closed-form limit, a conservation
+  law, a normalisation identity, a signature shape (e.g. the ventriloquism bias is N-shaped;
+  working-memory reports concentrate toward the target). Prefer a check against an independent
+  reference (a closed form, a second implementation, a Monte-Carlo estimate) over "the output is
+  finite". For a paper, encode its *signatures*. These are what make the gate meaningful rather
+  than "it ran." A model with no dedicated check is a counted warning.
+
+Before a refactor of your own model, lock it: `node validate.mjs --snapshot before.json`, change
+the code, then `node validate.mjs --against before.json`.
 
 ## 2. Visual QC — open `index.html`, screenshot EVERY screen
 

@@ -4,8 +4,8 @@
 
 `plot.js` and `engine.js` are **classic scripts** (`window.Plot`, `window.SIM`), not ES
 modules, so `index.html` loads them from `file://` (modules are CORS-blocked there).
-`engine.js` is also `eval`-able in Node, so `validate.mjs` tests the *same* math the app
-runs. No bundler, no install — a researcher opens or reads it directly.
+`engine.js` is also `eval`-able in Node, so `validate.mjs` tests the *same* math and the *same*
+`plot.js` the app runs. No bundler, no install — a researcher opens or reads it directly.
 
 **Zero external resources.** `index.html` loads no CDN, font, or analytics — only its three
 local scripts (`plot.js`, `mslib.js`, `engine.js`). Fonts fall back to the system UI /
@@ -83,24 +83,42 @@ screen is purely an `engine.js` edit.
 
 ## The validation gate (`validate.mjs`)
 
-`node validate.mjs` is the single gate — it loads the real `engine.js`/`plot.js`/`mslib.js`
-(no mocks of the math) and **must exit 0 before any commit**. It enforces, for every model:
+`node validate.mjs` is the single gate, and it **must exit 0 before any commit**. It reads the
+`<script src>` list out of `index.html` and evaluates those files in that order, with the **real**
+`plot.js` drawing onto a recording canvas stub, so the math and the views it checks are the ones the
+page runs (no mocks, no hand copies). It is deterministic: seeded RNG only, no clock, so two runs
+print the same text. Layers:
 
-1. **simulate runs** at defaults and returns an object; `MODEL_ORDER` and `MODELS` agree.
-2. **Every view renders** without throwing — at the playhead head=0 **and** end, for **each lens** —
-   onto a recording stub `g`. The stub flags: a heatmap drawn without a colorbar, a non-finite axis
-   range, and any non-finite value sampled from `heat`/`image`/`graph` data (bad node/edge included).
-3. **Parameter extremes** — `simulate` stays finite at every slider's min and max (including `bool`
-   and `enum` choices); the returned data object is scanned for any non-finite number.
-4. **A per-model analytic check** — a property the science guarantees (e.g. Hopfield recall at low
-   load then a capacity cliff; do(X) recovers the causal slope; the POMDP listen-region widens with the
-   penalty; a Hopf bifurcation in Wilson–Cowan). Every model in `MODEL_ORDER` must be in the `checked`
-   set or the gate warns.
-5. **Per-`MSLIB`-block checks** — each library family has a sanity test (softmax sums to 1, a DoG is
-   band-pass, predict/update normalise, …).
+0. **Page** — every listed script exists and loads; `index.html` and the scripts reference no other
+   host and no network API (`fetch`, `XMLHttpRequest`, `WebSocket`, `import()`, …), so the app keeps
+   working offline from `file://`; the inline toolbox script parses.
+1. **Schema** — for every model: `id` equals its `MODELS` key, uses only letters, digits, `_`, `-`,
+   and is not a reserved link name; parameter names are unique identifiers with a label; numeric
+   controls have `min < max`, `step > 0` and a default inside the range; `enum` and `bool` controls
+   are well-formed; every view has a `title` and a `draw`; every lens has a `label`. `MODEL_ORDER`
+   and `MODELS` agree.
+2. **simulate** runs at defaults, returns an object, and returns the *same* data for the same seed.
+3. **Every view renders** without throwing — at the start, middle **and** end of its playhead, for
+   **each lens**. The gate flags a heatmap drawn without a colorbar, a non-finite axis range, a
+   non-finite value sampled from `heat`/`image`/`graph` data, and a view that draws only axis
+   furniture (no data mark) at the end of its playhead.
+4. **Parameter extremes** — at every control's min and max (including `bool` and `enum` choices)
+   `simulate` stays finite (the returned object is scanned) and every view still draws.
+5. **A per-model analytic check** — a property the science guarantees, checked against an
+   independent reference where one exists (the drift-diffusion error rate and mean decision time
+   against the closed forms; SIR mass conservation; the Bayes-filter trajectory against a second
+   forward recursion; do(X) recovering the causal slope; a Hopf bifurcation in Wilson–Cowan). The
+   checks are a table keyed by model id and run only for registered models. A model without one is
+   a counted warning, not a failure.
+6. **Per-`MSLIB`-block checks** — each library family has a test (softmax sums to 1, a DoG is
+   band-pass, predict/update normalise, the Wong–Wang constants match the documented table, …).
 
-This is what the optional edit hook runs after each change (see `MIGRATION.md`); the gate biting is
-the contract that "the math you read is the math that runs."
+Opt-in regression lock for your own models: `node validate.mjs --snapshot my.json` writes digests of
+`simulate()` at defaults and every extreme; `node validate.mjs --against my.json` fails if any of
+them changed. Use it before a refactor.
+
+The gate biting is the contract that "the math you read is the math that runs." What it cannot see
+is the toolbox running in a browser; open `index.html` for that (see `gui-qc.md`).
 
 ## The `MSLIB` library (`modules/mslib.js`)
 

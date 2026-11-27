@@ -367,13 +367,16 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   step's `O(√Δt)` boundary bias) rather than hide it.
 - **Reproducible.** A seedable RNG makes every run deterministic; trial-based models seed
   each trial independently as `trialRng(seed, k)`, so the player can jump straight to trial *k*.
-- **Validated.** `validate.mjs` re-evaluates the *same* `engine.js` the browser runs and
-  checks that every model's `simulate()` returns sane data and every view is a function,
-  plus a per-model analytic check where one exists — a Bayesian reliability weight in
-  (0, 1), and a drift-diffusion error rate within tolerance of the closed form
-  `1/(1 + e^{2Az/c²})`. It then sanity-checks the `mslib.js` building blocks (an *f–I* curve
-  that increases monotonically, a Wong–Wang unit winning at positive coherence,
-  Rescorla–Wagner converging, and more). It must pass before a model is "done".
+- **Validated.** `validate.mjs` loads exactly the scripts `index.html` loads, including the real
+  `plot.js`, and checks every model: a well-formed schema, a `simulate()` that returns the same
+  data for the same seed, every view drawn at defaults and at each control's min and max
+  (finite axes, a colorbar on every heatmap, data and not just axes), and analytic checks tied
+  to the science — for example the drift-diffusion error rate and mean decision time against the
+  closed forms `1/(1 + e^{2Az/c²})` and `(z/A)·tanh(Az/c²)` with the discretisation correction,
+  mass conservation in the SIR model, and the Bayes-filter trajectory against an independent
+  recursion. It then checks the `mslib.js` building blocks. It must pass before a model is "done".
+  A deliberate-error probe in `tests/` measures how much the gate catches (43 of 46 seeded errors
+  on its own).
 - **GUI QC pipeline.** Beyond the static gate, every build walks
   [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md): a **visual checklist**
   (no clipped/overlapping text, ceiling/chance reference lines, accuracy clamped to `[chance,1]`,

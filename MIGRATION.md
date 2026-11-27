@@ -2,7 +2,7 @@
 
 A self-contained handoff so any new session (Claude or **Fable**) can pick up the work without
 re-deriving state or stepping on in-flight edits. Paste the **Resume prompt** below into a fresh
-agent, or just read this file (the SessionStart hook points here automatically).
+agent, or just read this file.
 
 ---
 
@@ -63,14 +63,14 @@ belief filtering **and** POMDP control, causal DAG (do-operator), and attention 
 Per model: simulate runs; **every view renders** (head 0 and end, per lens) with finite axes, a
 colorbar on every heatmap, and finite heat/image/graph data; **finite at every slider extreme**
 (incl. bool/enum) with a non-finite data scan; **a per-model analytic check**; and **per-MSLIB-block
-checks**. The PostToolUse hook runs this automatically on each template edit and blocks on failure.
+checks**. Nothing runs it for you: run it after each template edit.
 
 ## Working rules (Fable-safe — avoid conflicts)
 
 1. **One writer.** Only the main session edits the template. **Fable & Codex agents are read-only
    reviewers** — spawn them to review/critique, then YOU apply the fixes. Never run two writers on the
    template at once; if you must parallelise, give each agent its own `isolation: "worktree"`.
-2. **Gate before commit, always.** `node validate.mjs` green; the hook also enforces it.
+2. **Gate before commit, always.** `node validate.mjs` green, and `node tests/run.mjs` for the dev suite.
 3. **Version discipline.** Bump `plugin.json` AND `marketplace.json` together; commit message states
    what changed + the new version; push to `main`.
 4. **Browser-verify** new/changed views (headless Chrome screenshot via a deep link

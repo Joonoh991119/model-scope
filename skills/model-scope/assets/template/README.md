@@ -56,7 +56,10 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
   efficient, causal, wm, network, osc, belief, vision, attn`) of canonical building blocks you compose inside `simulate()`.
-- `validate.mjs` — `node validate.mjs` checks each model runs and is sane (+ the `mslib` blocks).
+- `validate.mjs` — the gate. `node validate.mjs` loads what `index.html` loads and checks every model:
+  schema, a deterministic `simulate()`, every view drawn through the real `plot.js` at defaults and at
+  every control's min and max, an analytic check tied to the science, and the `mslib` blocks.
+  `--snapshot f.json` / `--against f.json` lock your own model's numbers before a refactor.
 
 ## Add your model — one registry entry
 

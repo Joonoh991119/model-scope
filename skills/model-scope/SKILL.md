@@ -97,8 +97,8 @@ engine.js     pure math (window.SIM): RNG + the MODELS registry. NO DOM. Eval-ab
               Node so validate.mjs shares the same source. You mostly edit ONLY this.
 index.html    the toolbox: builds sliders from each model's schema, runs simulate() on
               change, drives the optional playhead, and calls each view's draw().
-validate.mjs  Node gate — every model's simulate() runs & is sane; analytic checks where
-              one exists.
+validate.mjs  Node gate — loads what index.html loads; schema, determinism, every view drawn
+              at defaults and extremes, analytic checks tied to the science.
 modules/mslib.js  OPTIONAL reusable model library (window.MSLIB): canonical building
               blocks (sde, bayes, neuron, decision/Wong–Wang, rl, psy, network, osc, belief, vision, attn).
               Include only if a model needs them; compose inside simulate(). See the modelbook below.
@@ -290,10 +290,12 @@ via `g.legend(..,{corner})`; a colorbar on every heatmap; numbered panels; a loa
 heavy screens), and a **two-axis review pass** (scientific-plot readability + concept clarity) —
 then fix and re-verify.
 
-`validate.mjs` reuses `engine.js` (and sanity-checks `modules/mslib.js`). Minimum gate: each model's `simulate()` runs without
-throwing and returns data, and every view is a function. Add a per-model analytic check
-where one exists (Bayesian reliability weight in (0,1); decision-model error rate vs the
-closed form; a known limit). `node validate.mjs` must pass before declaring done.
+`validate.mjs` loads exactly what `index.html` loads, with the real `plot.js`. For every model it
+lints the schema, runs `simulate()` (and requires the same result for the same seed), draws every
+view at defaults and at each control's min and max, and runs the analytic checks. Add a per-model
+analytic check where one exists (a closed form, a conservation law, a known limit) — prefer one
+against an independent reference over "the output is finite". `node validate.mjs` must pass before
+declaring done.
 
 ## How to start
 
