@@ -13,7 +13,8 @@ that fit its class; the payoff is comparing what changes across parameters and m
 - **Decision: integrate vs one sample** *(toggle + heatmap)* — compare two models via a toggle: a
   speed-accuracy overlay, a metric heatmap over a (drift, noise) grid, and metric bars.
 - **Attractor network — decision** *(lens switch)* — structure first: the circuit wiring and E/I,
-  then one pool's input, winner-take-all dynamics, and the (S1, S2) energy-landscape heatmap.
+  then one pool's input, winner-take-all dynamics, and the (S1, S2) flow-speed map
+  (dark = slow, where the network settles).
 - **Epidemic (spatial SIR)** *(lens switch)* — a macro model: a space-time kymograph, the S/I/R
   curves, and peak prevalence vs R0 (the epidemic threshold).
 - **Early vision — orientation** *(lens switch)* — an image-input model: the grating image, oriented
@@ -44,21 +45,33 @@ that fit its class; the payoff is comparing what changes across parameters and m
   X and Y), the observed (confounded) association, do(X) vs what you see, and the gap vs confounding.
 - **Self-attention (transformer)** *(lens switch)* — the attention matrix (who attends to whom), how a
   token’s output mixes the values, and attention sharpness (entropy) vs softmax temperature.
+- **POMDP — the tiger (value iteration)** *(lens switch)* — the reward and observation structure, the
+  value function over belief with the listen / open policy regions, a belief-updating episode, and
+  caution vs the penalty.
+- **Wilson–Cowan E/I (oscillation)** *(lens switch)* — the excitatory–inhibitory circuit, the E and I
+  rates oscillating with the phase-plane limit cycle, and oscillation amplitude vs drive (the
+  bifurcation).
+- **Multi-head attention (heads + layers)** *(lens switch)* — each head's attention matrix (content,
+  previous-token, local), how stacking layers mixes the sequence, and sharpness vs temperature.
 
 The process-mode models use `stages` instead of `anim`: the transport becomes a step-by-step stepper
 and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the pipeline strip.
 
 ## Files
 - `plot.js` — tiny canvas charting helper (`Plot`): `frame`, `line`, `band`, `bars`, `heat`,
-  `raster`, `vline`, `flow` (process strip), … Each view defines its own axes. Rarely edited.
+  `raster`, `vline`, `flow` (process strip), … Each view defines its own axes. Global helpers:
+  `Plot.histify`, `Plot.nearestY(points, x)`, `Plot.ramp(from, to)`, `Plot.RAMPS`, `Plot.TH`.
+  Rarely edited.
 - `engine.js` — pure math: RNG + the `MODELS` registry. **Your models go here; this is what you edit.**
 - `engine.checks.mjs` — the analytic checks for your models (ships as a commented example).
 - `examples.js` + `examples.checks.mjs` — the worked examples and their checks. Optional: delete both
   files and the `examples.js` script line in `index.html` to ship only your own models.
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
-  play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
-  Link a screen with `index.html#<model>-<lens>`; add `?p.<name>=<value>&seed=<seed>` to open with
-  given parameters (the **Copy link** button writes that link for you).
+  play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. You
+  do not edit it. Link a screen with `index.html#<model>-<lens>`; add `?p.<name>=<value>&seed=<seed>`
+  to open with given parameters (the **Copy link** button writes that link for you). **Pin** keeps
+  the current result as a reference beside every view, with a line naming what changed since;
+  **Unpin** removes it.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
   efficient, causal, wm, network, osc, belief, vision, attn`) of canonical building blocks you compose inside `simulate()`.
 - `validate.mjs` — the gate. `node validate.mjs` loads what `index.html` loads and checks every model:
@@ -125,4 +138,4 @@ node bundle.mjs --standalone --out explorer.html              # a complete docum
 
 See the `model-scope` skill (`references/plotting.md`, `references/architecture.md`) for the
 full helper API and view recipes (distributions, tuning curves, trajectory+histogram,
-spike rasters, heatmaps/energy landscapes, learning sequences, process pipelines).
+spike rasters, heatmaps and flow fields, learning sequences, process pipelines).

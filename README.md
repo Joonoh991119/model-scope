@@ -40,9 +40,9 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
 
 - **Hand it a paper, get a simulator.** `/model-scope:from-paper <paper>` reads the reference,
   **interviews** you about the visualisation purpose and what you want (purpose, scope, which
-  angles, what to compare), then builds the GUI and **starts a verified local URL** — with an
-  optional shareable tunnel or permanent deploy when the tooling's available. You only supply the
-  reference material.
+  angles, what to compare), then builds the GUI and **starts a verified local URL**. When you want a
+  link to share and the Artifact tool is available, it also publishes the app as one self-contained
+  page; a tunnel or a permanent deploy only if you ask. You only supply the reference material.
 - **Replicate, illuminate, compare — don't reproduce the figure.** Replicate the model, show it from
   the angles that fit its class (structure first where there is structure), and compare what changes
   across parameter sweeps and model choices.
@@ -82,7 +82,7 @@ process-mode stepper, and the **lens switch**):
 | **Drift-diffusion decision** | decision-making | lens switch | one update (drift plus noise to new evidence); one trial walking to a bound; the RT histogram building up |
 | **Decision: integrate vs one sample** | comparison | sliders + toggle | toggle two models; a speed-accuracy overlay; a metric heatmap over a (drift, noise) grid; accuracy / speed / reward bars; the mechanism |
 | **Early vision (orientation)** | sensory / image | lens switch | the filter-bank architecture (oriented Gabor receptive fields), structure first; the input grating; the channels re-representing it; the orientation tuning and decoded angle |
-| **Attractor network** | network | lens switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) energy-landscape heatmap and trajectory |
+| **Attractor network** | network | lens switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) flow-speed map (dark = slow, where the network settles) and the trajectory |
 | **Epidemic (spatial SIR)** | macro / population | lens switch | a space-time kymograph of a travelling infection wave; the S/I/R curves; peak prevalence vs R0 (the epidemic threshold) |
 | **Spiking neuron (LIF)** | single-neuron biophysics | lens switch | a V(t) trace integrating to threshold; a spike raster over repeats; the f-I transfer curve (with a refractory toggle) |
 | **Reinforcement learning (RW)** | learning | lens switch | one Rescorla-Wagner update; the value learning curve; curves across learning rates |
@@ -131,7 +131,7 @@ One harness, many control + view types — every plot is live, so you build intu
 <td width="50%"><img src="docs/shots/sir-spread.png" alt="space-time kymograph of a spatial SIR epidemic"><br/><b>Heatmap, a travelling wave.</b> A spatial SIR epidemic as a space-time kymograph (macro scale, Spread lens).</td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/shots/attractor-landscape.png" alt="energy landscape of an attractor network"><br/><b>Heatmap, an energy landscape.</b> A decision network's (S1, S2) flow field with the trajectory rolling into a basin (network scale, Landscape lens).</td>
+<td width="50%"><img src="docs/shots/attractor-landscape.png" alt="flow-speed map of an attractor network"><br/><b>Heatmap, a flow-speed map.</b> A decision network's (S1, S2) flow speed with the trajectory settling where the flow is slow (network scale, Landscape lens).</td>
 <td width="50%"><b>Same harness, any scale.</b> These heatmaps (a metric landscape, an epidemic kymograph, a phase-plane flow) all come from the same <code>g.heat</code> and <code>g.colorbar</code>; the twenty-one models span behavioural, single-neuron, sensory, network, and macro scales.</td>
 </tr>
 </table>
@@ -145,14 +145,20 @@ the playhead (`head=`, or `still=1` for the last frame) and the plot text size (
 are remembered per model while the page is open. The **Text size** control on the rail scales every
 label for talks.
 
+**Pin** keeps the current result as a reference: every view then shows the pinned run beside the live
+one (stacked on a phone), and one line names what changed since (a parameter, the seed). Move a
+slider and compare; **Unpin** returns to the normal layout. It works for every model with no extra
+code.
+
 ---
 
 ## Architecture
 
-There are two layers: the **plugin** you install (a skill, an agent, a command, a
+There are two layers: the **plugin** you install (two skills, an agent, two commands, a
 template, and a modelbook) and the **explorer** it produces — a no-build app of four core
-files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus two optional ones: the
-worked examples (`examples.js`) and the reusable-model library they use (`mslib.js`).
+files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus optional ones: the
+worked examples (`examples.js`), the reusable-model library they use (`mslib.js`), and a
+bundler (`bundle.mjs`) that writes the whole app as one self-contained page.
 
 ![How model-scope is built and how it runs](docs/architecture.png)
 
@@ -301,7 +307,7 @@ git clone https://github.com/Joonoh991119/model-scope
 
 **Hand it a paper (the autonomous flow).** Give it *only* the reference material — it interviews
 you about what you want, then builds the GUI and starts a verified local URL, with an optional
-shareable tunnel or permanent deploy when the tooling is available:
+link to share when you want one (see "Deliver" below):
 
 ```
 /model-scope:from-paper ./furman-wang-2008.pdf
@@ -325,7 +331,14 @@ To start from the template by hand:
 /model-scope:scaffold ./my-sim "a leaky integrate-and-fire neuron"
 ```
 
-Then `cd ./my-sim`, run `node validate.mjs` to check it, and open `index.html` to use it.
+Then `cd ./my-sim`, run `node validate.mjs` to check it, and open `index.html` to use it. Add
+`--bare` to start without the 21 worked examples.
+
+**Deliver.** The app folder is the deliverable: it opens from `file://` and can be copied as it is.
+`node bundle.mjs --title "Drift Diffusion Lab"` (plain Node, no install) writes it as one page with
+every script inlined, the form a host such as a Claude Artifact expects; `--standalone --out app.html`
+writes a complete document to send as one file. A hosted page keeps only a plain `#model-lens` in
+its link. See the template's [`README.md`](skills/model-scope/assets/template/README.md).
 
 ---
 
@@ -380,8 +393,9 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   closed forms `1/(1 + e^{2Az/c²})` and `(z/A)·tanh(Az/c²)` with the discretisation correction,
   mass conservation in the SIR model, and the Bayes-filter trajectory against an independent
   recursion. It then checks the `mslib.js` building blocks. It must pass before a model is "done".
-  A deliberate-error probe in `tests/` measures how much the gate catches (43 of 46 seeded errors
-  on its own).
+  A deliberate-error probe in `tests/` measures how much the gate catches: 45 of 48 seeded
+  errors on its own, two more by the golden baseline of the shipped examples, and the last (a
+  toolbox that throws on load) by the browser smoke test.
 - **GUI QC pipeline.** Beyond the static gate, every build walks
   [`references/gui-qc.md`](skills/model-scope/references/gui-qc.md): a **visual checklist**
   (no clipped/overlapping text, ceiling/chance reference lines, accuracy clamped to `[chance,1]`,
@@ -393,20 +407,30 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
 node skills/model-scope/assets/template/validate.mjs   # prints: ALL CHECKS PASSED
 ```
 
+For work on the plugin itself, `tests/` holds developer checks that never ship inside a generated
+app: a golden baseline that locks the numbers and drawing of the 21 examples, the mutation probe, a
+check of the template without its examples, a docs consistency check, and a headless-Chrome smoke
+test (accessibility, phone width, links, Pin, the one-page bundle). `node tests/run.mjs` runs the
+Node ones; add `--browser` for the smoke test. See [`tests/README.md`](tests/README.md).
+
 ---
 
 ## Repository layout
 
 ```
 model-scope/
-├── .claude-plugin/              plugin.json + marketplace.json (the repo root is both)
+├── .claude-plugin/              plugin.json (holds the version) + marketplace.json (the repo root is both)
+├── CHANGELOG.md, MIGRATION.md   release notes; a handoff for whoever maintains the plugin next
+├── docs/                        README images and their .drawio sources
+├── evals/                       eval cases for `claude plugin eval` (authored, not yet run)
+├── tests/                       developer checks (never shipped in a generated app)
 ├── agents/
 │   └── model-gui-builder.md     the subagent that builds an explorer end-to-end
 ├── commands/
-│   ├── scaffold.md              /model-scope:scaffold <dir> [model idea]
-│   └── from-paper.md            /model-scope:from-paper <paper> (interview, build, serve)
+│   ├── scaffold.md              /model-scope:scaffold <dir> [--bare] [model idea]
+│   └── from-paper.md            /model-scope:from-paper <paper> (interview, build, deliver)
 ├── skills/paper-to-sim/
-│   └── SKILL.md                 the autonomous flow: ingest reference, interview, build, serve
+│   └── SKILL.md                 the autonomous flow: ingest reference, interview, build, deliver
 └── skills/model-scope/
     ├── SKILL.md                 the method (auto-loaded when you ask to build a model GUI)
     ├── references/
@@ -417,14 +441,15 @@ model-scope/
     │   └── modelbook/           one file per canonical family + INDEX.md
     └── assets/template/         the app you copy & extend
         ├── README.md            quick-start for the copied app
-        ├── index.html           the toolbox — sliders, the loop, the transport (untouched)
+        ├── index.html           the toolbox — sliders, the loop, the transport, links, Pin (untouched)
         ├── engine.js            seedable RNG + the MODELS registry   (your models go here)
         ├── engine.checks.mjs    the analytic checks for your models
         ├── examples.js          optional: the 21 worked examples (delete to ship only yours)
         ├── examples.checks.mjs  their analytic checks
         ├── plot.js              the canvas charting helper g
         ├── modules/mslib.js     optional reusable model library (MSLIB)
-        └── validate.mjs         the Node correctness gate
+        ├── validate.mjs         the Node correctness gate
+        └── bundle.mjs           optional: the app as one self-contained page
 ```
 
 ---

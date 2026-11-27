@@ -2,7 +2,9 @@
 
 A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you call
 `g.frame(...)` once to define this view's axes, then draw in data coordinates. `ui =
-{head, playing, params}`.
+{head, playing, params, frac, stage, stageKey, stages, nStages}` (see architecture.md). When the
+user pins a result, the same `draw` also paints the reference pane with the pinned data, so a view
+must depend only on its arguments.
 
 ## The `g` API (see plot.js)
 
@@ -38,7 +40,14 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
   ones marked done; `stages[active].about` renders as a caption. Pass `ui.stages, ui.stage`.
 - `Plot.histify(values, bins, lo, hi, quant?)` → `{edges, counts, binW, max}`. Pass
   `quant = dt` so bin width is a multiple of `dt` (else dt-quantised values comb).
-- `Plot.TH` — theme colours: `ink, dim, faint, accent, pos, neg, warn, series[]`.
+- `Plot.nearestY(points, x)` → the y of the `[x,y]` sample whose x is nearest `x` (for a marker
+  on a sweep curve at the current parameter value).
+- `Plot.ramp(from, to)` → a colour map `t ∈ [0,1] → [r,g,b]` running linearly between two rgb
+  triples (t clamped). Hand it to `g.heat` / `g.image` / `g.colorbar` as `v => ramp((v-lo)/(hi-lo))`.
+- `Plot.RAMPS` — shared maps: `blue` (paper to accent blue), `green`, `red` (cream to teal / deep
+  red), `night` (dark = slow to light = fast) take `t ∈ [0,1]`; `signed` takes `t ∈ [-1,1]` (blue
+  below 0, cream at 0, rust above). Use these before writing a new inline ramp.
+- `Plot.TH` — the one palette: `ink, dim, faint, grid, edge, accent, pos, neg, warn, series[]`.
 
 Theme is light/eye-friendly and DPR-correct already. Extend `plot.js` (a violin, a
 contour, a vector field) rather than working around it.

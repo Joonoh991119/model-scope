@@ -108,6 +108,17 @@ or lens the address becomes the plain `#model-lens` form. The **Copy link** butt
 link (query plus hash) for the current model, lens, seed and every parameter that differs from its
 default.
 
+### Pin and compare
+
+The **Pin** button (beside Reset) keeps the current `{params, seed, data}` for that model while the
+page is open. Every view card then shows two panes, the live canvas and the pinned reference (a
+dashed edge and a "pinned" tag), side by side, stacked below 700 px. One line above the views names
+what differs ("Pinned → now: <label> a → b, seed x → y"). The reference is drawn by the same
+`draw(g, data, ui)` with the pinned data, at the live stage or the same fraction of the run, and is
+redrawn on resize and text-size change. **Unpin** restores the normal layout. Pins are not part of
+links. Pin is disabled while a `runChunks` computation is loading or after a `simulate()` error. No
+model needs any code for it.
+
 ### Naming the page
 
 An app built for one paper can set `SIM.APP = { title: 'Wei & Stocker 2015', tagline: 'efficient

@@ -77,14 +77,16 @@ directly with `index.html#<model>-<lens>`, or freeze a frame for a screenshot wi
       model toggle, with axes fixed from the full result.
 - [ ] A step-level view, if present, decomposes ONE update into named contributions, zoomed so they're comparable.
 
-*How to capture:* a Preview / browser MCP, or `python3 -m http.server` + a headless screenshot.
+*How to capture:* any browser tool you have, or `python3 -m http.server` + a headless screenshot.
 Trigger a heavy screen and watch the overlay fill then clear; drag a slider fast and confirm no
 flicker of stale data.
 
 ## 3. Two-axis review pass → fix → re-verify
 
-Get an **independent** review (a second model via the codex MCP, or a strong general model) on
-the **two axes a researcher actually judges by**:
+Get an **independent** review on the **two axes a researcher actually judges by**: a reviewer that
+did not write the app (a fresh subagent given only the screenshots and the model's equations, a
+second model if one is available to you, or a colleague). Treat what it reports as claims to check
+against the screenshots and the code, not as facts.
 
 - **(A) Scientific-plot readability & interpretability** — units, scales, ceiling/chance lines,
   legends, colour use, anything misleading or hard to read, overlap/clipping.

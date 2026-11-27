@@ -14,7 +14,7 @@ description: >-
   the paper-to-sim skill is the front door and drives this one.
 ---
 
-# model-scope: interactive model explorers (any model, any view)
+# model-scope — interactive model explorers (any model, any view)
 
 ## What you build, and the one idea
 
