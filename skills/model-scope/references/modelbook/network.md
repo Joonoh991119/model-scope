@@ -10,7 +10,7 @@ parameters or the learning rule.
 
 - **Hopfield associative memory** (template exemplar `hopfield`). Store P binary patterns
   ξ^p ∈ {−1,+1}^N by Hebbian plasticity into a symmetric weight matrix with zero diagonal:
-  `W_ij = (1/P) Σ_p ξ_i^p ξ_j^p`. Recall runs asynchronous sign updates
+  `W_ij = (1/N) Σ_p ξ_i^p ξ_j^p`. Recall runs asynchronous sign updates
   `s_i ← sign(Σ_j W_ij s_j)`, which never increase the Lyapunov energy
   `E = −½ Σ_ij W_ij s_i s_j` — so the state rolls downhill into a stored pattern (an
   attractor). Capacity is finite: above ≈ **0.138·N** stored patterns the memories interfere

@@ -249,7 +249,7 @@
     wm: {
       id:'wm', name:'Working-memory recall',
       blurb:'Remember N items on a feature circle, then report one. A limited resource sets recall precision; reports are a mixture of accurate memory, swaps to a non-target, and uniform guesses (Bays & Husain; Zhang & Luck).',
-      note:'Raise set size N and the resource per item drops (lower precision). Swaps put mass under the non-targets; guesses raise a flat floor. The error histogram = target peak (κ) + swap bumps + uniform. Step through encode, recall, and decompose.',
+      note:'Set size N sets how many non-targets can attract swaps. Recall precision here is the κ slider itself: it does not fall with N in this simulation (the Set size → precision panel shows the resource account\'s power law for how it would). Swaps put mass under the non-targets; guesses raise a flat floor. The error histogram = target peak (κ) + swap bumps + uniform. Step through encode, recall, and decompose.',
       params:[
         {name:'N',      label:'Set size N', min:1, max:8, step:1, default:4, int:true},
         {name:'kappa',  label:'Precision κ', min:1, max:60, step:1, default:16},
@@ -743,7 +743,7 @@
     hopfield: {
       id:'hopfield', name:'Hopfield memory (Hebbian)',
       blurb:'An associative memory: ±1 patterns are stored by Hebbian plasticity into a symmetric weight matrix W = Σ ξξᵀ; a noisy cue then settles, by repeated sign updates, into the nearest stored pattern (an attractor). Use the lens switch for the angles — structure first: Structure (the weight matrix), Store (the stored memories and the rule that wrote them), Recall (the cue settling in), Capacity (how recall fails as you store more).',
-      note:'Plasticity writes the memories into the connectivity: W_ij = (1/P)Σ_p ξ_i^p ξ_j^p (zero diagonal). Recall runs async sign updates s_i ← sign(Σ_j W_ij s_j), which never increase the Lyapunov energy E = −½ Σ s_i W_ij s_j, so the state rolls downhill into a stored pattern. Capacity is finite: above ≈0.138·N stored patterns the memories interfere and recall breaks down. Raise the cue corruption or the load and watch recall fail. Composed from MSLIB.network.',
+      note:'Plasticity writes the memories into the connectivity: W_ij = (1/N)Σ_p ξ_i^p ξ_j^p (zero diagonal). Recall runs async sign updates s_i ← sign(Σ_j W_ij s_j), which never increase the Lyapunov energy E = −½ Σ s_i W_ij s_j, so the state rolls downhill into a stored pattern. Capacity is finite: above ≈0.138·N stored patterns the memories interfere and recall breaks down. Raise the cue corruption or the load and watch recall fail. Composed from MSLIB.network.',
       params:[
         {name:'nStore', label:'Patterns stored (load)', min:1, max:12, step:1, default:3, int:true},
         {name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.5, step:0.01, default:0.18},
@@ -768,7 +768,7 @@
         structure:{ label:'Structure', about:'the symmetric weight matrix W = Σ ξξᵀ — the stored memories ARE the connectivity',
           views:[ { title:'weight matrix W (Hebbian): the memories live in the connections', draw:(g,d)=>{ const N=d.N;
             const cmapW=v=>{ const t=Math.max(-1,Math.min(1,v/(d.Wmax||1))); if(t>=0) return [Math.round(245-(245-194)*t),Math.round(243-(243-91)*t),Math.round(238-(238-66)*t)]; const u=-t; return [Math.round(245-(245-74)*u),Math.round(243-(243-122)*u),Math.round(238-(238-147)*u)]; };
-            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'unit j', ylabel:'unit i', title:`W = (1/P) Σ ξ ξᵀ over ${d.nStore} stored pattern(s) — symmetric, zero diagonal`});
+            g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'unit j', ylabel:'unit i', title:`W = (1/N) Σ ξ ξᵀ over ${d.nStore} stored pattern(s) — symmetric, zero diagonal`});
             g.heat(N,N,(i,j)=>d.W[j*N+i], cmapW, {smooth:false});
             g.colorbar(-d.Wmax, d.Wmax, cmapW, {ticks:[{v:-d.Wmax,label:'−'},{v:0,label:'0'},{v:d.Wmax,label:'+'}], label:'weight'});
           }} ] },
@@ -1217,7 +1217,7 @@
     wilson: {
       id:'wilson', name:'Wilson–Cowan E/I (oscillation)',
       blurb:'Two coupled populations — excitatory E and inhibitory I — with a sigmoid input–output. E excites itself and I; I inhibits E (and itself). With enough drive the pair stops settling and starts to oscillate: a limit cycle born at a Hopf bifurcation (the basis of many cortical rhythms). Use the lens switch for the angles — structure first: Structure (the E/I circuit), Dynamics (the E and I rates and the phase-plane loop), Compare (oscillation amplitude vs drive — the bifurcation).',
-      note:'τ_E dE/dt = −E + S(w_EE·E − w_EI·I + P); τ_I dI/dt = −I + S(w_IE·E − w_II·I + Q), S a logistic. Recurrent excitation w_EE destabilises the fixed point; delayed inhibition (slower τ_I) makes the state overshoot and cycle. Below a critical drive P the activity settles to a steady state; above it a stable limit cycle appears (a Hopf bifurcation) and E/I oscillate in antiphase. Raise the drive or recurrent excitation to switch the rhythm on. Composed from MSLIB.osc.',
+      note:'τ_E dE/dt = −E + S(w_EE·E − w_EI·I + P); τ_I dI/dt = −I + S(w_IE·E − w_II·I + Q), S a logistic. Recurrent excitation w_EE destabilises the fixed point; delayed inhibition (slower τ_I) makes the state overshoot and cycle. Below a critical drive P the activity settles to a steady state; above it a stable limit cycle appears (a Hopf bifurcation): E and I rise and fall together, with I trailing E by about a tenth of a cycle. Raise the drive or recurrent excitation to switch the rhythm on. Composed from MSLIB.osc.',
       params:[
         {name:'P', label:'Excitatory drive P', min:0, max:3, step:0.05, default:1.2},
         {name:'wEE', label:'Recurrent excitation w_EE', min:8, max:20, step:0.5, default:16},
@@ -1252,7 +1252,7 @@
           anim:{ length:(p,d)=>d.nF },
           views:[
             { title:'E and I population rates over time', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.times[d.nF-1]||1;
-              g.frame({x:[0,tE], y:[0,1], xlabel:'time', ylabel:'population activity', title: d.oscillating ? 'a sustained rhythm — E and I cycle in antiphase' : 'the rates settle to a steady state (no oscillation)'});
+              g.frame({x:[0,tE], y:[0,1], xlabel:'time', ylabel:'population activity', title: d.oscillating ? 'a sustained rhythm — I trails E by a fraction of a cycle' : 'the rates settle to a steady state (no oscillation)'});
               const pe=[],pi=[]; for(let i=0;i<=k;i++){ pe.push([d.times[i],d.Et[i]]); pi.push([d.times[i],d.It[i]]); } g.line(pe,{color:T.pos,width:2.2}); g.line(pi,{color:T.neg,width:2.2});
               g.legend([{label:'E (excitatory)',color:T.pos},{label:'I (inhibitory)',color:T.neg}],{corner:'tr'}); }},
             { title:'phase plane (E vs I): a loop = a limit cycle', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head));
