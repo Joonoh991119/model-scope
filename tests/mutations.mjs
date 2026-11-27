@@ -13,10 +13,10 @@ import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 // Thresholds. Raise them when the gate gets stronger; never lower them to make a run pass.
 export const THRESHOLDS = {
-  total: 48,            // mutations in the table
-  gateMin: 45,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
-  gateBaselineMin: 47,  // killed by validate.mjs or the baseline
-  allWithSmoke: 48,     // with --pw: killed by any layer
+  total: 52,            // mutations in the table
+  gateMin: 49,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
+  gateBaselineMin: 51,  // killed by validate.mjs or the baseline
+  allWithSmoke: 52,     // with --pw: killed by any layer
 };
 
 // [id, file, find, replace, what is now wrong]
@@ -31,7 +31,11 @@ export const MUTATIONS = [
   ['compare-dt-no-tanh', 'examples.js', '(z/A)*Math.tanh(A*z/cc2);', '(z/A);', 'DDM mean decision time without tanh'],
   ['compare-acc1s', 'examples.js', 'accS=Phi(p.A*Math.sqrt(p.T)/p.c)', 'accS=Phi(p.A*p.T/p.c)', 'single-sample accuracy uses T not sqrt(T)'],
   ['ww-no-saturation', 'modules/mslib.js', 's.S1 += dt*(-s.S1/p.tauS + (1-s.S1)*p.gamma*r1); s.S2 += dt*(-s.S2/p.tauS + (1-s.S2)*p.gamma*r2);', 's.S1 += dt*(-s.S1/p.tauS + 0.5*p.gamma*r1); s.S2 += dt*(-s.S2/p.tauS + 0.5*p.gamma*r2);', 'Wong-Wang gating without the (1-S) saturation'],
-  ['ww-noise-scale', 'modules/mslib.js', 'sN=p.sigma*sqrt(2/p.tauN)', 'sN=p.sigma*sqrt(1/p.tauN)', 'Wong-Wang noise amplitude off by sqrt(2)'],
+  ['kalman-variance', 'modules/mslib.js', 'sigma:sqrt((1-K)*s2)', 'sigma:sqrt(K*s2)', 'Kalman posterior variance uses K instead of 1-K (a block no example uses)'],
+  ['izhikevich-140', 'modules/mslib.js', '5*s.v + 140 - s.u + I', '5*s.v + 150 - s.u + I', 'Izhikevich constant 150 instead of 140 (a block no example uses)'],
+  ['central-tendency-sd', 'modules/mslib.js', "sd:w*sm }", "sd:sm }", 'central-tendency SD not shrunk by the weight (a block no example uses)'],
+  ['besselI1-series', 'modules/mslib.js', 't*=(k*k)/(4*m*(m+1));', 't*=(k*k)/(4*m*m);', 'I1 series uses the I0 recurrence (a block no example uses)'],
+  ['ww-noise-scale', 'modules/mslib.js', 'sN=p.sigma*sqrt(2/p.tauN)', 'sN=p.sigma*sqrt(1/p.tauN)', 'Wong-Wang noise SD off by sqrt(2) from the documented convention (stationary SD = sigma, as the paper text defines sigma^2)'],
   ['ww-gamma', 'modules/mslib.js', 'gamma:0.641,', 'gamma:0.5,', 'Wong-Wang gamma constant wrong'],
   ['sir-antidiffusion', 'examples.js', 'Itil=I[x]+p.D*(I[xl]+I[xr]-2*I[x])', 'Itil=I[x]-p.D*(I[xl]+I[xr]-2*I[x])', 'spatial coupling has the wrong sign'],
   ['sir-no-recovery-R', 'examples.js', 'nR[x]=R[x]+dt*rec;', 'nR[x]=R[x];', 'recovered compartment never fills (S+I+R not conserved)'],

@@ -399,6 +399,48 @@ const LIBRARY_CHECKS = t => {
   { // attn: softmax sums to 1 and is monotone in logits; uniform attention has entropy ln(N)
     const sm = L.attn.softmax([1, 2, 3]); t.ok(Math.abs(sm.reduce((a, b) => a + b, 0) - 1) < 1e-9 && sm[2] > sm[1] && sm[1] > sm[0], 'attn: softmax sums to 1 + monotone');
     t.ok(Math.abs(L.attn.entropy([.25, .25, .25, .25]) - Math.log(4)) < 1e-9, 'attn: uniform entropy = ln(N)'); }
+  // ---- every other exported block: one closed-form assertion each (an export no example uses is still shipped) ----
+  { // sde: one Euler–Maruyama step equals the written update; normpdf/normcdf against known values
+    t.ok(Math.abs(L.sde.wiener(0.2, 1.5, 0.8, 0.01, () => 0.7) - (0.2 + 1.5 * 0.01 + 0.8 * 0.1 * 0.7)) < 1e-15, 'sde: wiener step = x + drift·dt + c·√dt·ξ');
+    t.ok(Math.abs(L.sde.ou(0.3, 4, -1, 0.5, 0.01, () => -1.2) - (0.3 + 4 * (-1 - 0.3) * 0.01 + 0.5 * 0.1 * -1.2)) < 1e-15, 'sde: OU step = x + θ(μ−x)·dt + σ·√dt·ξ');
+    t.ok(Math.abs(L.sde.normpdf(1.3, 1.3, 0.5) - 1 / (0.5 * Math.sqrt(2 * Math.PI))) < 1e-12 && Math.abs(L.sde.normpdf(2.3, 1.3, 0.5) / L.sde.normpdf(1.3, 1.3, 0.5) - Math.exp(-2)) < 1e-12, 'sde: normpdf peak 1/(σ√2π), falls by e^(−z²/2)');
+    t.ok(Math.abs(L.sde.normcdf(0) - 0.5) < 3e-7 && Math.abs(L.sde.normcdf(1.959964) - 0.975) < 3e-7 && Math.abs(L.sde.normcdf(-1) - 0.158655254) < 3e-7, 'sde: normcdf(0)=0.5, Φ(1.96)=0.975, Φ(−1)=0.1587 (tol 3e-7, the Abramowitz–Stegun 26.2.17 approximation)'); }
+  { // bayes: central tendency is the line w·θ + (1−w)·μ0 with SD w·σ_m; Weber noise; one trial = posterior mean of m
+    const w = 1 / (1 + 0.8 * 0.8), ct = L.bayes.centralTendency([-2, 0, 3], 0.8, 0.5, 1);
+    t.ok(ct.every(q => Math.abs(q.est - (w * q.theta + (1 - w) * 0.5)) < 1e-12 && Math.abs(q.sd - w * 0.8) < 1e-12), 'bayes: centralTendency = w·θ + (1−w)·μ0, SD w·σ_m (w = σ0²/(σ0²+σ_m²))');
+    t.ok(Math.abs(L.bayes.weberNoise(-4, 0.15) - 0.6) < 1e-12 && L.bayes.weberNoise(0, 0.15) === 1e-3, 'bayes: weberNoise = wf·|θ|, floored');
+    const tr = L.bayes.trial(2, 0.8, 0.5, 1, () => 0.25); t.ok(Math.abs(tr.m - 2.2) < 1e-12 && Math.abs(tr.est - (w * 2.2 + (1 - w) * 0.5)) < 1e-12, 'bayes: trial draws m = θ + σ_m·ξ and estimates the posterior mean'); }
+  { // neuron: Izhikevich (2003) v' = 0.04v² + 5v + 140 − u + I, u' = a(bv − u), in ms; regular spiking at I = 10
+    const D = L.neuron.IZH_DEFAULT; t.ok(D.a === 0.02 && D.b === 0.2 && D.c === -65 && D.d === 8, 'neuron: IZH_DEFAULT is regular spiking (a .02, b .2, c −65, d 8)');
+    const s = { v: -60, u: -12 }, h = 0.5, v1 = -60 + h * (0.04 * 3600 + 5 * -60 + 140 + 12 + 10), u1 = -12 + h * (0.02 * (0.2 * v1 + 12));
+    L.neuron.izhStep(s, 10, null, h / 1000); t.ok(Math.abs(s.v - v1) < 1e-12 && Math.abs(s.u - u1) < 1e-12, 'neuron: one Izhikevich step equals the written equations (dt in s, model in ms)');
+    const sp = { v: 29, u: 0 }, vPeak = 29 + (0.04 * 29 * 29 + 5 * 29 + 140 + 10), fired = L.neuron.izhStep(sp, 10, null, 0.001);
+    t.ok(fired && sp.v === -65 && Math.abs(sp.u - (0.02 * 0.2 * vPeak + 8)) < 1e-9, 'neuron: Izhikevich reset v → c, u → u + d at v ≥ 30');
+    const fz = L.neuron.fI((st, I, dt) => L.neuron.izhStep(st, I, null, dt), () => ({ v: -65, u: -13 }), [3, 10], 0.00025, 2);
+    t.ok(fz[0].rate === 0 && fz[1].rate > 12 && fz[1].rate < 35, `neuron: Izhikevich RS silent at I = 3, tonic at I = 10 (${fz[1].rate} Hz)`); }
+  { // rl: qUpdate is Rescorla–Wagner on the chosen arm only; choose samples its probabilities; Kalman = conjugate Gaussian update
+    const Q = L.rl.qUpdate([0.2, 0.5, -1], 1, 1, 0.3); t.ok(Q[0] === 0.2 && Math.abs(Q[1] - (0.5 + 0.3 * (1 - 0.5))) < 1e-15 && Q[2] === -1, 'rl: qUpdate = Rescorla–Wagner on arm a, the others untouched');
+    const pr = [0.2, 0.5, 0.3], cnt = [0, 0, 0], n = 20000; for (let i = 0; i < n; i++) cnt[L.rl.choose(pr, U)]++; t.ok(cnt.every((c, i) => Math.abs(c / n - pr[i]) < 0.015), `rl: choose draws arm i with probability p_i (${cnt.map(c => (c / n).toFixed(3)).join(', ')})`);
+    const k = L.rl.kalman({ mu: 1, sigma: 0.8 }, 3, 0.25, 2), pv = 0.64 + 0.25, post = 1 / (1 / pv + 1 / 2);
+    t.ok(Math.abs(k.sigma * k.sigma - post) < 1e-12 && Math.abs(k.mu - (1 + pv / (pv + 2) * 2)) < 1e-12, 'rl: kalman posterior 1/σ² = 1/(σ²+q) + 1/r, mean moves by the gain K = (σ²+q)/(σ²+q+r)'); }
+  { // efficient: decision-conditioned mean and the bias curve (repulsive: away from the prior peak, Wei & Stocker 2015)
+    const xs = [-2, -1, 0, 1, 2], post = [0.1, 0.2, 0.4, 0.2, 0.1];
+    t.ok(Math.abs(L.efficient.condMean(post, xs, 0, 1) - (0.4 * 0 + 0.2 * 1 + 0.1 * 2) / 0.7) < 1e-12 && Math.abs(L.efficient.condMean(post, xs, 0, -1) - (-0.1 * 2 - 0.2) / 0.3) < 1e-12, 'efficient: condMean = posterior mean truncated to the decided side');
+    const gx = L.bayes.linspace(-4, 4, 81), pri = Array.from(gx, x => Math.exp(-x * x / 2)), F = L.efficient.cdf(gx, pri), br = SIM.makeRNG('ec-bias'), b = L.efficient.biasCurve(gx, 0.08, F, pri, 'BLS', 600, () => SIM.gaussian(br));
+    t.ok(b[50] > 0.01 && b[30] < -0.01, `efficient: BLS bias is repulsive, away from the prior peak (θ=+1: ${b[50].toFixed(3)}, θ=−1: ${b[30].toFixed(3)})`); }
+  { // causal: reliability weights ∝ 1/σ²; segregated estimate; size principle; generalization of a one-hypothesis posterior
+    const rw = L.causal.reliabilityWeights([1, 2]); t.ok(Math.abs(rw[0] - 0.8) < 1e-12 && Math.abs(rw[1] - 0.2) < 1e-12, 'causal: reliabilityWeights ∝ 1/σ², sum to 1');
+    t.ok(Math.abs(L.causal.ciSegEstimate(6, 2, 4, 1) - (6 / 4 + 1 / 16) / (1 / 4 + 1 / 16)) < 1e-12, 'causal: segregated estimate = precision-weighted cue and prior mean');
+    const h = { members: new Set([2, 4, 6, 8]), size: 4 }; t.ok(Math.abs(L.causal.sizePrincipleLikelihood(h, [2, 8]) - 1 / 16) < 1e-15 && L.causal.sizePrincipleLikelihood(h, [2, 3]) === 0, 'causal: size principle (1/|h|)^n, 0 if an example is outside h');
+    const H = L.causal.numberGameHypotheses(100), iE = H.findIndex(x => x.name === 'even'), gc = L.causal.generalizationCurve(H, H.map((_, i) => i === iE ? 1 : 0), 100);
+    t.ok(gc[64] === 1 && gc[63] === 0 && gc.reduce((a, v) => a + v, 0) === 50, 'causal: generalization of a posterior on "even" = indicator of the even numbers'); }
+  { // wm: I1 against the integral I_n(κ) = (1/π)∫₀^π e^{κ cos t} cos(nt) dt (series and asymptotic branches); Fisher information κ·I1/I0
+    const In = (nn, x) => { const M = 2000; let s = 0; for (let k = 0; k < M; k++) { const tt = Math.PI * (k + 0.5) / M; s += Math.exp(x * Math.cos(tt)) * Math.cos(nn * tt); } return s / M; };
+    let e1 = 0, ef = 0; for (const k of [0.5, 1, 5, 14.9, 15, 20, 40]) { e1 = Math.max(e1, t.rel(L.wm.besselI1(k), In(1, k))); ef = Math.max(ef, t.rel(L.wm.fisherInfo(k), k * In(1, k) / In(0, k))); }
+    t.ok(e1 < 1e-5 && Math.abs(L.wm.besselI1(-1) + L.wm.besselI1(1)) < 1e-15, `wm: besselI1 matches the integral, odd in κ (max rel err ${e1.toExponential(1)})`);
+    t.ok(ef < 1e-5, `wm: fisherInfo = κ·I1(κ)/I0(κ) (max rel err ${ef.toExponential(1)})`);
+    t.ok(Math.abs(L.wm.precisionFromSetsize(4, { P1: 2, k: 0.5 }) - 1) < 1e-12, 'wm: precisionFromSetsize = P1·N^(−k)'); }
+  { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
 };
 
 const guarded = (label, fn) => { try { fn(toolkit); } catch (e) { console.log(`    ${label} check threw: ${e.message}   [${ok(false)}]`); } };
