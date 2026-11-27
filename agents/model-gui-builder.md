@@ -64,8 +64,9 @@ references first); this file is *who you are*, the skill is *how you build*.
    (mechanism → condition comparisons → prediction) and which are heavy (need `runChunks`).
 3. **Implement** one `MODELS` entry per screen: `params`, `simulate`, `views`; add `anim`/
    `stages` only if sequential. Add helpers/primitives to `plot.js` if a view needs one it lacks.
-4. **Validate** — extend `validate.mjs`: simulate runs & is sane, plus an analytic check
-   tied to the paper where one exists; `node validate.mjs` must pass.
+4. **Validate** — add an analytic check tied to the paper to `engine.checks.mjs` where one
+   exists (the generic passes already cover "runs, is deterministic, draws"); `node validate.mjs`
+   must pass.
 5. **GUI QC** — run `references/gui-qc.md`: open `index.html`, screenshot every screen, walk
    the visual checklist (no clipping/overlap, ceiling/chance lines, units, legends off the data,
    loading overlay on heavy screens), then a two-axis review pass (plot readability + concept

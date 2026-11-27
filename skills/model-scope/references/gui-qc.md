@@ -22,7 +22,7 @@ that violates it **fails the gate**, it is not left to a human walking the check
   colorbar**, and at the end of its playhead it must draw **data, not just axes**.
 - **Parameter property pass**: at **each control's min and max**, `simulate()` must stay finite
   and every view must still draw (catches a NaN or a throw at a slider extreme).
-- Add **≥1 analytic check per model tied to the science** — a closed-form limit, a conservation
+- Add **≥1 analytic check per model tied to the science**, in `engine.checks.mjs` — a closed-form limit, a conservation
   law, a normalisation identity, a signature shape (e.g. the ventriloquism bias is N-shaped;
   working-memory reports concentrate toward the target). Prefer a check against an independent
   reference (a closed form, a second implementation, a Monte-Carlo estimate) over "the output is

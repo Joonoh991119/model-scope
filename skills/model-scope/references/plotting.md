@@ -92,7 +92,7 @@ researcher is after.
 `anim:{length:p=>nTrials}`. View A regenerates the current trial's path from `ui.head`
 (`floor(head)` = trial index, frac = within-trial progress) and draws it to thresholds.
 View B bins outcomes of completed trials (`Plot.histify(rt[0..floor(head)])`) into a
-mirrored correct↑/error↓ histogram. (See the `ddm` model in `engine.js`.)
+mirrored correct↑/error↓ histogram. (See the `ddm` model in `examples.js`.)
 
 ### Spike raster + voltage trace (neurons)
 ```js
@@ -142,7 +142,7 @@ draws the **pipeline overview**; the others reveal their panel when the stage is
 ```
 Gate by `ui.stage` (index) or `switch(ui.stageKey)`. Use `ui.frac` (0→1 within a stage) to fade
 a panel in. Compute everything once in `simulate`; the stages only choose what to *show*. See
-the `efficient`, `causal`, `wm` models in `engine.js` for full worked pipelines.
+the `efficient`, `causal`, `wm` models in `examples.js` for full worked pipelines.
 
 ## Layout & animation notes
 - Views auto-fit a responsive grid; 1–4 per model reads best. Each view is independent —

@@ -100,7 +100,7 @@ ambiguity, ask one targeted follow-up rather than guessing.
 
 ## Phase 4 — QC, then serve and verify
 
-1. **Validate & QC** — `node validate.mjs` (add an analytic check tied to the paper), then walk
+1. **Validate & QC** — `node validate.mjs` (add an analytic check tied to the paper in `engine.checks.mjs`), then walk
    `skills/model-scope/references/gui-qc.md`: the visual checklist (no clipped/overlapping text, ceiling/chance lines
    + accuracy clamp, units, legends off the data, colorbar, loading overlay, numbered panels) and
    a two-axis review pass (plot readability + concept clarity). Fix and re-verify.

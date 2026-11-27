@@ -58,8 +58,8 @@ angle catalogue in [`references/levels.md`](skills/model-scope/references/levels
   layer-by-layer transforms — each driven by a continuous playhead or a step-by-step stepper.
 - **No build step, no `npm install`, runs from `file://`.** Plain `<script>` tags and **zero
   external resources** — open `index.html` directly (offline too; fonts fall back to the system
-  UI / monospace stack). The *same* `engine.js` is re-checked by a Node validation gate, so the
-  math you read is the math that runs.
+  UI / monospace stack). The *same* scripts the page loads are re-checked by a Node validation gate,
+  so the math you read is the math that runs.
 - **Readable by default.** The plotting helper carries the conventions that make a figure
   self-interpretable — axis labels with units, a colorbar on every heatmap, categorical ticks,
   legends that don't occlude data, and a **Text size** control that scales every label (handy for
@@ -146,8 +146,8 @@ every label for talks.
 
 There are two layers: the **plugin** you install (a skill, an agent, a command, a
 template, and a modelbook) and the **explorer** it produces — a no-build app of four core
-files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus an optional
-reusable-model library, `mslib.js`, that the bundled examples use.
+files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus two optional ones: the
+worked examples (`examples.js`) and the reusable-model library they use (`mslib.js`).
 
 ![How model-scope is built and how it runs](docs/architecture.png)
 
@@ -155,8 +155,8 @@ reusable-model library, `mslib.js`, that the bundled examples use.
 once, caches the returned `data`, then calls each view's `draw(g, data, ui)` to redraw. For
 sequential models an animation loop advances a playhead and redraws the views; a generation
 counter cancels any in-flight playback, so rapid changes never leave stale state on screen.
-You normally touch only `engine.js`. The same `engine.js` is re-checked in Node by
-`validate.mjs`, so the math you read is the math that runs.
+You normally touch only `engine.js`, where your models go. `validate.mjs` loads the same
+scripts in Node, so the math you read is the math that runs.
 
 ---
 
@@ -179,7 +179,7 @@ rewritten.
 | | ad-hoc "write me a simulator" | a model-scope harness |
 |---|---|---|
 | **Reproducibility** | non-deterministic; re-runs differ | a seedable per-trial RNG: same seed, same result; any trial is addressable by index |
-| **Correctness** | rarely checked; errors ship silently | `node validate.mjs` re-runs the *same* `engine.js` the browser runs, plus analytic checks tied to the science, before it's "done" |
+| **Correctness** | rarely checked; errors ship silently | `node validate.mjs` re-runs the *same* scripts the browser runs, plus analytic checks tied to the science, before it's "done" |
 | **Separation of concerns** | math, UI, controls tangled in one blob | pure math (`engine.js`, no DOM), rendering (`plot.js`), toolbox (`index.html`) — edit one, the rest is already proven |
 | **Consistency** | every request reinvents controls, axes, layout | every model gets the same sliders, readability conventions, perspectives, and QC for free |
 | **Stable change** | adding a feature regenerates the whole app, with fresh bugs | adding a model is one entry; the battle-tested toolbox is untouched |
@@ -413,7 +413,10 @@ model-scope/
     └── assets/template/         the app you copy & extend
         ├── README.md            quick-start for the copied app
         ├── index.html           the toolbox — sliders, the loop, the transport (untouched)
-        ├── engine.js            seedable RNG + the MODELS registry   (you edit this)
+        ├── engine.js            seedable RNG + the MODELS registry   (your models go here)
+        ├── engine.checks.mjs    the analytic checks for your models
+        ├── examples.js          optional: the 21 worked examples (delete to ship only yours)
+        ├── examples.checks.mjs  their analytic checks
         ├── plot.js              the canvas charting helper g
         ├── modules/mslib.js     optional reusable model library (MSLIB)
         └── validate.mjs         the Node correctness gate

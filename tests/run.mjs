@@ -18,6 +18,7 @@ const steps = [
   ['gate', 'node validate.mjs (the shipped gate)', ['node', ['validate.mjs'], { cwd: DEFAULT_TEMPLATE }]],
   ['baseline', 'golden baseline of the 21 examples', node('baseline.mjs', '--check')],
   ['mutations', 'mutation probe (gate + baseline)', node('mutations.mjs')],
+  ['bare', 'the template without its examples', A.flag('--browser') ? node('bare-app.mjs', '--pw', PW) : node('bare-app.mjs')],
 ];
 const hasClaude = spawnSync('claude', ['--version'], { encoding: 'utf8' }).status === 0;
 if (hasClaude) steps.push(['plugin', 'claude plugin validate --strict .', ['claude', ['plugin', 'validate', '--strict', '.'], { cwd: ROOT }]]);

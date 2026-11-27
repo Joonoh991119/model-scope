@@ -51,7 +51,10 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 ## Files
 - `plot.js` — tiny canvas charting helper (`Plot`): `frame`, `line`, `band`, `bars`, `heat`,
   `raster`, `vline`, `flow` (process strip), … Each view defines its own axes. Rarely edited.
-- `engine.js` — pure math: RNG + the `MODELS` registry. **This is what you edit.**
+- `engine.js` — pure math: RNG + the `MODELS` registry. **Your models go here; this is what you edit.**
+- `engine.checks.mjs` — the analytic checks for your models (ships as a commented example).
+- `examples.js` + `examples.checks.mjs` — the worked examples and their checks. Optional: delete both
+  files and the `<script src="examples.js">` line in `index.html` to ship only your own models.
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
@@ -63,7 +66,8 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 
 ## Add your model — one registry entry
 
-In `engine.js`, append to `MODELS` and add the id to `MODEL_ORDER`:
+In `engine.js`, add an entry to `MODELS` and its id to `MODEL_ORDER` (a commented skeleton is already
+there). Your models come first in the tab order; the examples follow:
 
 ```js
 mymodel: {
@@ -88,6 +92,8 @@ mymodel: {
 `makeRNG`, `gaussian`, `trialRng`, `npdf` are in scope in `engine.js`; `Plot.*` (helpers,
 theme, `histify`) are global in views. Reload `index.html` — your model appears as a tab
 with sliders auto-generated from `params`, and your views render and update as you tune.
+Then write its check in `engine.checks.mjs` (a property the science guarantees) and run
+`node validate.mjs`.
 
 See the `model-scope` skill (`references/plotting.md`, `references/architecture.md`) for the
 full helper API and view recipes (distributions, tuning curves, trajectory+histogram,

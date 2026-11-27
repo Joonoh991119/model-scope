@@ -56,6 +56,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .spd{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint)} .spd input{width:90px}
 .views{padding:12px; overflow:auto; display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); grid-auto-rows:minmax(258px,1fr); align-content:start}
 .views::-webkit-scrollbar{width:9px}.views::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
+.empty{grid-column:1/-1; align-self:start; max-width:560px; margin:24px auto; padding:18px 20px; border:1px dashed var(--edge-2); border-radius:10px; background:var(--surface); color:var(--ink-dim); font-size:13px; line-height:1.6} .empty b{color:var(--ink)} .empty code{font-family:var(--mono); font-size:12px; color:var(--ink)}
 .plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:258px} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
 @media (max-width:1000px){ body{overflow:auto} .app{height:auto} .layout{grid-template-columns:1fr} .right{height:auto} .views{grid-template-columns:1fr; grid-auto-rows:300px} }
 </style>
@@ -106,7 +107,8 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 </div>
 <script src="plot.js"></script>
 <script src="modules/mslib.js"></script>   <!-- optional reusable model library (window.MSLIB) -->
-<script src="engine.js"></script>
+<script src="engine.js"></script>            <!-- the core + YOUR models -->
+<script src="examples.js"></script>          <!-- optional: the 21 worked examples. Delete this line (and examples.js, examples.checks.mjs) to ship only your own models -->
 <script>
 (function(){
 "use strict";
@@ -243,6 +245,9 @@ window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; el
 
 if(Q.text){ const ts=parseFloat(Q.text); if(ts>0){ window.__plotFontScale=ts; const f=$('#fontScale'); if(f)f.value=ts; const fv=$('#fontScaleVal'); if(fv)fv.textContent=Math.round(ts*100)+'%'; } }
 if(Q.model && SIM.MODELS[Q.model]) S.modelId=Q.model;
+if(!SIM.MODEL_ORDER.length){   // nothing registered: say what to do instead of throwing
+  $('#views').innerHTML='<div class="empty"><b>No model is registered yet.</b><br>Add one to <code>MODELS</code> and <code>MODEL_ORDER</code> in <code>engine.js</code> (README.md shows the entry), or put the <code>examples.js</code> script line back in <code>index.html</code> to load the worked examples.</div>';
+  $('#blurb').textContent='No model registered.'; $('#note').style.display='none'; return; }
 buildModelTabs(); setModel(S.modelId);
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(drawAll);
 })();

@@ -16,8 +16,8 @@ agent, or just read this file.
 > and model choices — NOT pixel-match a figure, NOT one universal pipeline.
 > The template ships **21 worked models** (see list below). Before editing, read
 > `skills/model-scope/references/architecture.md` (the contract + the gate). **Always run
-> `node validate.mjs` and keep it green before committing.** Edit only `engine.js` (the math/registry),
-> `plot.js`, or `modules/mslib.js`; never hand-wire UI. Keep README prose free of emojis/symbols
+> `node validate.mjs` and keep it green before committing.** Edit only `engine.js` (the core and your models),
+> `examples.js` (the worked examples), `plot.js`, or `modules/mslib.js`; never hand-wire UI. Keep README prose free of emojis/symbols
 > (Greek + math are fine). Continue with: <state the next task>.
 
 ---
@@ -37,7 +37,9 @@ model-scope/
     assets/template/                                 # THE app you copy + edit
       index.html      # toolbox (sliders, lenses, transport). Rarely edited. No external resources.
       plot.js         # window.Plot — frame + primitives (line/band/bars/heat/image/graph/raster/…)
-      engine.js       # window.SIM — RNG + the MODELS registry + MODEL_ORDER.  *** edit this ***
+      engine.js       # window.SIM — RNG + the MODELS registry + MODEL_ORDER.  *** your models go here ***
+      examples.js     # optional: the 21 worked examples, registered after yours (delete it and its script line to ship only your own)
+      *.checks.mjs    # analytic checks keyed by model id (engine.checks.mjs = yours, examples.checks.mjs = the examples)
       modules/mslib.js# window.MSLIB — reusable library (compose inside simulate)
       validate.mjs    # the gate: node validate.mjs
     commands/, agents/

@@ -2,13 +2,13 @@
 
 ## Why classic scripts, no build
 
-`plot.js` and `engine.js` are **classic scripts** (`window.Plot`, `window.SIM`), not ES
+`plot.js`, `engine.js` and `examples.js` are **classic scripts** (`window.Plot`, `window.SIM`), not ES
 modules, so `index.html` loads them from `file://` (modules are CORS-blocked there).
-`engine.js` is also `eval`-able in Node, so `validate.mjs` tests the *same* math and the *same*
+They are also `eval`-able in Node, so `validate.mjs` tests the *same* math and the *same*
 `plot.js` the app runs. No bundler, no install — a researcher opens or reads it directly.
 
-**Zero external resources.** `index.html` loads no CDN, font, or analytics — only its three
-local scripts (`plot.js`, `mslib.js`, `engine.js`). Fonts fall back to the system UI /
+**Zero external resources.** `index.html` loads no CDN, font, or analytics — only its local
+scripts (`plot.js`, `modules/mslib.js`, `engine.js`, and optionally `examples.js`). Fonts fall back to the system UI /
 monospace stack (`IBM Plex …, system-ui` / `…, ui-monospace`), so the app is self-contained
 and works offline. Nothing to delete, nothing to phone home.
 
@@ -81,6 +81,24 @@ as a few screens (mechanism → condition comparisons → prediction), each its 
 — see the skill's "Scaling to a whole paper". You normally never touch `index.html` — adding a
 screen is purely an `engine.js` edit.
 
+## Where models live: `engine.js` and `examples.js`
+
+`engine.js` is the core (RNG, `npdf`, `runChunks`, the registry) and the place a researcher's own
+models go: an entry in `MODELS`, its id in `MODEL_ORDER`. `examples.js` holds the twenty-one worked
+examples and calls `SIM.register(models, order)`, which appends them after whatever `engine.js`
+already registered, so your models come first in the tab order. The first model registered under an
+id keeps it.
+
+`examples.js` is optional. To ship an app that holds only your own models, delete `examples.js`,
+`examples.checks.mjs` and the `<script src="examples.js">` line in `index.html`. Nothing else
+refers to them. With no model registered at all, the page shows a short message that says where to
+add one, and the gate fails with the same message.
+
+Analytic checks sit next to the script that registers the model: for every `X.js` the page loads,
+`validate.mjs` imports `X.checks.mjs` if it exists. `engine.checks.mjs` is yours (it ships as a
+commented example); `examples.checks.mjs` holds the checks for the examples. Each is a table keyed
+by model id, and an entry runs only when that model is registered.
+
 ## The validation gate (`validate.mjs`)
 
 `node validate.mjs` is the single gate, and it **must exit 0 before any commit**. It reads the
@@ -108,7 +126,8 @@ print the same text. Layers:
    independent reference where one exists (the drift-diffusion error rate and mean decision time
    against the closed forms; SIR mass conservation; the Bayes-filter trajectory against a second
    forward recursion; do(X) recovering the causal slope; a Hopf bifurcation in Wilson–Cowan). The
-   checks are a table keyed by model id and run only for registered models. A model without one is
+   checks are tables keyed by model id in `engine.checks.mjs` (yours) and `examples.checks.mjs`,
+   and run only for registered models. A model without one, or with one that asserts nothing, is
    a counted warning, not a failure.
 6. **Per-`MSLIB`-block checks** — each library family has a test (softmax sums to 1, a DoG is
    band-pass, predict/update normalise, the Wong–Wang constants match the documented table, …).

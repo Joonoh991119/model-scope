@@ -13,6 +13,7 @@ node tests/run.mjs --browser    # ... plus the headless-Chrome smoke test
 |---|---|---|
 | `baseline.mjs` | The 21 shipped examples behave as they did at v1.21.1: same parameter ids, ranges and defaults; the same numbers out of `simulate()` at defaults and at every control's min and max; the same drawing through the real `plot.js`. | Node |
 | `mutations.mjs` | The gate bites: 46 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
+| `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the commented skeleton model and check in `engine.js` / `engine.checks.mjs` are real code; deleting one example leaves the gate green. | Node (+ Playwright with `--pw`) |
 | `smoke.mjs` | The page works in a real browser from `file://`: every model and lens paints, no console or page error, no network request, plus accessibility (axe), phone width, and toolbox behaviour. | Playwright |
 | `run.mjs` | Runs the above in order and reports. | Node |
 | `lib/harness.mjs` | Loads a template exactly as `index.html` does and digests what it computes and draws. | |

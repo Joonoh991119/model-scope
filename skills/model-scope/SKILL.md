@@ -94,7 +94,11 @@ plot.js       a tiny canvas charting helper (window.Plot): frame({x,y,…}) sets
               view's OWN axes, then line/band/points/bars/heat/raster/vline/… draw in
               data coordinates. Theme- & devicePixelRatio-correct. You rarely edit it.
 engine.js     pure math (window.SIM): RNG + the MODELS registry. NO DOM. Eval-able in
-              Node so validate.mjs shares the same source. You mostly edit ONLY this.
+              Node so validate.mjs shares the same source. YOUR models go here; you
+              mostly edit ONLY this (and its checks in engine.checks.mjs).
+examples.js   OPTIONAL: the 21 worked examples, registered after yours. Read one as a
+              recipe for a model of the same class. Delete the file, examples.checks.mjs
+              and its <script> line to ship an app that holds only your own models.
 index.html    the toolbox: builds sliders from each model's schema, runs simulate() on
               change, drives the optional playhead, and calls each view's draw().
 validate.mjs  Node gate — loads what index.html loads; schema, determinism, every view drawn
@@ -293,8 +297,8 @@ then fix and re-verify.
 `validate.mjs` loads exactly what `index.html` loads, with the real `plot.js`. For every model it
 lints the schema, runs `simulate()` (and requires the same result for the same seed), draws every
 view at defaults and at each control's min and max, and runs the analytic checks. Add a per-model
-analytic check where one exists (a closed form, a conservation law, a known limit) — prefer one
-against an independent reference over "the output is finite". `node validate.mjs` must pass before
+analytic check in `engine.checks.mjs` where one exists (a closed form, a conservation law, a known
+limit) — prefer one against an independent reference over "the output is finite". `node validate.mjs` must pass before
 declaring done.
 
 ## How to start
