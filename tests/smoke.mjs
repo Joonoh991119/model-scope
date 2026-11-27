@@ -222,13 +222,15 @@ if (A.flag('--bundle')) { tag = 'bundle';
     // the skeleton a host puts around a published fragment: charset, viewport, a small reset — and here the CSP
     fs.writeFileSync(path.join(dir, 'page.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta http-equiv="Content-Security-Policy" content="${CSP}"><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>\n${b.html}</body></html>`);
     const bp = await newPage(), base = pathToFileURL(path.join(dir, 'page.html')).href, csp = []; bp.on('console', m => { if (/Content Security Policy|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 140)); });
-    const before = errs.length, reqBefore = reqs.length; let n = 0; const bad = [];
+    // every request the page makes, file:// included (the shared `reqs` ignores file://): only the page itself may load
+    const sub = []; bp.on('request', r => { const u = r.url(); if (!u.startsWith('about:') && u.split('#')[0] !== base) sub.push(u.slice(0, 140)); });
+    const before = errs.length, reqBefore = reqs.length; let n = 0; const bad = [], seen = new Set();
     for (const m of order) for (const [k] of (m.lenses.length ? m.lenses : [['']])) { await bp.goto('about:blank'); await bp.goto(base + '#' + m.id + (k ? '-' + k : '')); await bp.waitForTimeout(140); n++;
       const st = await state(bp); if (await bp.locator('#transport').isVisible()) { await bp.locator('#toEndBtn').click(); await bp.waitForTimeout(60); }
-      const pt = await painted(bp); if (st.model !== m.id || (k && st.lens !== k) || blank(pt)) bad.push(`${m.id}:${k} -> ${st.model}/${st.lens} ${JSON.stringify(pt)}`); }
-    const title = await bp.title(), extra = reqs.slice(reqBefore).filter(u => !u.startsWith('about:'));
-    check('bundle', problems.length === 0 && bad.length === 0 && errs.length === before && csp.length === 0 && extra.length === 0 && title === 'Smoke Test Bundle',
-      `one page of ${(b.bytes / 1024).toFixed(0)} KB (${b.scripts.length} scripts inlined) under CSP "${CSP}": ${n} screens by #link, ${bad.length} wrong or blank, ${errs.length - before} errors, ${csp.length} CSP refusals, ${extra.length} requests, title "${title}"${problems.length ? '; ' + problems.join('; ') : ''}${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}`);
+      const pt = await painted(bp); if (st.model !== m.id || (k && st.lens !== k) || blank(pt)) bad.push(`${m.id}:${k} -> ${st.model}/${st.lens} ${JSON.stringify(pt)}`); else seen.add(m.id); }
+    const title = await bp.title(), extra = [...reqs.slice(reqBefore).filter(u => !u.startsWith('about:')), ...sub];
+    check('bundle', problems.length === 0 && bad.length === 0 && seen.size === order.length && errs.length === before && csp.length === 0 && extra.length === 0 && title === 'Smoke Test Bundle',
+      `one page of ${(b.bytes / 1024).toFixed(0)} KB (${b.scripts.length} scripts inlined) under CSP "${CSP}": ${seen.size} of ${order.length} models, ${n} screens by #link, ${bad.length} wrong or blank, ${errs.length - before} errors, ${csp.length} CSP refusals, ${extra.length} requests besides the page, title "${title}"${problems.length ? '; ' + problems.join('; ') : ''}${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}${extra.length ? ' — ' + extra.slice(0, 3).join(' ') : ''}`);
     // inside a frame (how a host shows the page) the frame's own address is not a link to share: the Copy link button goes
     const last = order[order.length - 1], lk = last.lenses.length ? last.lenses[last.lenses.length - 1][0] : '';
     fs.writeFileSync(path.join(dir, 'host.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>host</title></head><body><iframe title="explorer" src="page.html#${last.id}${lk ? '-' + lk : ''}" style="width:1200px;height:700px;border:0"></iframe></body></html>`);
