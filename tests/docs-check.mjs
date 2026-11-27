@@ -84,7 +84,9 @@ for (const f of SKILL_FILES) {
     let p = m[1].replace(/\/\.$/, '');
     if (/[<>*]/.test(p)) continue;                                    // a pattern, not a path
     p = p.replace('${CLAUDE_PLUGIN_ROOT}/', '').replace('${CLAUDE_SKILL_DIR}/', MS + '/');
-    if (!p.startsWith('skills/')) p = path.join(MS, p);               // relative to the model-scope skill
+    if (!p.startsWith('skills/')) {                                   // relative to the model-scope skill: only resolves from inside it
+      ok(f.startsWith(MS + '/'), `${f}:${lineOf(s, m.index)} names \`${m[1]}\` relative to the model-scope skill; from ${f} write \${CLAUDE_PLUGIN_ROOT}/${MS}/${p}`);
+      p = path.join(MS, p); }
     ok(fs.existsSync(path.join(ROOT, p)), `${f}:${lineOf(s, m.index)} names \`${m[1]}\`, which does not exist (${p})`);
     ok(!m[1].includes('${CLAUDE_SKILL_DIR}') || f === 'skills/model-scope/SKILL.md', `${f}:${lineOf(s, m.index)} uses \${CLAUDE_SKILL_DIR} outside the model-scope skill`);
   }
@@ -98,6 +100,11 @@ for (const f of VENDORED) {
   for (const m of s.matchAll(/skills\/model-scope\//g))
     ok(s.slice(Math.max(0, m.index - 22), m.index) === '${CLAUDE_PLUGIN_ROOT}/', `${f}:${lineOf(s, m.index)} has a plugin-root-relative skills/model-scope/ path without \${CLAUDE_PLUGIN_ROOT}`);
 }
+
+// 4b. the --bare steps in commands/scaffold.md edit the template README by quoting it: the quoted text must be there
+{ const sc = read('commands/scaffold.md'), tr = read('skills/model-scope/assets/template/README.md');
+  for (const q of ['Ships with twenty-one examples', '## Files', '`examples.js` + `examples.checks.mjs`'])
+    ok(sc.includes(q) && tr.includes(q), `commands/scaffold.md quotes "${q}" from the template README, but one of the two no longer has it`); }
 
 // 5. lengths and the version field
 for (const f of ['skills/model-scope/SKILL.md', 'skills/paper-to-sim/SKILL.md']) {

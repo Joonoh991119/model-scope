@@ -24,7 +24,10 @@ else is an optional one-line description of the model to build.
 3. **Bare option** (`--bare`): delete `examples.js` and `examples.checks.mjs` from the target and
    remove the `<script src="examples.js">` line from its `index.html` (the line is marked as
    deletable). The page then holds only the models in `engine.js`. Until one is added the page shows
-   an empty state and `node validate.mjs` exits 1 with "no model is registered".
+   an empty state and `node validate.mjs` exits 1 with "no model is registered". In the target's
+   `README.md`, replace everything from "Ships with twenty-one examples" up to `## Files` with one
+   line saying the app was made without the worked examples and holds only the models in
+   `engine.js`, and drop the `examples.js` + `examples.checks.mjs` bullet under `## Files`.
 4. Confirm the scaffold: list the copied files (`index.html`, `engine.js`, `plot.js`,
    `validate.mjs`, `README.md`, and `examples.js` unless bare) and, unless bare, run
    `node validate.mjs` in the target to show the example models pass.

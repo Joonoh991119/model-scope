@@ -87,7 +87,7 @@ claude plugin validate .
 - `tests/baseline/v1.21.1.json` locks the numbers and drawing of the 21 examples. A difference in its
   schema or simulate sections is a behaviour change: allowed only as a verified correction, with the
   evidence in the commit and in CHANGELOG.md. The draw section is re-recorded only in a commit that
-  deliberately changes drawing, together with `node tests/shots.mjs` for the README gallery.
+  deliberately changes drawing, together with `node tests/shots.mjs --pw <dir>` for the README gallery.
 - Nothing runs these for you: there is no plugin hook. Run them yourself.
 
 ## Working rules
@@ -98,7 +98,8 @@ claude plugin validate .
    marketplace entry), and add a CHANGELOG.md entry. Work on a branch; the owner merges.
 3. **Look at the page.** For a new or changed view, open it (a deep link such as
    `index.html#ddm-sim` or `index.html?model=ddm&lens=sim&still=1`) and read a screenshot; do not
-   assume. `node tests/shots.mjs --all <dir>` writes a contact sheet of every screen.
+   assume. `node tests/shots.mjs --pw <dir> --all <out>` writes a contact sheet of every screen
+   (`--pw` names a folder whose `node_modules` holds Playwright; see tests/README.md).
 4. **Conventions.** Structure-first lenses; no emojis in README prose; `mslib` breadth (blocks no
    example uses) is intentional, not cruft.
 

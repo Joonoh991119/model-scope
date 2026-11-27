@@ -141,7 +141,8 @@ lens (`#<model id>` or `#<model id>-<lens key>`), and the address follows as you
 and lenses. A query string adds the rest of the opening state:
 `index.html?model=ddm&lens=sim&p.z=2&seed=abc&head=30` sets parameters (`p.<name>=`), the RNG seed,
 the playhead (`head=`, or `still=1` for the last frame) and the plot text size (`text=`). The
-**Copy link** button on the rail writes that link for the state you are looking at. Parameter values
+**Copy link** button on the rail writes the model, lens, seed and any changed parameters (not the
+playhead or text size; add `head=`, `still=1` or `text=` by hand). Parameter values
 are remembered per model while the page is open. The **Text size** control on the rail scales every
 label for talks.
 
@@ -394,7 +395,7 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   mass conservation in the SIR model, and the Bayes-filter trajectory against an independent
   recursion. It then checks every exported `mslib.js` building block against a closed form or a
   known value, including the ones no shipped example uses. It must pass before a model is "done".
-  A deliberate-error probe in `tests/` measures how much the gate catches: 49 of 52 seeded
+  A deliberate-error probe in `tests/` measures how much the gate catches: 51 of 54 seeded
   errors on its own, two more by the golden baseline of the shipped examples, and the last (a
   toolbox that throws on load) by the browser smoke test.
 - **GUI QC pipeline.** Beyond the static gate, every build walks

@@ -96,6 +96,17 @@ bundle.mjs          optional: writes the whole app as one self-contained page (s
 README.md           quick start for the copied app.
 ```
 
+**Model ids.** An id of yours that equals an example's id (`lif`, `ddm`, `bayes`, `rl`, ... see
+`MODEL_ORDER` in `examples.js`) hides that example: its tab and its analytic check are dropped and
+the gate warns. Pick a distinct id unless replacing the example is the point.
+
+**An app made before 1.22.** If the folder has no `examples.js` and no `engine.checks.mjs` (every
+model sits in `engine.js`), it is the old layout, and its `validate.mjs` never reads
+`engine.checks.mjs`. There, add the model to `engine.js` (`MODELS` and `MODEL_ORDER`) and write its
+check inside that app's `validate.mjs`, next to the existing ones. Pin, Copy link, links and
+`bundle.mjs` do not exist in such an app; do not promise them. Moving it to the current layout is
+a separate job: ask the user first.
+
 ## The model contract: the one place you edit
 
 Adding or altering a model is one declarative entry in `MODELS` in `engine.js` (plus its id in
@@ -146,8 +157,9 @@ for every slider move.
 Read `references/plotting.md` for the API and the view recipes (distributions and inference, tuning
 curves, trajectory plus accumulating histogram, raster plus trace, heatmaps and phase fields,
 learning sequences, process pipelines). In one line: `g.frame({x,y,xlabel,ylabel,title})` sets this
-view's axes, then `g.line / band / points / marker / bars / heat / image / graph / raster / vline /
-hline / arrow / text / legend / note / colorbar / flow` draw in data coordinates; `g.X(v)`/`g.Y(v)`
+view's axes, then `g.line / band / points / marker / bars / heat / raster / vline / hline / arrow /
+text` draw in data coordinates (`graph` takes 0..1 canvas fractions; `image`, `legend`, `colorbar` and
+`flow` place themselves in pixels; `note` centres a message); `g.X(v)`/`g.Y(v)`
 map to pixels for raw `g.ctx`. Global helpers: `Plot.histify(values, bins, lo, hi, quant?)`,
 `Plot.nearestY(points, x)` (the y of the sample nearest x, for a marker on a sweep curve),
 `Plot.ramp(from, to)` and `Plot.RAMPS` (shared colour maps), `Plot.TH` (the theme colours).
@@ -192,8 +204,9 @@ not exact numbers: disclose it (README and in-plot), measure robustly (a peak sl
 fixed-window slope an easy condition saturates past), and never tune a panel to fake a trend.
 
 **Heavy screens.** Return data at once with `loading:true`, run the batch with
-`SIM.runChunks(total, doItem, label)` (it shows the loading overlay, repaints progressively and
-stops when a newer run supersedes it), and have views draw a placeholder until the data fill in.
+`SIM.runChunks(total, doItem, label)` (it shows the loading overlay with a progress bar, redraws the
+views once after the last chunk and stops when a newer run supersedes it); clear `loading` in the last
+`doItem`, and have views draw a placeholder while it is set.
 Keep the mechanism screen instant.
 
 ## What the toolbox already gives the user
@@ -202,7 +215,8 @@ You get these without writing code; mention them in the report rather than rebui
 
 - **Links.** `index.html#<model>` or `#<model>-<lens>` opens a screen (the only form a hosted page
   passes through). A query adds state: `?p.<name>=<value>&seed=<seed>`, plus `head=`, `still=1`,
-  `text=`. **Copy link** writes the link for the current state. Parameters are remembered per model
+  `text=`. **Copy link** writes the model, lens, seed and changed parameters (`head=`, `still=1` and
+`text=` are added by hand). Parameters are remembered per model
   while the page is open. Optional `SIM.APP = {title, tagline}` names the page.
 - **Pin.** Pin keeps the current parameters, seed and data as a reference; every view then shows the
   reference beside the live canvas (stacked on a phone), with one line naming what differs. Unpin

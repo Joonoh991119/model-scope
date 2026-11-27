@@ -85,7 +85,9 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 ## Add your model — one registry entry
 
 In `engine.js`, add an entry to `MODELS` and its id to `MODEL_ORDER` (a commented skeleton is already
-there). Your models come first in the tab order; the examples follow:
+there). Your models come first in the tab order; the examples follow. Give yours an id no example
+uses: one that matches an example's (`lif`, `ddm`, ...) hides that example and its check, and the
+gate warns.
 
 ```js
 mymodel: {
@@ -130,7 +132,8 @@ node bundle.mjs --standalone --out explorer.html              # a complete docum
 - `--title` is the page's name: two to four words, no explanation after a dash or colon. Without it
   the bundler uses `SIM.APP.title` if it fits, else a neutral default.
 - It bundles what `index.html` loads. Delete the `examples.js` script line first if the page should
-  hold only your own models (231 KB with the 21 examples, 85 KB without them, before your own models).
+  hold only your own models (roughly 240 KB with the 21 examples and 90 KB without them, before your
+  own models; `node bundle.mjs` prints the exact size).
 - A hosted page passes only a plain `#name` through its link, so link a screen with `#<model>` or
   `#<model>-<lens>`. Inside a host frame the **Copy link** button is hidden, because the frame's own
   address is not the link to share; use the host's share link.
