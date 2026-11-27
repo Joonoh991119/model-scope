@@ -12,10 +12,11 @@
 //                                                   reference was captured ONCE, from `git archive 4517c70`, never from a working tree.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadTemplate, capture, compare, countCases, args, DEFAULT_TEMPLATE, SEED, CANVAS } from './lib/harness.mjs';
 
 const A = args();
-const REF = path.resolve(A.opt('--ref') || new URL('./baseline/v1.21.1.json', import.meta.url).pathname);
+const REF = path.resolve(A.opt('--ref') || fileURLToPath(new URL('./baseline/v1.21.1.json', import.meta.url)));
 const T = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE);
 const write = o => JSON.stringify(o, null, 1) + '\n';
 

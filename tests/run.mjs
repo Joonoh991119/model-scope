@@ -6,10 +6,11 @@
 //     --skip <name,...>                skip steps by name
 import fs from 'node:fs'; import path from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 const A = args();
-const HERE = path.dirname(new URL(import.meta.url).pathname), ROOT = path.resolve(HERE, '..');
+const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '..');
 const PW = path.resolve(A.opt('--pw') || process.env.MODEL_SCOPE_PW || path.join(ROOT, '.scratch', 'pw'));
 const skip = new Set((A.opt('--skip') || '').split(',').filter(Boolean));
 const node = (file, ...rest) => ['node', [path.join(HERE, file), ...rest], { cwd: ROOT }];
@@ -25,7 +26,7 @@ if (hasClaude) steps.push(['plugin', 'claude plugin validate --strict .', ['clau
 else console.log('note: the `claude` CLI is not on PATH — skipping `claude plugin validate --strict .`');
 if (A.flag('--browser')) {
   if (!fs.existsSync(path.join(PW, 'node_modules', 'playwright'))) { console.error(`--browser needs playwright under ${PW}\n  npm i --prefix ${path.relative(ROOT, PW) || '.'} playwright@1.56.1 axe-core@4.14.1`); process.exit(2); }
-  steps.push(['smoke', 'browser smoke (headless Chrome, file://)', node('smoke.mjs', '--pw', PW, '--sliders', '--a11y', '--phone')]);
+  steps.push(['smoke', 'browser smoke (headless Chrome, file://)', node('smoke.mjs', '--pw', PW, '--sliders', '--a11y', '--phone', '--bundle')]);
 }
 
 let failed = 0; const t0 = Date.now();

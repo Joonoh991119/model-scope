@@ -13,14 +13,14 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 const A = args();
 if (!A.opt('--pw')) { console.error('usage: node tests/shots.mjs --pw <dir with node_modules/playwright> [--only png|gif] [--all <dir> [--before <dir>]]'); process.exit(2); }
 const require = createRequire(path.resolve(A.opt('--pw')) + '/');
 const { chromium } = require('playwright');
-const HERE = path.dirname(new URL(import.meta.url).pathname), ROOT = path.resolve(HERE, '..');
+const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '..');
 const T = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE), DOCS = path.join(ROOT, 'docs');
 const url = q => pathToFileURL(path.join(T, 'index.html')).href + q;
 const ONLY = A.opt('--only');

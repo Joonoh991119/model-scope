@@ -8,14 +8,15 @@
 // The run fails if a find-string no longer matches (a stale mutation) or a threshold below is missed.
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 // Thresholds. Raise them when the gate gets stronger; never lower them to make a run pass.
 export const THRESHOLDS = {
-  total: 46,            // mutations in the table
-  gateMin: 43,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
-  gateBaselineMin: 45,  // killed by validate.mjs or the baseline
-  allWithSmoke: 46,     // with --pw: killed by any layer
+  total: 48,            // mutations in the table
+  gateMin: 45,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
+  gateBaselineMin: 47,  // killed by validate.mjs or the baseline
+  allWithSmoke: 48,     // with --pw: killed by any layer
 };
 
 // [id, file, find, replace, what is now wrong]
@@ -65,6 +66,8 @@ export const MUTATIONS = [
   ['plotjs-histify-offbyone', 'plot.js', 'const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop', 'const k=Math.floor((v-lo)/bw)+1; if(k>=0&&k<n) counts[k]++; } // drop', 'the real histogram helper bins one bin to the right'],
   ['plotjs-syntax-error', 'plot.js', "global.Plot = { make, setup, TH, histify };", "global.Plot = { make, setup, TH, histify ;", 'plot.js does not even parse'],
   ['indexhtml-broken', 'index.html', "buildModelTabs(); setModel(startModel, startLens); }", "buildModelTabs(); setModel(startModell.x, startLens); }", 'the toolbox throws on load'],
+  ['bundle-no-escape', 'bundle.mjs', "js.replace(/<\\/(script)/gi, '<\\\\/$1')", "js", 'the bundler no longer escapes a closing script tag inside a script (the page would be cut short)'],
+  ['bundle-keeps-src', 'bundle.mjs', "if (!src) return `<script>${escScript(inline)}</script>`;", "return all;", 'the bundler leaves the script references in place (the one page would need its sibling files)'],
   ['view-blank', 'examples.js', "g.line(d.fI,{color:T.accent,width:2}); g.points(d.fI,{color:T.accent,r:2.4}); g.vline(d.I,{color:T.pos,dash:[5,4],label:'current I'});", "", 'the f-I view draws axes but no data'],
 ];
 const A = args();
@@ -72,7 +75,7 @@ const SRC = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE);
 const PW = A.opt('--pw') ? path.resolve(A.opt('--pw')) : null;
 const ONLY = A.opt('--only') ? A.opt('--only').split(',') : null;
 const JOBS = Math.max(1, +(A.opt('--jobs') || Math.min(8, os.availableParallelism ? os.availableParallelism() : 4)));
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const strip = s => s.replace(/\x1b\[[0-9;]*m/g, '');
 const run = (cmd, argv, opts) => new Promise(res => { const c = spawn(cmd, argv, { ...opts, stdio: ['ignore', 'pipe', 'pipe'] }); let out = '', err = '';
   c.stdout.on('data', d => out += d); c.stderr.on('data', d => err += d);

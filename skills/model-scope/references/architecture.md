@@ -12,6 +12,13 @@ scripts (`plot.js`, `modules/mslib.js`, `engine.js`, and optionally `examples.js
 monospace stack (`IBM Plex …, system-ui` / `…, ui-monospace`), so the app is self-contained
 and works offline. Nothing to delete, nothing to phone home.
 
+**One page, when a host wants one.** `bundle.mjs` (optional, plain Node, never needed to run or
+edit the app) inlines the style and every script `index.html` loads and writes `bundle.html`. The
+default output is a fragment with no doctype, `<html>`, `<head>` or `<body>`, which is what a host
+that wraps pages expects (a Claude Artifact, for example); `--standalone` writes a complete
+document to open or send as one file; `--title "Two To Four Words"` names the page. It is still
+the same classic scripts, only inlined, so nothing about the model code changes.
+
 ## RNG (seedable, per-trial)
 
 ```js
@@ -129,7 +136,7 @@ already registered, so your models come first in the tab order. The first model 
 id keeps it.
 
 `examples.js` is optional. To ship an app that holds only your own models, delete `examples.js`,
-`examples.checks.mjs` and the `<script src="examples.js">` line in `index.html`. Nothing else
+`examples.checks.mjs` and the `examples.js` script line in `index.html`. Nothing else
 refers to them. With no model registered at all, the page shows a short message that says where to
 add one, and the gate fails with the same message.
 
@@ -148,7 +155,9 @@ print the same text. Layers:
 
 0. **Page** — every listed script exists and loads; `index.html` and the scripts reference no other
    host and no network API (`fetch`, `XMLHttpRequest`, `WebSocket`, `import()`, …), so the app keeps
-   working offline from `file://`; the inline toolbox script parses.
+   working offline from `file://`; the inline toolbox script parses; and, when `bundle.mjs` is
+   present, the single page it would write is self-contained (no doctype or wrapper tags, no file
+   or host reference left, one `<title>` of two to four words, every inlined script parses).
 1. **Schema** — for every model: `id` equals its `MODELS` key, uses only letters, digits, `_`, `-`,
    and is not a reserved link name; parameter names are unique identifiers with a label; numeric
    controls have `min < max`, `step > 0` and a default inside the range; `enum` and `bool` controls

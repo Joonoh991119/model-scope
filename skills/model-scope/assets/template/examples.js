@@ -3,7 +3,7 @@
  * single neuron, sensory, network, macro) and every idiom the toolbox supports.
  *
  * OPTIONAL. The app does not need this file. To ship only your own model(s), delete
- * this file, examples.checks.mjs, and the <script src="examples.js"> line in
+ * this file, examples.checks.mjs, and the examples.js script line in
  * index.html. Your models live in engine.js; these register after them, so yours
  * come first in the tab order.
  *

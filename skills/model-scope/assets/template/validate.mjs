@@ -6,6 +6,7 @@
  * the ones the page runs. The toolbox imposes no fixed output shape, so the gate is layered:
  *   (0) page      — every listed script exists and loads; nothing references another host or a
  *                   network API (the app must work offline from file://); the inline script parses;
+ *                   the single-page bundle (bundle.mjs, if present) is self-contained;
  *   (1) schema    — every model's id, parameters, lenses and views are well-formed;
  *   (2) simulate  — runs at defaults, returns data, and is deterministic for a given seed;
  *   (3) views     — every view DRAWS at the start, middle and end of its playhead, per lens, with
@@ -22,6 +23,7 @@
  * Deterministic: no Math.random, no clock — two runs print the same text.
  * ========================================================================== */
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const HERE = new URL('./', import.meta.url);
 const ARGV = process.argv.slice(2);
@@ -96,6 +98,18 @@ const NETWORK = [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/, /\bEvent
   hits.forEach(h => console.log('    ' + h));
   const bad = []; inline.forEach((body, i) => { try { new Function(body); } catch (e) { bad.push(`inline script ${i + 1}: ${e.message}`); } });
   console.log(`  the inline toolbox script parses   [${ok(bad.length === 0)}]`); bad.forEach(b => console.log('    ' + b));
+}
+// bundle.mjs (optional) writes the app as one page: check that what it would write is self-contained.
+if (fs.existsSync(new URL('bundle.mjs', HERE))) {
+  let problems = [], size = 0;
+  try { const B = await import(new URL('bundle.mjs', HERE).href), b = B.bundle(fileURLToPath(HERE), { title: 'Gate Check Bundle' }); size = b.bytes; problems = B.bundleProblems(b.html);
+    // a script that contains a closing tag or an HTML comment opener must come out inert, and mean the same
+    const probe = "const a='</script>', b='<!-- x', c=/<\\/SCRIPT>/i;", safe = B.escScript(probe), val = s => JSON.stringify(new Function(s + ' return [a, b, c.test("</script>")];')());
+    if (/<\/script/i.test(safe) || /<!--/.test(safe)) problems.push('a closing script tag or an HTML comment opener inside a script is not escaped (the page would be cut short)');
+    else if (val(safe) !== val(probe)) problems.push('escaping a script changed what it computes'); }
+  catch (e) { problems = [e.message]; }
+  console.log(`  bundle is self-contained: one page, ${(size / 1024).toFixed(0)} KB, no doctype/html/head/body, no file or host reference, scripts parse   [${ok(problems.length === 0)}]`);
+  problems.forEach(b => console.log('    ' + b));
 }
 
 // ---------------------------------------------------------------------------------------------

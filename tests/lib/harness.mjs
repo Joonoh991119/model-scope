@@ -9,8 +9,9 @@
 //   draw     — per view and playhead (0 and end): a digest of the full canvas op stream issued through plot.js.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export const DEFAULT_TEMPLATE = new URL('../../skills/model-scope/assets/template/', import.meta.url).pathname;
+export const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../skills/model-scope/assets/template/', import.meta.url));
 export const SEED = 'seed-1';
 export const CANVAS = [560, 320];
 

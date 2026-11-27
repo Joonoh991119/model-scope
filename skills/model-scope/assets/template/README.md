@@ -54,7 +54,7 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 - `engine.js` — pure math: RNG + the `MODELS` registry. **Your models go here; this is what you edit.**
 - `engine.checks.mjs` — the analytic checks for your models (ships as a commented example).
 - `examples.js` + `examples.checks.mjs` — the worked examples and their checks. Optional: delete both
-  files and the `<script src="examples.js">` line in `index.html` to ship only your own models.
+  files and the `examples.js` script line in `index.html` to ship only your own models.
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
   play/scrub transport (or a step-by-step stage stepper for `stages` models), and the view grid. Untouched.
   Link a screen with `index.html#<model>-<lens>`; add `?p.<name>=<value>&seed=<seed>` to open with
@@ -65,6 +65,9 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   schema, a deterministic `simulate()`, every view drawn through the real `plot.js` at defaults and at
   every control's min and max, an analytic check tied to the science, and the `mslib` blocks.
   `--snapshot f.json` / `--against f.json` lock your own model's numbers before a refactor.
+- `bundle.mjs` — optional, and never needed to run or edit the app. `node bundle.mjs` writes the
+  whole app as ONE self-contained page (`bundle.html`: the style and every script inlined, no file
+  beside it, no external resource). See "Share it as one page" below.
 
 ## Add your model — one registry entry
 
@@ -96,6 +99,29 @@ theme, `histify`) are global in views. Reload `index.html` — your model appear
 with sliders auto-generated from `params`, and your views render and update as you tune.
 Then write its check in `engine.checks.mjs` (a property the science guarantees) and run
 `node validate.mjs`.
+
+## Share it as one page
+
+The folder already works as it is: open `index.html`, or copy the folder. When one file is easier
+to hand over, run the bundler (plain Node, no install):
+
+```bash
+node bundle.mjs --title "Drift Diffusion Lab"                 # bundle.html, a fragment for a host that wraps pages
+node bundle.mjs --standalone --out explorer.html              # a complete document: open it, or send it as one file
+```
+
+- The default output is a **fragment**: one `<title>`, the style, the markup and the scripts, with
+  no doctype, `<html>`, `<head>` or `<body>`. That is the form a host that wraps pages expects, for
+  example a Claude Artifact (private until you share it). `--standalone` adds the wrapper, so the
+  file opens correctly on its own.
+- `--title` is the page's name: two to four words, no explanation after a dash or colon. Without it
+  the bundler uses `SIM.APP.title` if it fits, else a neutral default.
+- It bundles what `index.html` loads. Delete the `examples.js` script line first if the page should
+  hold only your own models (231 KB with the 21 examples, 85 KB without them, before your own models).
+- A hosted page passes only a plain `#name` through its link, so link a screen with `#<model>` or
+  `#<model>-<lens>`. Inside a host frame the **Copy link** button is hidden, because the frame's own
+  address is not the link to share; use the host's share link.
+- `node validate.mjs` checks the bundle too (one page, no file or host reference, scripts parse).
 
 See the `model-scope` skill (`references/plotting.md`, `references/architecture.md`) for the
 full helper API and view recipes (distributions, tuning curves, trajectory+histogram,

@@ -5,6 +5,8 @@
 //     --a11y              ENFORCE the axe pass (otherwise it is measured and reported only)
 //     --phone             ENFORCE the 400 px layout pass (otherwise measured and reported only)
 //     --sliders           also drive every numeric control to min / max / default through the real UI
+//     --bundle            also build the single-page bundle (bundle.mjs), wrap it the way a host page would, lock it
+//                         down with a Content-Security-Policy that allows nothing external, and open every screen by #link
 //     --quick             load the page, check it paints without an error, exit (used by tests/mutations.mjs)
 //     --channel <name>    browser channel (default 'chrome' = the installed Chrome; 'chromium' = Playwright's build)
 //
@@ -13,7 +15,7 @@
 // Install the tooling OUTSIDE the plugin, e.g.  npm i --prefix .scratch/pw playwright@1.56.1 axe-core@4.14.1
 import { createRequire } from 'node:module';
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 const A = args();
@@ -23,7 +25,7 @@ const require = createRequire(PW + '/');
 let chromium; try { ({ chromium } = require('playwright')); } catch (e) { console.error(`playwright not found under ${PW} (npm i --prefix ${A.opt('--pw')} playwright@1.56.1 axe-core@4.14.1)`); process.exit(2); }
 let axeSrc = null; try { axeSrc = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8'); } catch (e) { /* a11y pass is skipped without axe-core */ }
 const T = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE);
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 const pageUrl = (dir, q = '') => pathToFileURL(path.join(dir, 'index.html')).href + q;
 
 // Defects that are measured and reported but do not fail the run yet. Remove an entry in the commit that fixes it.
@@ -210,6 +212,38 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
     if (o.sw > o.cw) over.push(`${m.id} ${o.sw}px`); if (!(o.top >= 0 && o.top < 800)) low.push(`${m.id} ${o.top}px`); }
   check('phone-400px', over.length === 0 && low.length === 0, `400x800: ${over.length} of ${order.length} models overflow horizontally${over.length ? ' (' + over.slice(0, 4).join(', ') + (over.length > 4 ? ', ...' : '') + ')' : ''}; first plot below the first screen on ${low.length}${low.length ? ' (' + low.slice(0, 3).join(', ') + ', ...)' : ''}`, { enforce: A.flag('--phone') });
   await ph.context().close(); }
+
+// ---- F. the single-page bundle, wrapped like a hosted page, under a CSP that allows nothing external ----
+if (A.flag('--bundle')) { tag = 'bundle';
+  if (!fs.existsSync(path.join(T, 'bundle.mjs'))) check('bundle', false, 'bundle.mjs is not in the template');
+  else { const { bundle, bundleProblems } = await import(pathToFileURL(path.join(T, 'bundle.mjs')).href), b = bundle(T, { title: 'Smoke Test Bundle' }), problems = bundleProblems(b.html);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-bundle-')); tmpDirs.push(dir);
+    const CSP = "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:";
+    // the skeleton a host puts around a published fragment: charset, viewport, a small reset — and here the CSP
+    fs.writeFileSync(path.join(dir, 'page.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta http-equiv="Content-Security-Policy" content="${CSP}"><style>:root{color-scheme:light;padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>\n${b.html}</body></html>`);
+    const bp = await newPage(), base = pathToFileURL(path.join(dir, 'page.html')).href, csp = []; bp.on('console', m => { if (/Content Security Policy|Refused to/i.test(m.text())) csp.push(m.text().slice(0, 140)); });
+    const before = errs.length, reqBefore = reqs.length; let n = 0; const bad = [];
+    for (const m of order) for (const [k] of (m.lenses.length ? m.lenses : [['']])) { await bp.goto('about:blank'); await bp.goto(base + '#' + m.id + (k ? '-' + k : '')); await bp.waitForTimeout(140); n++;
+      const st = await state(bp); if (await bp.locator('#transport').isVisible()) { await bp.locator('#toEndBtn').click(); await bp.waitForTimeout(60); }
+      const pt = await painted(bp); if (st.model !== m.id || (k && st.lens !== k) || blank(pt)) bad.push(`${m.id}:${k} -> ${st.model}/${st.lens} ${JSON.stringify(pt)}`); }
+    const title = await bp.title(), extra = reqs.slice(reqBefore).filter(u => !u.startsWith('about:'));
+    check('bundle', problems.length === 0 && bad.length === 0 && errs.length === before && csp.length === 0 && extra.length === 0 && title === 'Smoke Test Bundle',
+      `one page of ${(b.bytes / 1024).toFixed(0)} KB (${b.scripts.length} scripts inlined) under CSP "${CSP}": ${n} screens by #link, ${bad.length} wrong or blank, ${errs.length - before} errors, ${csp.length} CSP refusals, ${extra.length} requests, title "${title}"${problems.length ? '; ' + problems.join('; ') : ''}${bad.length ? ' — ' + bad.slice(0, 3).join(' | ') : ''}`);
+    // inside a frame (how a host shows the page) the frame's own address is not a link to share: the Copy link button goes
+    const last = order[order.length - 1], lk = last.lenses.length ? last.lenses[last.lenses.length - 1][0] : '';
+    fs.writeFileSync(path.join(dir, 'host.html'), `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>host</title></head><body><iframe title="explorer" src="page.html#${last.id}${lk ? '-' + lk : ''}" style="width:1200px;height:700px;border:0"></iframe></body></html>`);
+    tag = 'bundle-framed'; await bp.goto('about:blank'); await bp.goto(pathToFileURL(path.join(dir, 'host.html')).href); await bp.waitForTimeout(400);
+    const fr = bp.frames().find(f => /page\.html/.test(f.url())), fst = fr ? await state(fr) : {}, linkShown = fr ? await fr.locator('#linkBtn').isVisible() : null, fpt = fr ? await painted(fr) : [];
+    check('bundle-framed', !!fr && fst.model === last.id && (!lk || fst.lens === lk) && linkShown === false && !blank(fpt) && errs.length === before,
+      `inside an iframe: opens ${fst.model}${fst.lens ? '/' + fst.lens : ''} from the frame's #link, Copy link ${linkShown === false ? 'hidden' : 'SHOWN'}, canvases ${JSON.stringify(fpt)}, ${errs.length - before} errors`);
+    // --standalone: the same page as one complete document (doctype, charset, viewport), for opening or sending as a file
+    const sb = bundle(T, { title: 'Smoke Test Bundle', standalone: true }), sprob = bundleProblems(sb.html, { standalone: true });
+    fs.writeFileSync(path.join(dir, 'standalone.html'), sb.html);
+    tag = 'bundle-standalone'; await bp.goto('about:blank'); await bp.goto(pathToFileURL(path.join(dir, 'standalone.html')).href + '#' + order[0].id); await bp.waitForTimeout(300);
+    const sst = await state(bp), mode = await bp.evaluate(() => document.compatMode), spt = await painted(bp);
+    check('bundle-standalone', sprob.length === 0 && mode === 'CSS1Compat' && sst.model === order[0].id && !blank(spt) && errs.length === before && reqs.slice(reqBefore).filter(u => !u.startsWith('about:')).length === 0,
+      `--standalone: a complete document in standards mode (${mode}), opens ${sst.model}, canvases ${JSON.stringify(spt)}, ${errs.length - before} errors${sprob.length ? '; ' + sprob.join('; ') : ''}`);
+    await bp.context().close(); } }
 
 const realWarns = warns.filter(w => !/willReadFrequently/.test(w));   // Chrome's hint about this script's own getImageData readbacks
 check('console-and-page-errors', errs.length === 0 && realWarns.length === 0, `${errs.length} console errors or page errors, ${realWarns.length} warnings${errs.length || realWarns.length ? ': ' + [...new Set([...errs, ...realWarns])].slice(0, 5).join(' | ') : ''}`);
