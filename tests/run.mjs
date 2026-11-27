@@ -20,6 +20,7 @@ const steps = [
   ['baseline', 'golden baseline of the 21 examples', node('baseline.mjs', '--check')],
   ['mutations', A.flag('--browser') ? 'mutation probe (gate + baseline + browser smoke)' : 'mutation probe (gate + baseline)', A.flag('--browser') ? node('mutations.mjs', '--pw', PW) : node('mutations.mjs')],
   ['bare', 'the template without its examples', A.flag('--browser') ? node('bare-app.mjs', '--pw', PW) : node('bare-app.mjs')],
+  ['docs', 'the docs say what the code is', node('docs-check.mjs')],
 ];
 const hasClaude = spawnSync('claude', ['--version'], { encoding: 'utf8' }).status === 0;
 if (hasClaude) steps.push(['plugin', 'claude plugin validate --strict .', ['claude', ['plugin', 'validate', '--strict', '.'], { cwd: ROOT }]]);
