@@ -1,0 +1,601 @@
+{
+ "format": 1,
+ "source": "git archive 4517c70 (v1.21.1), skills/model-scope/assets/template",
+ "captured_with": "node v26.12.1",
+ "seed": "seed-1",
+ "canvas": [
+  560,
+  320
+ ],
+ "order": [
+  "bayes",
+  "efficient",
+  "causal",
+  "wm",
+  "ddm",
+  "compare",
+  "vision",
+  "lif",
+  "rl",
+  "attractor",
+  "sir",
+  "hopfield",
+  "kuramoto",
+  "belief",
+  "ring",
+  "retina",
+  "causalg",
+  "attention",
+  "pomdp",
+  "wilson",
+  "mha"
+ ],
+ "schema": {
+  "bayes": [
+   "theta,num,-3,3,0.05,1.6,0,,",
+   "sigma_m,num,0.1,2.5,0.01,0.9,0,,",
+   "mu0,num,-3,3,0.05,0,0,,",
+   "sigma0,num,0.15,3,0.01,1,0,,",
+   "alpha,num,0,0.4,0.005,0.05,0,,",
+   "stimMean,num,-3,3,0.05,1.2,0,,",
+   "nTrials,num,20,1500,20,300,1,,"
+  ],
+  "efficient": [
+   "theta,num,-3,3,0.05,1.1,0,,",
+   "sigma,num,0.02,0.5,0.005,0.1,0,,",
+   "priorSD,num,0.4,2.5,0.05,1,0,,",
+   "lossMAP,enum,,,,0,0,,BLS|MAP"
+  ],
+  "causal": [
+   "sV,num,-15,15,0.5,6,0,,",
+   "sA,num,-15,15,0.5,-4,0,,",
+   "sigV,num,0.5,12,0.5,2,0,,",
+   "sigA,num,0.5,15,0.5,8,0,,",
+   "sigP,num,2,30,1,15,0,,",
+   "pCommon,num,0.05,0.95,0.05,0.5,0,,",
+   "strategy,enum,,,,0,0,,average|select|match"
+  ],
+  "wm": [
+   "N,num,1,8,1,4,1,,",
+   "kappa,num,1,60,1,16,0,,",
+   "pSwap,num,0,0.6,0.02,0.15,0,,",
+   "pGuess,num,0,0.6,0.02,0.1,0,,",
+   "nTrials,num,100,6000,100,1500,1,,"
+  ],
+  "ddm": [
+   "A,num,0,3,0.01,1,0,,",
+   "c,num,0.1,2,0.01,1,0,,",
+   "z,num,0.2,2.5,0.01,1,0,,",
+   "dt,num,0.002,0.03,0.001,0.01,0,s,",
+   "nTrials,num,100,8000,100,2000,1,,"
+  ],
+  "compare": [
+   "A,num,0,3,0.01,1,0,,",
+   "c,num,0.2,2.5,0.01,1,0,,",
+   "z,num,0.2,2.5,0.01,1,0,,",
+   "T,num,0.05,2,0.01,0.5,0,s,",
+   "Ter,num,0,0.6,0.01,0.2,0,s,",
+   "metric,enum,,,,0,0,,accuracy|RT|reward",
+   "useDDM,bool,,,,true,0,,"
+  ],
+  "vision": [
+   "ori,num,0,179,1,45,0,°,",
+   "sf,num,1,8,0.1,3,0,cyc/img,",
+   "contrast,num,0,1,0.01,0.8,0,,",
+   "noise,num,0,1,0.01,0.25,0,,"
+  ],
+  "lif": [
+   "I,num,0,0.8,0.005,0.35,0,nA,",
+   "sigma,num,0,0.3,0.005,0.06,0,nA,",
+   "tau,num,5,40,1,20,0,ms,",
+   "reps,num,5,60,1,30,1,,",
+   "refrac,bool,,,,true,0,,"
+  ],
+  "rl": [
+   "alpha,num,0.01,0.9,0.01,0.2,0,,",
+   "pRew,num,0,1,0.01,0.7,0,,",
+   "nTrials,num,20,300,5,120,1,,"
+  ],
+  "attractor": [
+   "coh,num,-40,40,1,8,0,%,",
+   "Jc,num,0,0.12,0.001,0.0497,0,,",
+   "sigma,num,0,0.05,0.001,0.02,0,,"
+  ],
+  "sir": [
+   "R0,num,0,4,0.05,2.5,0,,",
+   "gamma,num,0.05,0.5,0.01,0.12,0,/day,",
+   "D,num,0,0.5,0.01,0.18,0,,"
+  ],
+  "hopfield": [
+   "nStore,num,1,12,1,3,1,,",
+   "cueFlip,num,0,0.5,0.01,0.18,0,,"
+  ],
+  "kuramoto": [
+   "K,num,0,8,0.05,3,0,,",
+   "spread,num,0.2,3,0.05,1,0,,",
+   "noise,num,0,1,0.01,0.1,0,,"
+  ],
+  "belief": [
+   "obsNoise,num,0.3,6,0.1,1.5,0,,",
+   "vol,num,0.4,4,0.1,1,0,,"
+  ],
+  "ring": [
+   "cue,num,0,359,1,107,0,°,",
+   "JI,num,0.4,2.5,0.05,1.3,0,,",
+   "noise,num,0,0.15,0.005,0.02,0,,"
+  ],
+  "retina": [
+   "ori,num,0,179,1,60,0,°,",
+   "sf,num,1,7,0.1,3,0,cyc/img,",
+   "surround,num,0,1.4,0.02,0.9,0,,",
+   "contrast,num,0.1,1,0.01,0.8,0,,"
+  ],
+  "causalg": [
+   "conf,num,0,1.5,0.05,0.9,0,,",
+   "causal,num,0,1.5,0.05,0.6,0,,",
+   "noise,num,0.2,1,0.05,0.5,0,,"
+  ],
+  "attention": [
+   "temp,num,0.1,3,0.05,0.6,0,,",
+   "posBias,num,0,2,0.05,0.4,0,,",
+   "query,num,0,9,1,3,1,,"
+  ],
+  "pomdp": [
+   "obsAcc,num,0.55,0.98,0.01,0.85,0,,",
+   "rTiger,num,20,200,5,100,0,,",
+   "gamma,num,0.8,0.99,0.01,0.95,0,,"
+  ],
+  "wilson": [
+   "P,num,0,3,0.05,1.2,0,,",
+   "wEE,num,8,20,0.5,16,0,,",
+   "wEI,num,6,16,0.5,12,0,,"
+  ],
+  "mha": [
+   "temp,num,0.1,3,0.05,0.5,0,,",
+   "layers,num,1,3,1,2,1,,"
+  ]
+ },
+ "simulate": {
+  "bayes": {
+   "default": "310:641e4a55",
+   "theta=-3": "310:c0390250",
+   "theta=3": "310:a03d0bfb",
+   "sigma_m=0.1": "310:97a61b15",
+   "sigma_m=2.5": "310:6d397fb0",
+   "mu0=-3": "310:8075c593",
+   "mu0=3": "310:2a6e90b9",
+   "sigma0=0.15": "310:2d40593a",
+   "sigma0=3": "310:fbbb68cf",
+   "alpha=0": "310:082c6d36",
+   "alpha=0.4": "310:f90f2672",
+   "stimMean=-3": "310:13050039",
+   "stimMean=3": "310:159d80cf",
+   "nTrials=20": "30:adafcc67",
+   "nTrials=1500": "1510:316e6cff"
+  },
+  "efficient": {
+   "default": "1384:4cd00886",
+   "theta=-3": "1384:b3999d03",
+   "theta=3": "1384:594d665e",
+   "sigma=0.02": "1384:42f0eec0",
+   "sigma=0.5": "1384:f6ae220b",
+   "priorSD=0.4": "1384:391deef3",
+   "priorSD=2.5": "1384:b6563fca",
+   "lossMAP=0": "1384:4cd00886",
+   "lossMAP=1": "1384:8b571ced"
+  },
+  "causal": {
+   "default": "92:af49c54d",
+   "sV=-15": "92:90e563d9",
+   "sV=15": "92:4d962b43",
+   "sA=-15": "92:3bf0d582",
+   "sA=15": "92:0c3e7099",
+   "sigV=0.5": "92:bc532d58",
+   "sigV=12": "92:305ba783",
+   "sigA=0.5": "92:e37d1236",
+   "sigA=15": "92:2215a9a8",
+   "sigP=2": "92:adfe064d",
+   "sigP=30": "92:5e69f994",
+   "pCommon=0.05": "92:9d031196",
+   "pCommon=0.95": "92:4ad82160",
+   "strategy=0": "92:af49c54d",
+   "strategy=2": "92:edb63493"
+  },
+  "wm": {
+   "default": "1515:7d74bcdb",
+   "N=1": "1509:8db90c25",
+   "N=8": "1523:c4007f7a",
+   "kappa=1": "1515:ca238cb5",
+   "kappa=60": "1515:5c252858",
+   "pSwap=0": "1515:809cd0af",
+   "pSwap=0.6": "1516:24e04cd5",
+   "pGuess=0": "1515:6695d032",
+   "pGuess=0.6": "1515:d445d3e8",
+   "nTrials=100": "115:a7ff5769",
+   "nTrials=6000": "6015:d6d8a0e7"
+  },
+  "ddm": {
+   "default": "4603:f1d959d8",
+   "A=0": "5653:13ba7461",
+   "A=3": "4211:18cfb2f7",
+   "c=0.1": "4715:e5d1c5e7",
+   "c=2": "4120:2c1b3f98",
+   "z=0.2": "4043:b19dbbad",
+   "z=2.5": "5478:2201b850",
+   "dt=0.002": "5681:271acee4",
+   "dt=0.03": "4085:563a2c1c",
+   "nTrials=100": "803:a0b51c74",
+   "nTrials=8000": "16603:1fe872a1"
+  },
+  "compare": {
+   "default": "2201:a1941624",
+   "A=0": "2201:e5995da1",
+   "A=3": "2201:50442bf7",
+   "c=0.2": "2201:3a952e25",
+   "c=2.5": "2201:0ffe0a06",
+   "z=0.2": "2201:e8a9b3de",
+   "z=2.5": "2201:0b394cba",
+   "T=0.05": "2201:a5f702af",
+   "T=2": "2201:87b52411",
+   "Ter=0": "2201:7c9ab8e8",
+   "Ter=0.6": "2201:19e43221",
+   "metric=0": "2201:a1941624",
+   "metric=2": "2201:ec6722de",
+   "useDDM=false": "2201:5bf62bbe",
+   "useDDM=true": "2201:a1941624"
+  },
+  "vision": {
+   "default": "11220:d9c19976",
+   "ori=0": "11220:835cc19b",
+   "ori=179": "11220:c9f5dfc0",
+   "sf=1": "11220:337e11df",
+   "sf=8": "11220:ddba7be8",
+   "contrast=0": "11220:1889615a",
+   "contrast=1": "11220:38c9867d",
+   "noise=0": "11220:c67152f6",
+   "noise=1": "11220:c39e6349"
+  },
+  "lif": {
+   "default": "3141:fe1f9aed",
+   "I=0": "2063:6b270ebe",
+   "I=0.8": "4151:f7ad05be",
+   "sigma=0": "3117:27a94ec1",
+   "sigma=0.3": "3125:2fc852d0",
+   "tau=5": "4684:83750d39",
+   "tau=40": "2653:cf3bc69f",
+   "reps=5": "2272:e576fc79",
+   "reps=60": "4181:48a253fd",
+   "refrac=false": "3420:0cdcac36",
+   "refrac=true": "3141:fe1f9aed"
+  },
+  "rl": {
+   "default": "730:b14a05c6",
+   "alpha=0.01": "730:b5704e15",
+   "alpha=0.9": "730:d19fe284",
+   "pRew=0": "730:526011e6",
+   "pRew=1": "730:252569c9",
+   "nTrials=20": "130:3874ba8e",
+   "nTrials=300": "1810:99ff8917"
+  },
+  "attractor": {
+   "default": "2627:fe588e4f",
+   "coh=-40": "2627:30c704e3",
+   "coh=40": "2627:d3e12edc",
+   "Jc=0": "2627:c7d550bb",
+   "Jc=0.12": "2627:400a9a18",
+   "sigma=0": "2627:b8fccc30",
+   "sigma=0.05": "2627:1aa4cb9c"
+  },
+  "sir": {
+   "default": "12121:e8de3872",
+   "R0=0": "12121:13645c6f",
+   "R0=4": "12121:e0a024af",
+   "gamma=0.05": "12121:c00bf578",
+   "gamma=0.5": "12121:fb123b85",
+   "D=0": "12121:a450f6f5",
+   "D=0.5": "12121:16b86c90"
+  },
+  "hopfield": {
+   "default": "4662:a4dd4c9e",
+   "nStore=1": "4534:535b8bec",
+   "nStore=12": "5304:47a83c36",
+   "cueFlip=0": "4596:159efa3d",
+   "cueFlip=0.5": "4662:93e2e352"
+  },
+  "kuramoto": {
+   "default": "20719:fb8e014b",
+   "K=0": "20719:2b517327",
+   "K=8": "20719:340a6ced",
+   "spread=0.2": "20719:d8c358ca",
+   "spread=3": "20719:b88ecdcc",
+   "noise=0": "20719:6cf41066",
+   "noise=1": "20719:dbd3e250"
+  },
+  "belief": {
+   "default": "1731:172fa50f",
+   "obsNoise=0.3": "1731:775c1392",
+   "obsNoise=6": "1731:bcc16b8f",
+   "vol=0.4": "1731:0ce8a9e6",
+   "vol=4": "1731:482597b1"
+  },
+  "ring": {
+   "default": "5066:4a98106d",
+   "cue=0": "5066:541fb702",
+   "cue=359": "5066:9aeb5415",
+   "JI=0.4": "5066:ce6ddf29",
+   "JI=2.5": "5066:9b036b1a",
+   "noise=0": "5066:c1156fcb",
+   "noise=0.15": "5066:a7d88c6b"
+  },
+  "retina": {
+   "default": "7347:ca731aa4",
+   "ori=0": "7347:7e9240aa",
+   "ori=179": "7347:ff83b84a",
+   "sf=1": "7347:36b18bc9",
+   "sf=7": "7347:6994fece",
+   "surround=0": "7347:3d40ac4d",
+   "surround=1.4": "7347:d30f6556",
+   "contrast=0.1": "7347:61adba27",
+   "contrast=1": "7347:954995d4"
+  },
+  "causalg": {
+   "default": "1655:2554969f",
+   "conf=0": "1655:a5d786b7",
+   "conf=1.5": "1655:8076a088",
+   "causal=0": "1655:e341c4ba",
+   "causal=1.5": "1655:24255d45",
+   "noise=0.2": "1655:0caec4b3",
+   "noise=1": "1655:da46d8e1"
+  },
+  "attention": {
+   "default": "196:6d9cc892",
+   "temp=0.1": "196:37f79e29",
+   "temp=3": "196:23124f84",
+   "posBias=0": "196:f1fa7234",
+   "posBias=2": "196:019c1cbb",
+   "query=0": "196:07fc930a",
+   "query=9": "196:8d61f7c8"
+  },
+  "pomdp": {
+   "default": "1057:9cfa15a5",
+   "obsAcc=0.55": "1079:0e06ceb5",
+   "obsAcc=0.98": "1055:5fa69b93",
+   "rTiger=20": "1055:9d5baf98",
+   "rTiger=200": "1059:0562db03",
+   "gamma=0.8": "1057:d561cb31",
+   "gamma=0.99": "1057:c077ad1b"
+  },
+  "wilson": {
+   "default": "3176:9aae5575",
+   "P=0": "3176:eb35ad9e",
+   "P=3": "3176:c8e383fa",
+   "wEE=8": "3176:dae32e80",
+   "wEE=20": "3176:bcb72df3",
+   "wEI=6": "3176:b54d07d5",
+   "wEI=16": "3176:24423f77"
+  },
+  "mha": {
+   "default": "273:5d5ff00b",
+   "temp=0.1": "273:c4728e0c",
+   "temp=3": "273:1d3676bf",
+   "layers=1": "265:331e66e9",
+   "layers=3": "281:4df93adc"
+  }
+ },
+ "draw": {
+  "bayes": {
+   "/v0@0": "976:16dba5d2",
+   "/v0@end": "976:16dba5d2",
+   "/v1@0": "355:2cfa48e6",
+   "/v1@end": "355:2cfa48e6",
+   "/v2@0": "109:de8e94d0",
+   "/v2@end": "408:1a448b47"
+  },
+  "efficient": {
+   "/v0@0": "233:8f636b4c",
+   "/v0@end": "234:69ae9eb9",
+   "/v1@0": "614:2e1ac6b5",
+   "/v1@end": "890:343c2307",
+   "/v2@0": "613:bceb0721",
+   "/v2@end": "1388:32b6adb3",
+   "/v3@0": "81:5c9dca26",
+   "/v3@end": "199:4c79fd08"
+  },
+  "causal": {
+   "/v0@0": "167:aea937ed",
+   "/v0@end": "168:244399f9",
+   "/v1@0": "115:e1e41e32",
+   "/v1@end": "115:e1e41e32",
+   "/v2@0": "75:0bdc2e14",
+   "/v2@end": "92:734e6fc3",
+   "/v3@0": "101:4d150bc4",
+   "/v3@end": "137:b4ca2b80"
+  },
+  "wm": {
+   "/v0@0": "234:1695aa5c",
+   "/v0@end": "234:72b555ee",
+   "/v1@0": "11:4babef72",
+   "/v1@end": "69:efb6212d",
+   "/v2@0": "136:36230c33",
+   "/v2@end": "136:36230c33",
+   "/v3@0": "81:65a0358e",
+   "/v3@end": "385:6b213086"
+  },
+  "ddm": {
+   "step/v0@0": "159:01b09451",
+   "step/v0@end": "151:9134da74",
+   "step/v1@0": "126:787ded76",
+   "step/v1@end": "173:af6e8db4",
+   "trial/v0@0": "126:76c34644",
+   "trial/v0@end": "214:f7669103",
+   "sim/v0@0": "204:36ab9dbb",
+   "sim/v0@end": "171:1fa34910",
+   "sim/v1@0": "90:f8a9b2ff",
+   "sim/v1@end": "174:65c8a67d"
+  },
+  "compare": {
+   "/v0@0": "287:c6adc494",
+   "/v0@end": "287:c6adc494",
+   "/v1@0": "241:73b42786",
+   "/v1@end": "241:73b42786",
+   "/v2@0": "96:974cad45",
+   "/v2@end": "96:974cad45",
+   "/v3@0": "184:3dabd663",
+   "/v3@end": "184:3dabd663"
+  },
+  "vision": {
+   "architecture/v0@0": "79:7b26d44d",
+   "architecture/v0@end": "79:7b26d44d",
+   "input/v0@0": "182:b3863b2b",
+   "input/v0@end": "182:b3863b2b",
+   "transform/v0@0": "203:3bad47d7",
+   "transform/v0@end": "203:3bad47d7",
+   "readout/v0@0": "137:e4f52b58",
+   "readout/v0@end": "137:e4f52b58"
+  },
+  "lif": {
+   "trace/v0@0": "107:60ea76bf",
+   "trace/v0@end": "1112:ae5413a3",
+   "raster/v0@0": "85:b102b94f",
+   "raster/v0@end": "4257:218675b1",
+   "fI/v0@0": "201:b9247d3b",
+   "fI/v0@end": "201:b9247d3b"
+  },
+  "rl": {
+   "update/v0@0": "121:62951f24",
+   "update/v0@end": "121:239c4b48",
+   "learn/v0@0": "95:4cb2a32c",
+   "learn/v0@end": "221:fa5cc1cb",
+   "rate/v0@0": "503:8b38042d",
+   "rate/v0@end": "503:8b38042d"
+  },
+  "attractor": {
+   "structure/v0@0": "106:42fb2e9c",
+   "structure/v0@end": "106:42fb2e9c",
+   "step/v0@0": "133:ea7d6d7f",
+   "step/v0@end": "133:6fbc9203",
+   "dynamics/v0@0": "120:0179ec56",
+   "dynamics/v0@end": "544:63dc92df",
+   "landscape/v0@0": "461:cc5a8b65",
+   "landscape/v0@end": "461:cc5a8b65"
+  },
+  "sir": {
+   "spread/v0@0": "229:324893f9",
+   "spread/v0@end": "229:324893f9",
+   "curve/v0@0": "692:4ab8e236",
+   "curve/v0@end": "692:4ab8e236",
+   "threshold/v0@0": "152:827f8835",
+   "threshold/v0@end": "152:827f8835"
+  },
+  "hopfield": {
+   "structure/v0@0": "188:19958150",
+   "structure/v0@end": "188:19958150",
+   "store/v0@0": "42:293d0e7c",
+   "store/v0@end": "42:293d0e7c",
+   "recall/v0@0": "37:f31b4493",
+   "recall/v0@end": "37:8403066a",
+   "recall/v1@0": "151:3c7c5f0f",
+   "recall/v1@end": "151:bf38daa5",
+   "capacity/v0@0": "200:d65ddee9",
+   "capacity/v0@end": "200:d65ddee9"
+  },
+  "kuramoto": {
+   "structure/v0@0": "111:5e594e2b",
+   "structure/v0@end": "111:5e594e2b",
+   "dynamics/v0@0": "261:7ef558a1",
+   "dynamics/v0@end": "261:2c1cb1b6",
+   "dynamics/v1@0": "355:7e387989",
+   "dynamics/v1@end": "355:023d4a2f",
+   "sync/v0@0": "212:219a69b5",
+   "sync/v0@end": "212:219a69b5"
+  },
+  "belief": {
+   "structure/v0@0": "209:fef5307e",
+   "structure/v0@end": "209:fef5307e",
+   "belief/v0@0": "287:94cc5ca7",
+   "belief/v0@end": "287:ee0bc41e",
+   "belief/v1@0": "257:237de563",
+   "belief/v1@end": "267:16ce6ba9",
+   "compare/v0@0": "184:0f95961c",
+   "compare/v0@end": "184:0f95961c"
+  },
+  "ring": {
+   "structure/v0@0": "240:3d77dfab",
+   "structure/v0@end": "240:3d77dfab",
+   "dynamics/v0@0": "234:53720022",
+   "dynamics/v0@end": "246:99b8b576",
+   "dynamics/v1@0": "249:7ff71b2c",
+   "dynamics/v1@end": "249:0a2f37f2",
+   "representation/v0@0": "111:67649f7d",
+   "representation/v0@end": "183:02fd8dee",
+   "compare/v0@0": "184:0c800d42",
+   "compare/v0@end": "184:0c800d42"
+  },
+  "retina": {
+   "architecture/v0@0": "163:b278e7e3",
+   "architecture/v0@end": "163:b278e7e3",
+   "layers/v0@0": "180:8ac610ec",
+   "layers/v0@end": "180:8ac610ec",
+   "layers/v1@0": "180:1e6ca49e",
+   "layers/v1@end": "180:1e6ca49e",
+   "layers/v2@0": "180:86c78ccd",
+   "layers/v2@end": "180:86c78ccd",
+   "layers/v3@0": "179:6d95aebf",
+   "layers/v3@end": "179:6d95aebf",
+   "rf/v0@0": "148:112378bc",
+   "rf/v0@end": "148:112378bc",
+   "rf/v1@0": "150:be4a61f8",
+   "rf/v1@end": "150:be4a61f8",
+   "compare/v0@0": "168:419363af",
+   "compare/v0@end": "168:419363af"
+  },
+  "causalg": {
+   "structure/v0@0": "138:2639aa38",
+   "structure/v0@end": "138:2639aa38",
+   "observe/v0@0": "1291:d6562d28",
+   "observe/v0@end": "1291:d6562d28",
+   "intervene/v0@0": "1324:36c3dd93",
+   "intervene/v0@end": "1324:36c3dd93",
+   "compare/v0@0": "192:57dfae58",
+   "compare/v0@end": "192:57dfae58"
+  },
+  "attention": {
+   "structure/v0@0": "187:e880c8c9",
+   "structure/v0@end": "187:e880c8c9",
+   "mix/v0@0": "139:0765b9cd",
+   "mix/v0@end": "139:0765b9cd",
+   "mix/v1@0": "185:5d965640",
+   "mix/v1@end": "185:5d965640",
+   "compare/v0@0": "184:71de1906",
+   "compare/v0@end": "184:71de1906"
+  },
+  "pomdp": {
+   "structure/v0@0": "85:08250e09",
+   "structure/v0@end": "85:08250e09",
+   "policy/v0@0": "747:a0940f4f",
+   "policy/v0@end": "747:a0940f4f",
+   "episode/v0@0": "99:cd437262",
+   "episode/v0@end": "124:0f85d332",
+   "compare/v0@0": "164:ddc008d7",
+   "compare/v0@end": "164:ddc008d7"
+  },
+  "wilson": {
+   "structure/v0@0": "89:9e851203",
+   "structure/v0@end": "89:9e851203",
+   "dynamics/v0@0": "108:406ae3c7",
+   "dynamics/v0@end": "1370:6e9c9b0c",
+   "dynamics/v1@0": "90:d15c53fc",
+   "dynamics/v1@end": "721:78d81f3f",
+   "compare/v0@0": "184:349aeb35",
+   "compare/v0@end": "184:349aeb35"
+  },
+  "mha": {
+   "heads/v0@0": "42:772acb42",
+   "heads/v0@end": "42:772acb42",
+   "layers/v0@0": "228:067f69b6",
+   "layers/v0@end": "228:067f69b6",
+   "compare/v0@0": "184:736c0f81",
+   "compare/v0@end": "184:736c0f81"
+  }
+ }
+}

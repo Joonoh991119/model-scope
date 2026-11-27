@@ -4,7 +4,7 @@
  * Small, pure, composable building blocks distilled from canonical computational-
  * neuroscience models — NOT copied from any repo; minimal textbook forms you compose
  * inside a model's simulate(). Include only if you need them:
- *     <script src="modules/mslib.js"></script>   (before engine.js)
+ *     a script tag for modules/mslib.js in index.html, before the one for engine.js
  * then use e.g. MSLIB.neuron.lifStep(...), MSLIB.bayes.gaussPosterior(...).
  *
  * Design: every function is pure, takes its randomness as a `g` argument, and is

@@ -34,7 +34,9 @@ crosses a critical value (mirror the SIR / epidemic-threshold idiom).
 ## MSLIB (`osc`)
 
 `kuramotoOrder(phases)` → {r, ψ}; `kuramotoStep(phases, omega, K, dt, sigma, g)` mean-field step.
-Compose Wilson–Cowan from `sde` (two coupled rate variables + a sigmoid).
+`wilsonCowanStep(s, p, dt)` one Euler step of the Wilson–Cowan E/I rates (`s={E,I}`;
+`p={wEE,wEI,wIE,wII,P,Q,theta,k,tauE,tauI}`, one shared logistic, no refractory term); the
+template's `wilson` example uses it.
 
 ## Sources
 

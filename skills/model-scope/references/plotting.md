@@ -2,7 +2,9 @@
 
 A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you call
 `g.frame(...)` once to define this view's axes, then draw in data coordinates. `ui =
-{head, playing, params}`.
+{head, playing, params, frac, stage, stageKey, stages, nStages}` (see architecture.md). When the
+user pins a result, the same `draw` also paints the reference pane with the pinned data, so a view
+must depend only on its arguments.
 
 ## The `g` API (see plot.js)
 
@@ -38,14 +40,23 @@ A view is `draw(g, data, ui)`. `g` is created per-canvas by the toolbox; you cal
   ones marked done; `stages[active].about` renders as a caption. Pass `ui.stages, ui.stage`.
 - `Plot.histify(values, bins, lo, hi, quant?)` → `{edges, counts, binW, max}`. Pass
   `quant = dt` so bin width is a multiple of `dt` (else dt-quantised values comb).
-- `Plot.TH` — theme colours: `ink, dim, faint, accent, pos, neg, warn, series[]`.
+- `Plot.nearestY(points, x)` → the y of the `[x,y]` sample whose x is nearest `x` (for a marker
+  on a sweep curve at the current parameter value).
+- `Plot.ramp(from, to)` → a colour map `t ∈ [0,1] → [r,g,b]` running linearly between two rgb
+  triples (t clamped). Hand it to `g.heat` / `g.image` / `g.colorbar` as `v => ramp((v-lo)/(hi-lo))`.
+- `Plot.RAMPS` — shared maps: `blue` (paper to accent blue), `green`, `red` (cream to teal / deep
+  red), `night` (dark = slow to light = fast) take `t ∈ [0,1]`; `signed` takes `t ∈ [-1,1]` (blue
+  below 0, cream at 0, rust above). Use these before writing a new inline ramp.
+- `Plot.TH` — the one palette: `ink, dim, faint, grid, edge, accent, pos, neg, warn, series[]`.
 
 Theme is light/eye-friendly and DPR-correct already. Extend `plot.js` (a violin, a
 contour, a vector field) rather than working around it.
 
 **Text size.** Fonts, frame margins and label offsets all scale with `window.__plotFontScale`
 (the toolbox's "Text size" control), so larger text keeps its own space instead of overlapping the
-graphics — never hard-code pixel offsets that assume one font size.
+graphics — never hard-code pixel offsets that assume one font size. In a narrow pane (a phone, or a
+pinned card, where each pane is half as wide) long titles and strip names can still truncate at the
+largest sizes.
 
 **Readability conventions — make every plot self-interpretable:**
 - Label every axis **with units**; give every heatmap a **colorbar** (`g.colorbar`).
@@ -92,7 +103,7 @@ researcher is after.
 `anim:{length:p=>nTrials}`. View A regenerates the current trial's path from `ui.head`
 (`floor(head)` = trial index, frac = within-trial progress) and draws it to thresholds.
 View B bins outcomes of completed trials (`Plot.histify(rt[0..floor(head)])`) into a
-mirrored correct↑/error↓ histogram. (See the `ddm` model in `engine.js`.)
+mirrored correct↑/error↓ histogram. (See the `ddm` model in `examples.js`.)
 
 ### Spike raster + voltage trace (neurons)
 ```js
@@ -142,7 +153,7 @@ draws the **pipeline overview**; the others reveal their panel when the stage is
 ```
 Gate by `ui.stage` (index) or `switch(ui.stageKey)`. Use `ui.frac` (0→1 within a stage) to fade
 a panel in. Compute everything once in `simulate`; the stages only choose what to *show*. See
-the `efficient`, `causal`, `wm` models in `engine.js` for full worked pipelines.
+the `efficient`, `causal`, `wm` models in `examples.js` for full worked pipelines.
 
 ## Layout & animation notes
 - Views auto-fit a responsive grid; 1–4 per model reads best. Each view is independent —

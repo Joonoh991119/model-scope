@@ -1,362 +1,529 @@
 /* =============================================================================
- * validate.mjs — the model-scope correctness gate, reusing engine.js (and a Plot stub).
- *   Run:  node validate.mjs
- * The toolbox imposes no fixed output shape, so the gate is layered:
- *   (1) simulate() returns data without throwing; every view is a function;
- *   (2) view-render pass — every view DRAWS (recording stub) at head=0 and the end, per lens,
- *       without throwing, with finite axes and a colorbar on every heatmap;
- *   (3) parameter property pass — simulate() stays finite at each slider's min and max;
- *   (4) a per-model analytic check tied to the science; plus the mslib building-block checks.
+ * validate.mjs — the model-scope correctness gate.          Run:  node validate.mjs
+ *
+ * It loads exactly what index.html loads (the same <script src> list, in the same order, with
+ * the REAL plot.js drawing onto a recording canvas stub), so the math and the views it checks are
+ * the ones the page runs. The toolbox imposes no fixed output shape, so the gate is layered:
+ *   (0) page      — every listed script exists and loads; nothing references another host or a
+ *                   network API (the app must work offline from file://); the inline script parses;
+ *                   the single-page bundle (bundle.mjs, if present) is self-contained;
+ *   (1) schema    — every model's id, parameters, lenses and views are well-formed;
+ *   (2) simulate  — runs at defaults, returns data, and is deterministic for a given seed;
+ *   (3) views     — every view DRAWS at the start, middle and end of its playhead, per lens, with
+ *                   finite axes, finite heatmap/image/graph data, a colorbar on every heatmap, and
+ *                   (at the end of the playhead) at least one mark that is not axis furniture;
+ *   (4) extremes  — simulate() stays finite and every view still draws at each control's min and max;
+ *   (5) analytic  — per-model checks tied to the science (a closed form, a conservation law, a limit),
+ *                   read from `<script>.checks.mjs` next to each script the page loads
+ *                   (engine.checks.mjs for your models, examples.checks.mjs for the examples);
+ *   (6) library   — the modules/mslib.js building blocks.
+ * Options:
+ *   --snapshot <file>   write digests of simulate() (defaults + every extreme) for YOUR models
+ *   --against  <file>   compare with such a file and fail on any difference (an opt-in regression lock)
+ * Deterministic: no Math.random, no clock — two runs print the same text.
  * ========================================================================== */
 import fs from 'node:fs';
-// plot.js touches `document`/canvas; engine.js only needs it lazily inside views, so
-// stub the browser globals it references at module scope. Load mslib.js FIRST — the
-// modelbook example models call MSLIB inside simulate() (mirrors index.html's <script> order).
+import { fileURLToPath } from 'node:url';
+
+const HERE = new URL('./', import.meta.url);
+const ARGV = process.argv.slice(2);
+const optOf = f => { const i = ARGV.indexOf(f); return i >= 0 ? ARGV[i + 1] : undefined; };
+let fails = 0, warns = 0;
+const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
+const warn = msg => { warns++; console.log(`  \x1b[33m⚠ ${msg}\x1b[0m`); };
+const finish = () => { console.log(`\n${fails === 0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}${warns ? `  (${warns} warning${warns > 1 ? 's' : ''})` : ''}\n`); process.exit(fails === 0 ? 0 : 1); };
+const fatal = msg => { console.log(`  ${msg}   [${ok(false)}]`); finish(); };
+
+// ---------------------------------------------------------------------------------------------
+// Browser stubs: a canvas whose 2d context counts INK calls, split into "chrome" (issued while an
+// axis/legend/annotation helper is running) and "data" (everything else).
+// ---------------------------------------------------------------------------------------------
+const INK = new Set(['stroke', 'fill', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'drawImage', 'putImageData']);
+let REC = null;
+function mkCtx() {
+  return new Proxy({}, {
+    get(t, p) {
+      if (p === 'measureText') return s => ({ width: String(s).length * 6 });
+      if (p === 'createImageData') return (w, h) => ({ data: new Uint8ClampedArray(w * h * 4), width: w, height: h });
+      if (p in t) return t[p];
+      return () => { if (REC && INK.has(p)) { if (REC.chrome > 0) REC.chromeInk++; else REC.dataInk++; } };
+    },
+    set(t, p, v) { t[p] = v; return true; },
+  });
+}
+const mkCanvas = (w, h) => { const ctx = mkCtx(); return { width: 0, height: 0, getBoundingClientRect: () => ({ width: w, height: h }), getContext: () => ctx }; };
 globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
-(0, eval)(fs.readFileSync(new URL('./modules/mslib.js', import.meta.url), 'utf8'));
-(0, eval)(fs.readFileSync(new URL('./engine.js', import.meta.url), 'utf8'));
-const SIM = globalThis.SIM;
+globalThis.document = { createElement: () => mkCanvas(1, 1) };
 
-// Minimal Plot global so the view-render pass below can run views that call Plot.histify / Plot.TH
-// directly (plot.js touches document at load, so we can't eval it here — supply just the pure pieces
-// views use). histify is copied verbatim from plot.js.
-globalThis.Plot = {
-  TH: {accent:'#4a7a93',pos:'#2e8b7a',neg:'#c25b42',warn:'#b07d2a',ink:'#33312c',dim:'#6f6b61',faint:'#a39e91',grid:'#e7e3d8',edge:'#d6d2c5'},
-  histify(values, bins, lo, hi, quant){
-    bins=Math.max(1,Math.floor(bins||1)); if(!(hi>lo)) hi=lo+(quant>0?quant:1);
-    let bw=(hi-lo)/bins; if(quant>0) bw=Math.max(quant, Math.round(bw/quant)*quant); if(!(bw>0)) bw=(hi-lo)||1;
-    const n=Math.max(1,Math.ceil((hi-lo)/bw)), counts=new Array(n).fill(0), edges=new Array(n);
-    for(let i=0;i<n;i++) edges[i]=lo+i*bw;
-    for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; }
-    return { edges, counts, binW:bw, max:Math.max(1,...counts) };
+// ---------------------------------------------------------------------------------------------
+// (0) Load what the page loads, in the page's order.
+// ---------------------------------------------------------------------------------------------
+console.log('\n=== model-scope gate ===\n');
+if (!fs.existsSync(new URL('index.html', HERE))) fatal('index.html not found next to validate.mjs');
+const html = fs.readFileSync(new URL('index.html', HERE), 'utf8');
+const tags = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(m => ({ body: m[2], src: (m[1].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] }));
+const scripts = tags.filter(t => t.src).map(t => t.src), inline = tags.filter(t => !t.src).map(t => t.body);
+const isRemote = s => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(s);
+const sources = {};   // file → text, for the static scan
+console.log(`--- page: index.html loads ${scripts.length} script${scripts.length === 1 ? '' : 's'} (${scripts.join(', ')}) ---`);
+// OWNER: model id → the script that registered it. SHADOWED: script → ids it tried to register but an
+// earlier script already had (engine.js register() keeps the first), so that script's check for the id
+// must not run against somebody else's model.
+const OWNER = {}, SHADOWED = {}; let current = null;
+for (const s of scripts) {
+  if (isRemote(s)) continue;                                   // reported by the static scan below
+  if (!fs.existsSync(new URL(s, HERE))) fatal(`index.html loads ${s} but that file is missing`);
+  sources[s] = fs.readFileSync(new URL(s, HERE), 'utf8');
+  const before = new Set((globalThis.SIM && globalThis.SIM.MODEL_ORDER) || []); current = s;
+  try { (0, eval)(sources[s]); } catch (e) { fatal(`${s} failed to load: ${e.message}`); }
+  const G = globalThis.SIM;
+  if (G && Array.isArray(G.MODEL_ORDER)) for (const id of G.MODEL_ORDER) if (!before.has(id) && !OWNER[id]) OWNER[id] = s;
+  if (G && typeof G.register === 'function' && !G.register.gateWrapped) {
+    const reg = G.register;
+    G.register = Object.assign((models, order) => { for (const id of (order || Object.keys(models || {}))) if (models && models[id] && G.MODELS[id]) (SHADOWED[current] = SHADOWED[current] || []).push(id); return reg(models, order); }, { gateWrapped: true });
   }
-};
+}
+const SIM = globalThis.SIM, Plot = globalThis.Plot, MSLIB = globalThis.MSLIB;
+if (!SIM || !SIM.MODELS || !Array.isArray(SIM.MODEL_ORDER)) fatal('no script defined window.SIM with MODELS and MODEL_ORDER (engine.js)');
+if (!Plot || typeof Plot.make !== 'function') fatal('no script defined window.Plot (plot.js)');
 
-let fails = 0; const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
-const env = (seed) => ({ rng: SIM.makeRNG(seed), seed, params: {}, batch: false });   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks pattern)
-
-console.log('\n=== model-scope template models ===\n');
-
-// every model: simulate runs, returns an object, and has ≥1 view function
-for (const id of SIM.MODEL_ORDER) {
-  const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
-  let data, threw = null; try { data = m.simulate(p, env('v-'+id)); } catch (e) { threw = e; }
-  const specs = m.lenses ? Object.values(m.lenses) : [m];   // a lens model carries its views per lens
-  const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
-  const nv = specs.reduce((a,s)=>a+((s.views&&s.views.length)||0),0);
-  console.log(`  ${m.name.padEnd(28)} simulate=${threw?'\x1b[31mthrew\x1b[0m':'ok'}  views=${nv}${m.lenses?` (${specs.length} lenses)`:''}  [${ok(!threw && data && viewsOk)}]`);
-  if (threw) console.log('    ' + threw.message);
+// static scan: the app must be self-contained. Comments are dropped first so prose cannot trip it.
+const stripComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');
+const lineOf = (text, i) => text.slice(0, i).split('\n').length;
+const EXTERNAL = [
+  [/\b(?:src|href)\s*=\s*["'`]?\s*(?:https?:)?\/\/[^\s"'`>]*/i, 'a src/href on another host'],
+  [/url\(\s*["']?\s*(?:https?:)?\/\/[^\s"')]*/i, 'a CSS url() on another host'],
+  [/@import\b[^;\n]*/i, 'a CSS @import'],
+];
+const NETWORK = [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/, /\bEventSource\b/, /\bimport\s*\(/, /\bimportScripts\b/, /\bsendBeacon\b/];
+{
+  const hits = [];
+  const scan = (name, text, js) => {
+    for (const [re, what] of EXTERNAL) { const m = re.exec(text); if (m) hits.push(`${name}:${lineOf(text, m.index)} ${what} (${m[0].trim().slice(0, 60)})`); }
+    if (js) for (const re of NETWORK) { const m = re.exec(text); if (m) hits.push(`${name}:${lineOf(text, m.index)} a network API (${m[0].trim()})`); }
+  };
+  scan('index.html', html.replace(/<!--[\s\S]*?-->/g, m => m.replace(/[^\n]/g, ' ')), false);
+  inline.forEach(body => scan('index.html inline script', stripComments(body), true));
+  for (const [name, text] of Object.entries(sources)) scan(name, stripComments(text), true);
+  console.log(`  self-contained: no other host, no network API in index.html or the scripts it loads   [${ok(hits.length === 0)}]`);
+  hits.forEach(h => console.log('    ' + h));
+  const bad = []; inline.forEach((body, i) => { try { new Function(body); } catch (e) { bad.push(`inline script ${i + 1}: ${e.message}`); } });
+  console.log(`  the inline toolbox script parses   [${ok(bad.length === 0)}]`); bad.forEach(b => console.log('    ' + b));
+}
+// bundle.mjs (optional) writes the app as one page: check that what it would write is self-contained.
+if (fs.existsSync(new URL('bundle.mjs', HERE))) {
+  let problems = [], size = 0;
+  try { const B = await import(new URL('bundle.mjs', HERE).href), b = B.bundle(fileURLToPath(HERE), { title: 'Gate Check Bundle' }); size = b.bytes; problems = B.bundleProblems(b.html);
+    // a script that contains a closing tag or an HTML comment opener must come out inert, and mean the same
+    const probe = "const a='</script>', b='<!-- x', c=/<\\/SCRIPT>/i;", safe = B.escScript(probe), val = s => JSON.stringify(new Function(s + ' return [a, b, c.test("</script>")];')());
+    if (/<\/script/i.test(safe) || /<!--/.test(safe)) problems.push('a closing script tag or an HTML comment opener inside a script is not escaped (the page would be cut short)');
+    else if (val(safe) !== val(probe)) problems.push('escaping a script changed what it computes'); }
+  catch (e) { problems = [e.message]; }
+  console.log(`  bundle is self-contained: one page, ${(size / 1024).toFixed(0)} KB, no doctype/html/head/body, no file or host reference, scripts parse   [${ok(problems.length === 0)}]`);
+  problems.forEach(b => console.log('    ' + b));
 }
 
-// ---- view-render pass: every view must DRAW without throwing (at head=0 AND the end of its
-//      playhead, per lens), with FINITE axis ranges and a COLORBAR on every heatmap. This is the
-//      machine-checkable slice of gui-qc.md, now enforced — a view that dies on first paint, a NaN
-//      axis (blank panel), or a heatmap with no scale, all FAIL the gate instead of shipping. ----
-function stubG(){
-  const ctx = new Proxy({}, { get(t,p){ if(p==='measureText') return s=>({width:String(s).length*6}); if(p in t) return t[p]; return ()=>{}; }, set(t,p,v){ t[p]=v; return true; } });
-  const fr = {px:40,py:20,pw:520,ph:340,x:[0,1],y:[0,1]}, rec = {badFrame:false,badData:false,heat:0,colorbar:0}, num = v => (typeof v==='number' && isFinite(v));
-  const sample = (nx,ny,val) => { if(!val) return; for(const [i,j] of [[0,0],[nx-1,ny-1],[nx>>1,ny>>1]]) if(!num(val(i,j))) rec.badData=true; };   // a heatmap/image that feeds non-finite values renders black — flag it
-  const g = { ctx, w:600, h:400, FS:1, _rec:rec, TH: globalThis.Plot.TH,
-    frame(o){ o=o||{}; if(o.x&&(!num(o.x[0])||!num(o.x[1]))) rec.badFrame=true; if(o.y&&(!num(o.y[0])||!num(o.y[1]))) rec.badFrame=true; if(o.x)fr.x=o.x; if(o.y)fr.y=o.y; return g; },
-    line:()=>g, band:()=>g, points:()=>g, marker:()=>g, arrow:()=>g, vline:()=>g, hline:()=>g, bars:()=>g, raster:()=>g, text:()=>g, legend:()=>g, flow:()=>g, note:()=>g, clip:()=>g, unclip:()=>g,
-    heat(nx,ny,val){ rec.heat++; sample(nx,ny,val); return g; }, image(nx,ny,val){ sample(nx,ny,val); return g; }, colorbar(){ rec.colorbar++; return g; },
-    graph(nodes, edges){ nodes=nodes||[]; for(const e of (edges||[])){ const a=nodes[e.from], b=nodes[e.to]; if(!a||!b||!num(a.x)||!num(a.y)||!num(b.x)||!num(b.y)) rec.badData=true; } for(const nd of nodes){ if(nd&&(!num(nd.x)||!num(nd.y))) rec.badData=true; } return g; },
-    X(v){ return fr.px+(v-fr.x[0])/((fr.x[1]-fr.x[0])||1)*fr.pw; }, Y(v){ return fr.py+fr.ph*(1-(v-fr.y[0])/((fr.y[1]-fr.y[0])||1)); }, frameRect(){ return fr; } };
-  return g;
-}
-console.log('\n--- view render (draws, finite axes, colorbar on heatmaps) ---');
-for (const id of SIM.MODEL_ORDER) {
-  const m = SIM.MODELS[id]; const p = {}; (m.params||[]).forEach(s => p[s.name] = s.default);
-  let data; try { data = m.simulate(p, env('r-'+id)); } catch(e) { continue; }   // simulate-throw already reported above
-  const specs = m.lenses ? Object.entries(m.lenses) : [['', m]];
-  const drew=[], axis=[], cbar=[], dat=[];
-  for (const [key, spec] of specs) {
-    let stageList=null, length=1;
-    try { stageList = spec.stages ? ((typeof spec.stages==='function')?spec.stages(p,data):spec.stages) : null; } catch(e){}
-    if (stageList && stageList.length) length = stageList.length;
-    else if (spec.anim) { try { const L = spec.anim.length(p,data); length = isFinite(L)?Math.max(1,Math.floor(L)):1; } catch(e){ length=1; } }
-    const heads = stageList ? [0, length-1] : [0, length];
-    (spec.views||[]).forEach((v, vi) => { const tag=(key?key+'/':'')+'v'+vi;
-      for (const head of heads) { const g=stubG();
-        const stage = stageList ? Math.min(length-1, Math.floor(head)) : null;
-        const ui = { head, params:p, playing:false, frac:0, stage, stageKey:(stage!=null&&stageList)?stageList[stage].key:null, stages:stageList, nStages:stageList?stageList.length:1 };
-        try { v.draw(g, data, ui); } catch(e){ if(!drew.find(f=>f.tag===tag)) drew.push({tag,msg:e.message}); }
-        if (g._rec.badFrame && !axis.includes(tag)) axis.push(tag);
-        if (g._rec.badData && !dat.includes(tag)) dat.push(tag);
-        if (g._rec.heat>0 && g._rec.colorbar===0 && !cbar.includes(tag)) cbar.push(tag);
-      } });
-  }
-  const good = !drew.length && !axis.length && !cbar.length && !dat.length;
-  console.log(`  ${m.name.padEnd(28)}[${ok(good)}]`+(drew.length?`  threw: ${drew.map(f=>f.tag).join(',')}`:'')+(axis.length?`  non-finite axis: ${axis.join(',')}`:'')+(dat.length?`  non-finite heatmap/image data: ${dat.join(',')}`:'')+(cbar.length?`  heatmap w/o colorbar: ${cbar.join(',')}`:''));
-  drew.forEach(f => console.log('    '+f.tag+': '+f.msg));
-}
-
-// ---- parameter property pass: simulate() returns finite data at each parameter's MIN and MAX,
-//      not just defaults — catches NaN/throws at a slider extreme (e.g. zero drift, tiny dt). ----
-console.log('\n--- parameter extremes (simulate stays finite at each slider min/max) ---');
-const allFinite = (v, depth=0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤6)
+// ---------------------------------------------------------------------------------------------
+// Helpers shared by the generic passes and the analytic checks.
+// ---------------------------------------------------------------------------------------------
+const env = (seed, p) => ({ rng: SIM.makeRNG(seed), seed, params: { ...(p || {}) }, batch: false });   // params as the page passes them (index.html run())   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks)
+const def = id => { const p = {}; (SIM.MODELS[id].params || []).forEach(s => { p[s.name] = s.default; }); return p; };
+const isNum = v => typeof v === 'number' && isFinite(v);
+const allFinite = (v, depth = 0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤6)
   if (typeof v === 'number') return isFinite(v);
   if (depth > 6) return true;
-  if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n=Math.min(v.length,3000); for (let i=0;i<n;i++) if (!allFinite(v[i], depth+1)) return false; return true; }
-  if (v && typeof v === 'object') { for (const k in v) if (!allFinite(v[k], depth+1)) return false; return true; }   // recurse into the returned object's fields (models return an object, so this is the live path)
+  if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n = Math.min(v.length, 3000); for (let i = 0; i < n; i++) if (!allFinite(v[i], depth + 1)) return false; return true; }
+  if (v && typeof v === 'object') { for (const k in v) if (!allFinite(v[k], depth + 1)) return false; return true; }
   return true;   // strings / functions / null: skip
 };
-for (const id of SIM.MODEL_ORDER) {
-  const m = SIM.MODELS[id]; const base = {}; (m.params||[]).forEach(s => base[s.name] = s.default);
-  const bad = [];
-  for (const s of (m.params||[])) {
-    let vals;   // extremes to probe, per control type
-    if (s.type==='enum') vals = [0, (s.options?.length||1)-1];
-    else if (s.type==='bool') vals = [false, true];
-    else if (typeof s.min==='number' && typeof s.max==='number') vals = [s.min, s.max];
-    else continue;
-    for (const v of vals) { const p = { ...base, [s.name]: v };
-      try { const d = m.simulate(p, env('p-'+id+'-'+s.name+v));
-        if(!d || typeof d!=='object') bad.push(`${s.name}=${v}(no data)`);
-        else if(!allFinite(d)) bad.push(`${s.name}=${v}(non-finite data)`); }
-      catch(e){ bad.push(`${s.name}=${v}: ${e.message}`); }
+// digest of everything simulate() returned: FNV-1a over toPrecision(10) of every number (plus strings, booleans, keys)
+const fnv = (s, h) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
+function digest(data) {
+  const st = { n: 0, h: 0x811c9dc5 };
+  (function walk(v, depth) {
+    if (depth > 12) return;
+    if (typeof v === 'number') { st.n++; st.h = fnv(Number.isFinite(v) ? v.toPrecision(10) : String(v), st.h); }
+    else if (typeof v === 'string' || typeof v === 'boolean') st.h = fnv(String(v), st.h);
+    else if (v && typeof v === 'object') { if (ArrayBuffer.isView(v) || Array.isArray(v)) for (let i = 0; i < v.length; i++) walk(v[i], depth + 1); else for (const k of Object.keys(v).sort()) { st.h = fnv(k, st.h); walk(v[k], depth + 1); } }
+  })(data, 0);
+  return st.n + ':' + st.h.toString(16).padStart(8, '0');
+}
+const extremesOf = s => s.type === 'enum' ? [0, ((s.options && s.options.length) || 1) - 1] : s.type === 'bool' ? [false, true] : (typeof s.min === 'number' && typeof s.max === 'number') ? [s.min, s.max] : [];
+
+// one view, drawn through the real plot.js onto a recording canvas
+const CHROME = ['frame', 'legend', 'colorbar', 'note', 'vline', 'hline', 'text'];
+function drawView(view, data, ui) {
+  const rec = { badFrame: false, badData: false, heat: 0, colorbar: 0, dataInk: 0, chromeInk: 0, chrome: 0, threw: null };
+  REC = rec;
+  try {
+    const g = Plot.make(mkCanvas(600, 400));
+    const sample = (nx, ny, val) => { if (typeof val !== 'function') return; for (const [i, j] of [[0, 0], [nx - 1, ny - 1], [nx >> 1, ny >> 1]]) if (!isNum(val(i, j))) rec.badData = true; };   // a heatmap/image fed non-finite values renders black — flag it
+    const before = {
+      frame: o => { o = o || {}; if (o.x && (!isNum(o.x[0]) || !isNum(o.x[1]))) rec.badFrame = true; if (o.y && (!isNum(o.y[0]) || !isNum(o.y[1]))) rec.badFrame = true; },
+      heat: (nx, ny, val) => { rec.heat++; sample(nx, ny, val); },
+      image: (nx, ny, val) => { sample(nx, ny, val); },
+      colorbar: () => { rec.colorbar++; },
+      graph: (nodes, edges) => { nodes = nodes || []; for (const e of (edges || [])) { const a = nodes[e.from], b = nodes[e.to]; if (!a || !b || !isNum(a.x) || !isNum(a.y) || !isNum(b.x) || !isNum(b.y)) rec.badData = true; } for (const nd of nodes) if (nd && (!isNum(nd.x) || !isNum(nd.y))) rec.badData = true; },
+    };
+    for (const name of new Set([...CHROME, ...Object.keys(before)])) {
+      const f = g[name]; if (typeof f !== 'function') continue; const chrome = CHROME.includes(name), pre = before[name];
+      g[name] = (...a) => { if (pre) pre(...a); if (chrome) rec.chrome++; try { return f(...a); } finally { if (chrome) rec.chrome--; } };
     }
+    view.draw(g, data, ui);
+  } catch (e) { rec.threw = e; }
+  REC = null; return rec;
+}
+// every lens × view × playhead position of a model, for one parameter set
+function renderModel(m, p, data, { nonEmpty = false } = {}) {
+  const out = { draws: 0, threw: [], axis: [], dat: [], cbar: [], empty: [], hooks: [] }, add = (list, tag) => { if (!list.includes(tag)) list.push(tag); };
+  for (const [key, spec] of (m.lenses ? Object.entries(m.lenses) : [['', m]])) {
+    let stageList = null, length = 1;
+    try { stageList = spec.stages ? ((typeof spec.stages === 'function') ? spec.stages(p, data) : spec.stages) : null; } catch (e) { out.hooks.push(`${key || 'model'}: stages() threw ${e.message}`); }
+    if (stageList && stageList.length) length = stageList.length;
+    else { stageList = null; if (spec.anim) { try { const L = spec.anim.length(p, data); length = isFinite(L) ? Math.max(1, Math.floor(L)) : 1; } catch (e) { out.hooks.push(`${key || 'model'}: anim.length() threw ${e.message}`); length = 1; } } }
+    const end = stageList ? length - 1 : length, heads = [...new Set([0, stageList ? Math.floor(end / 2) : end / 2, end])];
+    (spec.views || []).forEach((v, vi) => { const tag = (key ? key + '/' : '') + 'v' + vi; if (typeof v.draw !== 'function') return;
+      for (const head of heads) {
+        const stage = stageList ? Math.min(length - 1, Math.floor(head)) : null;
+        const ui = { head, params: p, playing: false, frac: head - Math.floor(head), stage, stageKey: (stage != null && stageList[stage]) ? stageList[stage].key : null, stages: stageList, nStages: stageList ? stageList.length : 0 };
+        const r = drawView(v, data, ui); out.draws++;
+        if (r.threw) { if (!out.threw.find(f => f.tag === tag)) out.threw.push({ tag, msg: `head=${head}: ${r.threw.message}` }); continue; }
+        if (r.badFrame) add(out.axis, tag);
+        if (r.badData) add(out.dat, tag);
+        if (r.heat > 0 && r.colorbar === 0) add(out.cbar, tag);
+        if (nonEmpty && head === end && r.dataInk === 0) add(out.empty, tag);
+      } });
   }
-  console.log(`  ${m.name.padEnd(28)}[${ok(!bad.length)}]`+(bad.length?'  '+bad.slice(0,3).join(' | '):''));
+  out.good = !out.threw.length && !out.axis.length && !out.dat.length && !out.cbar.length && !out.empty.length && !out.hooks.length;
+  out.text = (out.threw.length ? `  threw: ${out.threw.map(f => f.tag).join(',')}` : '') + (out.axis.length ? `  non-finite axis: ${out.axis.join(',')}` : '') + (out.dat.length ? `  non-finite heatmap/image/graph data: ${out.dat.join(',')}` : '')
+    + (out.cbar.length ? `  heatmap w/o colorbar: ${out.cbar.join(',')}` : '') + (out.empty.length ? `  draws axes but no data at the end of its playhead: ${out.empty.join(',')}` : '') + (out.hooks.length ? `  ${out.hooks.join('; ')}` : '');
+  return out;
 }
 
-// Bayesian observer: reliability weight in (0,1); estimate lies between measurement & prior mean
+// ---------------------------------------------------------------------------------------------
+// (1) schema lint — the toolbox builds its controls, element ids and links from these fields.
+// ---------------------------------------------------------------------------------------------
+const ID_RE = /^[A-Za-z0-9_-]+$/, NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const RESERVED = id => ['settings', 'sidebar', 'customize', 'upgrade', 'downloads'].includes(id) || /^comment-/.test(id);   // names a hosting page may claim for itself in a #link
+function lintModel(key, m) {
+  const bad = [];
+  if (!m || typeof m !== 'object') return ['not an object'];
+  if (m.id !== key) bad.push(`id '${m.id}' differs from its MODELS key '${key}'`);
+  if (!ID_RE.test(key)) bad.push(`id '${key}' must use only letters, digits, _ and -`);
+  if (RESERVED(key)) bad.push(`id '${key}' is a reserved link name`);
+  if (typeof m.name !== 'string' || !m.name.trim()) bad.push('name (the tab label) is empty');
+  if (typeof m.simulate !== 'function') bad.push('simulate is not a function');
+  const seen = new Set();
+  for (const s of (m.params || [])) {
+    const n = s && s.name;
+    if (typeof n !== 'string' || !NAME_RE.test(n)) { bad.push(`param name '${n}' must be an identifier (letters, digits, _)`); continue; }
+    if (seen.has(n)) bad.push(`param '${n}' is declared twice`); seen.add(n);
+    if (typeof s.label !== 'string' || !s.label.trim()) bad.push(`param '${n}' has no label`);
+    if (s.type === 'enum') { if (!Array.isArray(s.options) || s.options.length < 2 || !s.options.every(o => typeof o === 'string' && o)) bad.push(`enum '${n}' needs at least two option strings`);
+      else if (!Number.isInteger(s.default) || s.default < 0 || s.default >= s.options.length) bad.push(`enum '${n}' default must be an option index 0..${s.options.length - 1}`); }
+    else if (s.type === 'bool') { if (typeof s.default !== 'boolean') bad.push(`bool '${n}' default must be true or false`); }
+    else if (s.type !== undefined) bad.push(`param '${n}' has unknown type '${s.type}'`);
+    else { if (!isNum(s.min) || !isNum(s.max) || !(s.min < s.max)) bad.push(`param '${n}' needs min < max`);
+      if (!isNum(s.step) || !(s.step > 0)) bad.push(`param '${n}' needs step > 0`);
+      if (!isNum(s.default) || s.default < s.min || s.default > s.max) bad.push(`param '${n}' default ${s.default} is outside [${s.min}, ${s.max}]`);
+      if (s.int && isNum(s.default) && !Number.isInteger(s.default)) bad.push(`int param '${n}' has a non-integer default`); }
+  }
+  const lintViews = (where, views) => { if (!Array.isArray(views) || !views.length) { bad.push(`${where} has no views`); return; }
+    views.forEach((v, i) => { if (!v || typeof v.draw !== 'function') bad.push(`${where} view ${i} has no draw()`); if (!v || typeof v.title !== 'string' || !v.title.trim()) bad.push(`${where} view ${i} has no title`); }); };
+  if (m.lenses) { const keys = Object.keys(m.lenses); if (!keys.length) bad.push('lenses is empty');
+    for (const k of keys) { const L = m.lenses[k]; if (!ID_RE.test(k)) bad.push(`lens key '${k}' must use only letters, digits, _ and -`);
+      if (!L || typeof L.label !== 'string' || !L.label.trim()) bad.push(`lens '${k}' has no label`); lintViews(`lens '${k}'`, L && L.views); } }
+  else lintViews('the model', m.views);
+  return bad;
+}
+
+const ORDER = SIM.MODEL_ORDER.slice();
+const PAD = Math.max(12, ...ORDER.map(id => String((SIM.MODELS[id] || {}).name || id).length)) + 2, label = m => String(m.name).padEnd(PAD);
+console.log(`\n--- models: ${ORDER.length} registered (schema · simulate at defaults · same seed → same result) ---`);
+if (ORDER.length === 0) fatal('no model is registered — add one to MODELS and MODEL_ORDER in engine.js, or put the examples.js script line back in index.html');
 {
-  const m = SIM.MODELS.bayes, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('bayes'));
-  const between = (d.muPost - p.mu0) * (d.m - d.muPost) >= -1e-9;   // μ̂ between μ0 and m
-  console.log(`\n  Bayesian: w=${d.w.toFixed(3)} (0<w<1) · θ̂ between m and μ₀   [${ok(d.w>0 && d.w<1 && between)}]`);
+  const dup = ORDER.filter((id, i) => ORDER.indexOf(id) !== i), ghost = ORDER.filter(id => !SIM.MODELS[id]), hidden = Object.keys(SIM.MODELS).filter(id => !ORDER.includes(id));
+  if (dup.length || ghost.length) { console.log(`  MODEL_ORDER and MODELS agree   [${ok(false)}]${dup.length ? '  listed twice: ' + [...new Set(dup)].join(',') : ''}${ghost.length ? '  in MODEL_ORDER but not in MODELS: ' + ghost.join(',') : ''}`); finish(); }
+  if (hidden.length) warn(`in MODELS but not in MODEL_ORDER (no tab, not checked): ${hidden.join(', ')}`);
+}
+{ // every #<model>-<lens> link must open that screen: the page reads a hash left to right, so ids and lens keys with '-' can shadow each other
+  const lensOf = id => (SIM.MODELS[id] && SIM.MODELS[id].lenses) || null;
+  const resolve = h => { if (ORDER.includes(h)) return h; for (let i = h.indexOf('-'); i > 0; i = h.indexOf('-', i + 1)) { const id = h.slice(0, i), k = h.slice(i + 1); if (ORDER.includes(id) && lensOf(id) && Object.prototype.hasOwnProperty.call(lensOf(id), k)) return id + ' lens ' + k; } return 'nothing'; };
+  const clash = []; for (const id of ORDER) for (const k of Object.keys(lensOf(id) || {})) { const r = resolve(id + '-' + k); if (r !== id + ' lens ' + k) clash.push(`#${id}-${k} opens ${r}, not ${id} lens ${k}: rename the id or the lens key`); }
+  console.log(`  every #model-lens link opens its own screen   [${ok(clash.length === 0)}]`); clash.forEach(c => console.log('    ' + c));
+}
+const usable = [];   // models whose simulate() ran at defaults — the later passes skip the rest (already reported)
+for (const id of ORDER) {
+  const m = SIM.MODELS[id], lint = lintModel(id, m), p = def(id);
+  let data, threw = null; try { data = m.simulate({ ...p }, env('v-' + id, p)); } catch (e) { threw = e; }
+  const specs = m.lenses ? Object.values(m.lenses) : [m];   // a lens model carries its views per lens
+  const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
+  const nv = specs.reduce((a, s) => a + ((s.views && s.views.length) || 0), 0);
+  const ran = !threw && !!data && typeof data === 'object';
+  let same = false, detErr = null; if (ran) { try { same = digest(m.simulate({ ...p }, env('det-' + id, p))) === digest(m.simulate({ ...p }, env('det-' + id, p))); } catch (e) { same = false; detErr = e; } }
+  console.log(`  ${label(m)}schema [${ok(lint.length === 0)}]  simulate=${threw ? '\x1b[31mthrew\x1b[0m' : 'ok'}  views=${nv}${m.lenses ? ` (${specs.length} lenses)` : ''}  [${ok(ran && viewsOk)}]  deterministic [${ok(ran && same)}]`);
+  lint.forEach(l => console.log('    schema: ' + l));
+  if (threw) console.log('    ' + threw.message);
+  if (detErr) console.log(`    simulate() threw with another seed ('det-${id}'): ${(detErr && detErr.message) || detErr}`);
+  else if (ran && !same) console.log('    two runs with the same seed returned different data — draw every random number from env.rng / trialRng(env.seed, k)');
+  if (ran && viewsOk) usable.push(id);
 }
 
-// Drift-diffusion: error rate near the closed form 1/(1+e^{2Az/c²}) (Euler-biased but close)
-{
-  const m = SIM.MODELS.ddm, p = {}; m.params.forEach(s => p[s.name] = s.default); p.dt = 0.005; p.nTrials = 40000;
-  const d = m.simulate(p, env('ddm'));
-  let cor = 0, err = 0; for (let k = 0; k < d.n; k++){ if (d.out[k]===1) cor++; else if (d.out[k]===2) err++; }
-  const ER = err/(cor+err), th = 1/(1+Math.exp(2*p.A*p.z/(p.c*p.c)));
-  console.log(`  DDM: sim ER=${(100*ER).toFixed(2)}%  theory=${(100*th).toFixed(2)}%   [${ok(Math.abs(ER-th)/th < 0.12)}]`);
+// ---------------------------------------------------------------------------------------------
+// (3) view-render pass: every view must DRAW without throwing (at the start, middle and end of its
+//     playhead, per lens) through the real plot.js, with FINITE axis ranges, finite heatmap/image/
+//     graph data, a COLORBAR on every heatmap, and real marks at the end of the playhead. This is the
+//     machine-checkable slice of gui-qc.md — a view that dies on first paint, a NaN axis (blank
+//     panel), a heatmap with no scale, or a panel of bare axes all FAIL the gate instead of shipping.
+// ---------------------------------------------------------------------------------------------
+console.log('\n--- view render at defaults (draws · finite axes · colorbar on heatmaps · not empty) ---');
+for (const id of usable) {
+  const m = SIM.MODELS[id], p = def(id);
+  let data; try { data = m.simulate({ ...p }, env('r-' + id, p)); } catch (e) { console.log(`  ${label(m)}[${ok(false)}]  simulate() threw with seed 'r-${id}' (it ran with 'v-${id}'): ${(e && e.message) || e}`); continue; }
+  const r = renderModel(m, p, data, { nonEmpty: true });
+  console.log(`  ${label(m)}[${ok(r.good)}]  ${r.draws} draws${r.text}`);
+  r.threw.forEach(f => console.log('    ' + f.tag + ': ' + f.msg));
 }
 
-// Early-vision: a high-contrast, low-noise grating decodes back to its true orientation (circular error small)
-{
-  const m = SIM.MODELS.vision, p = {}; m.params.forEach(s => p[s.name] = s.default); p.contrast = 1; p.noise = 0.02;
-  let worst = 0; for (const th of [20, 60, 110, 150]) { const d = m.simulate({ ...p, ori: th }, env('vis'+th));
-    const e = Math.abs(((d.dec - th + 90) % 180) - 90); if (e > worst) worst = e; }
-  console.log(`  vision: worst orientation decode error = ${worst.toFixed(1)}° (clean grating)   [${ok(worst < 25)}]`);
+// ---------------------------------------------------------------------------------------------
+// (4) parameter property pass: at each control's MIN and MAX (bool and enum choices included)
+//     simulate() returns finite data AND every view still draws — catches a NaN or a throw at a
+//     slider extreme (zero drift, a tiny dt, an empty batch).
+// ---------------------------------------------------------------------------------------------
+console.log('\n--- parameter extremes (simulate stays finite, views still draw, at each control min/max) ---');
+for (const id of usable) {
+  const m = SIM.MODELS[id], base = def(id), bad = []; let draws = 0;
+  for (const s of (m.params || [])) for (const v of extremesOf(s)) {
+    const p = { ...base, [s.name]: v };
+    try {
+      const d = m.simulate({ ...p }, env('p-' + id + '-' + s.name + v, p));
+      if (!d || typeof d !== 'object') { bad.push(`${s.name}=${v}(no data)`); continue; }
+      if (!allFinite(d)) bad.push(`${s.name}=${v}(non-finite data)`);
+      const r = renderModel(m, p, d); draws += r.draws; if (!r.good) bad.push(`${s.name}=${v}(views:${r.text.replace(/\s+/g, ' ')}${r.threw.length ? ' — ' + r.threw[0].msg : ''})`);
+    } catch (e) { bad.push(`${s.name}=${v}: ${e.message}`); }
+  }
+  console.log(`  ${label(m)}[${ok(!bad.length)}]  ${draws} draws` + (bad.length ? '  ' + bad.slice(0, 3).join(' | ') : ''));
 }
 
-// LIF neuron: the f–I curve is monotonic and fires above rheobase, silent at I=0
-{
-  const m = SIM.MODELS.lif, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('lif'));
-  const mono = d.fI.every((q,i)=> i===0 || q[1] >= d.fI[i-1][1] - 1e-9), silent = d.fI[0][1] === 0, hi = d.fI[d.fI.length-1][1];
-  console.log(`  LIF: f–I monotonic & fires above rheobase (0→${hi.toFixed(0)} Hz, silent at I=0=${silent})   [${ok(mono && silent && hi > 5)}]`);
+// ---------------------------------------------------------------------------------------------
+// (5)(6) analytic checks. Each is a function of a small toolkit `t`; a check for a model runs
+//        only when that model is registered, so deleting an example never breaks the gate.
+//        The per-model tables are separate files (`<script>.checks.mjs`), so a researcher's
+//        checks sit next to the researcher's models and the examples' checks leave with them.
+// ---------------------------------------------------------------------------------------------
+const rel = (a, b) => Math.abs(a - b) / Math.max(1e-300, Math.abs(b));
+let nAsserts = 0;   // t.ok calls so far — a check that asserts nothing does not count as a check
+const toolkit = {
+  SIM, Plot, L: MSLIB, env, def, rel,
+  has: id => !!SIM.MODELS[id] && !(SHADOWED[checkScript] || []).includes(id),   // false when the model under that id is not the one the running check's script registered
+  sim: (id, over, seed) => { const p = { ...def(id), ...(over || {}) }; return SIM.MODELS[id].simulate({ ...p }, env(seed, p)); },
+  ok: (cond, text) => { nAsserts++; console.log(`    ${text}   [${ok(!!cond)}]`); },
+  info: text => console.log(`    ${text}`),
+};
+
+/* engine + plot helpers every model leans on */
+const CORE_CHECKS = t => {
+  const { SIM, Plot } = t;
+  { let z = 0; for (let i = 0; i < 4000; i++) z += SIM.npdf(-8 + 16 * (i + 0.5) / 4000, 0.3, 1.2) * 16 / 4000; t.ok(Math.abs(z - 1) < 1e-9, `npdf integrates to 1 (${z.toFixed(10)})`); }
+  { const rng = SIM.makeRNG('g'); let s = 0, s2 = 0, s4 = 0; const n = 200000; for (let i = 0; i < n; i++) { const x = SIM.gaussian(rng); s += x; s2 += x * x; s4 += x ** 4; }
+    t.ok(Math.abs(s / n) < 0.01 && Math.abs(s2 / n - 1) < 0.01 && Math.abs(s4 / n - 3) < 0.08, `gaussian(): mean ${(s / n).toFixed(4)}, variance ${(s2 / n).toFixed(4)}, 4th moment ${(s4 / n).toFixed(3)} (0, 1, 3)`); }
+  { const a = SIM.makeRNG('same'), b = SIM.makeRNG('same'), c = SIM.makeRNG('other'); let eq = true, diff = false, unit = true;
+    for (let i = 0; i < 200; i++) { const x = a(), y = b(), z = c(); if (x !== y) eq = false; if (x !== z) diff = true; if (!(x >= 0 && x < 1)) unit = false; }
+    const k = SIM.trialRng('s', 7), k2 = SIM.makeRNG('s#7'); t.ok(eq && diff && unit && k() === k2(), 'makeRNG: same seed → same stream in [0,1), another seed → another stream; trialRng(seed,k) = makeRNG(seed#k)'); }
+  { const seen = []; SIM.runChunks(7, k => seen.push(k), 'check'); t.ok(seen.join() === '0,1,2,3,4,5,6', 'runChunks visits every item once, in order (synchronously in Node)'); }
+  { const h = Plot.histify([0.05, 0.15, 0.15, 0.95, -1, 2], 10, 0, 1), q = Plot.histify([0.01, 0.02, 0.03, 0.04], 100, 0, 1, 0.25);
+    t.ok(h.counts.length === 10 && h.counts[0] === 1 && h.counts[1] === 2 && h.counts[9] === 1 && h.counts.reduce((a, b) => a + b, 0) === 4 && Math.abs(h.binW - 0.1) < 1e-12 && h.max === 2 && Math.abs(q.binW - 0.25) < 1e-12,
+      'Plot.histify: values land in their own bin, out-of-range values are dropped, bin width snaps to the quantum'); }
+};
+
+/* Per-model checks live next to the script that registers the model: for every `X.js` that
+   index.html loads, `X.checks.mjs` is imported when it exists. Its default export is a table
+   keyed by model id (see examples.checks.mjs for the worked examples, engine.checks.mjs for yours). */
+const MODEL_CHECKS = {}, CHECK_SRC = {}, CHECK_FILES = []; let checkScript = null;
+for (const s of scripts) {
+  if (isRemote(s) || !/\.js$/i.test(s)) continue;
+  const file = s.replace(/\.js$/i, '.checks.mjs'), url = new URL(file, HERE);
+  if (!fs.existsSync(url)) continue;
+  let table; try { table = (await import(url.href)).default; } catch (e) { fatal(`${file} failed to load: ${e.message}`); }
+  if (!table || typeof table !== 'object') fatal(`${file} must export default { modelId(t) { ... } }`);
+  const ids = Object.keys(table).filter(id => typeof table[id] === 'function');
+  for (const id of ids) {
+    if ((SHADOWED[s] || []).includes(id)) continue;   // this file's model of that id is hidden (warned below): its check is not for the model that runs
+    if (MODEL_CHECKS[id]) warn(`${file}: a check for '${id}' is already defined by an earlier checks file — keeping the first`); else { MODEL_CHECKS[id] = table[id]; CHECK_SRC[id] = s; } }
+  CHECK_FILES.push(`${file} (${ids.length})`);
+}
+for (const [s, ids] of Object.entries(SHADOWED)) for (const id of ids)
+  warn(`model '${id}' from ${OWNER[id] || 'an earlier script'} hides the ${s} model with the same id: that model's tab and its analytic check are skipped — rename yours to keep both`);
+
+/* modules/mslib.js building blocks, keyed by family. g = N(0,1), U = uniform [0,1), both seeded. */
+const LIBRARY_CHECKS = t => {
+  const { L, SIM } = t, rng = SIM.makeRNG('mslib'), g = () => SIM.gaussian(rng), U = () => rng();
+  const fam = ['sde', 'bayes', 'neuron', 'decision', 'rl', 'psy', 'efficient', 'causal', 'wm', 'network', 'osc', 'belief', 'vision', 'attn'].every(k => L[k]);
+  t.ok(fam, 'families present'); if (!fam) return;
+  { const wgt = L.bayes.weight(0.9, 1); t.ok(wgt > 0 && wgt < 1, 'bayes: weight ∈ (0,1)'); }
+  { // neuron
+    const fi = L.neuron.fI((s, I, dt) => L.neuron.lifStep(s, I, null, dt), () => ({ v: -65, refr: 0 }), [0.1, 0.3, 0.6, 1.0], 1e-4, 1.0);
+    t.ok(fi.every((p, i) => i === 0 || p.rate >= fi[i - 1].rate) && fi[3].rate > fi[0].rate, 'neuron: LIF f–I monotonic');
+    const want = { tau: 0.02, EL: -65, R: 100, Vth: -50, Vreset: -65, tref: 0.003 }, D = L.neuron.LIF_DEFAULT;
+    t.ok(Object.keys(want).every(k => D[k] === want[k]), 'neuron: LIF_DEFAULT is the documented set (τ 20 ms, E_L −65 mV, R 100 MΩ, V_th −50 mV, V_reset −65 mV, t_ref 3 ms; rheobase 0.15 nA)'); }
+  { // decision: Wong & Wang (2006) reduced circuit
+    let s = { S1: 0.1, S2: 0.1, In1: 0, In2: 0 }, r; for (let k = 0; k < 3000; k++) r = L.decision.wwStep(s, { coh: 25.6 }, 0.0005, g);
+    t.ok(r.r1 > r.r2, 'decision: Wong–Wang unit 1 wins at +coherence');
+    const W = L.decision.WW, want = { a: 270, b: 108, d: 0.154, gamma: 0.641, tauS: 0.1, tauN: 0.002, sigma: 0.02, Js: 0.2609, Jc: 0.0497, I0: 0.3255, JAext: 5.2e-4, mu0: 30 };
+    t.ok(Object.keys(want).every(k => W[k] === want[k]), 'decision: Wong–Wang constants match the documented table');
+    const q = { S1: 0.3, S2: 0.2, In1: 0, In2: 0 }, o = L.decision.wwStep(q, { sigma: 0 }, 0.001, () => 0);
+    const I1 = W.Js * 0.3 - W.Jc * 0.2 + W.I0 + W.JAext * W.mu0, r1 = L.decision.phi(I1, W.a, W.b, W.d), S1 = 0.3 + 0.001 * (-0.3 / W.tauS + (1 - 0.3) * W.gamma * r1);
+    t.ok(Math.abs(o.r1 - r1) < 1e-9 && Math.abs(q.S1 - S1) < 1e-12, 'decision: one noise-free Wong–Wang step equals the written equations (φ, then dS = −S/τ_S + (1−S)·γ·r)');
+    const nr = SIM.makeRNG('ww-noise'), gn = () => SIM.gaussian(nr), z = { S1: 0.1, S2: 0.1, In1: 0, In2: 0 }; let s2 = 0, n = 0;
+    for (let k = 0; k < 400000; k++) { L.decision.wwStep(z, {}, 0.0001, gn); if (k > 2000) { s2 += z.In1 * z.In1; n++; } }
+    t.ok(t.rel(Math.sqrt(s2 / n), W.sigma) < 0.05, `decision: the noise current inside wwStep has stationary SD σ (${Math.sqrt(s2 / n).toFixed(5)} vs ${W.sigma}, tol 5%)`); }
+  { let V = 0; for (let k = 0; k < 200; k++) V = L.rl.rescorlaWagner(V, 1, 0.1); t.ok(Math.abs(V - 1) < 0.01, 'rl: Rescorla–Wagner converges'); }
+  { t.ok(L.psy.psychometric(-2, { mu: 0, sigma: 1 }) < L.psy.psychometric(2, { mu: 0, sigma: 1 }), 'psy: psychometric monotonic'); t.ok(Math.abs(L.psy.sdt(0.84, 0.16).dprime - 2) < 0.2, 'psy: SDT sensitivity'); }
+  { // efficient coding: consistent zero-noise decode, discriminability ∝ 1/p (tails>peak), skewed likelihood (tail away from prior peak)
+    const xs = L.bayes.linspace(-4, 4, 241), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) * ((x - m) / sd)) / (sd * Math.sqrt(2 * Math.PI)), pri = Array.from(xs, x => npd(x, 0, 1)), F = L.efficient.cdf(xs, pri);
+    t.ok(Math.abs(L.efficient.decode(L.efficient.encode(1.2, xs, F), 1e-3, xs, F, pri, 'BLS') - 1.2) < 0.05, 'efficient: zero-noise decode ≈ θ');
+    const dsc = L.efficient.discrim(xs, pri); t.ok(dsc[20] > dsc[120] && dsc[220] > dsc[120], 'efficient: D ∝ 1/p, tails > peak');
+    const lk = L.efficient.likelihood(L.efficient.encode(1, xs, F), 0.12, xs, F); let z = 0, mean = 0, mode = 0, md = -1; for (let i = 0; i < xs.length; i++) { z += lk[i]; mean += lk[i] * xs[i]; if (lk[i] > md) { md = lk[i]; mode = xs[i]; } } mean /= z;
+    t.ok(mean > mode, 'efficient: likelihood skewed off peak'); t.ok(Math.abs(mode - 1) < 0.05, `efficient: the likelihood of m = F(1) peaks at θ = 1 (${mode.toFixed(3)})`); }
+  { // causal: MLE shrinks variance, p(C=1) higher when cues agree, number-game size principle, limits of the CI block
+    t.ok(L.causal.cueCombineMLE([1, 3], [0.5, 1]).variance < 0.25, 'causal: MLE variance < the best single cue');
+    t.ok(L.causal.ciPosteriorCommon(0.1, -0.1, 2, 9, 12, 0.3) > L.causal.ciPosteriorCommon(10, -10, 2, 9, 12, 0.3), 'causal: p(C=1) agree > disagree');
+    const H = L.causal.numberGameHypotheses(100), pst = L.causal.conceptPosterior(H, [2, 4, 8, 16]); let iP = -1, iE = -1; H.forEach((h, i) => { if (h.name === 'powers 2') iP = i; if (h.name === 'even') iE = i; });
+    t.ok(pst[iP] > pst[iE], 'causal: size principle, powers of 2 > even');
+    const a = L.causal.ciPosteriorCommon(2, -1, 2, 8, 15, 0.2), b = L.causal.ciPosteriorCommon(2, -1, 2, 8, 15, 0.8); t.ok(b > a + 0.1, `causal: p(C=1|x) rises with the prior p_common (${a.toFixed(3)} → ${b.toFixed(3)})`);
+    const f = L.causal.ciFusedEstimate(3, -2, 2, 8, 15), wv = 1 / 4, wa = 1 / 64, wp = 1 / 225; t.ok(Math.abs(f - (3 * wv - 2 * wa) / (wv + wa + wp)) < 1e-12, 'causal: fused estimate = precision-weighted mean including the prior');
+    t.ok(Math.abs(L.causal.ciFusedEstimate(3, -2, 2, 8, 1e6) - L.causal.cueCombineMLE([3, -2], [2, 8]).estimate) < 1e-6, 'causal: a flat prior reduces fusion to MLE cue combination');
+    let z1 = 0, z2 = 0; const sv = 2, sa = 3, sp = 5, h = 0.25; for (let xv = -40; xv <= 40; xv += h) for (let xa = -40; xa <= 40; xa += h) { z1 += L.causal.ciLikCommon(xv, xa, sv, sa, sp) * h * h; z2 += L.causal.ciLikSeparate(xv, xa, sv, sa, sp) * h * h; }
+    t.ok(Math.abs(z1 - 1) < 1e-3 && Math.abs(z2 - 1) < 1e-3, `causal: both likelihoods integrate to 1 (${z1.toFixed(5)}, ${z2.toFixed(5)})`); }
+  { // working memory: I0(0)=1, κ→SD monotone, von Mises sampler mean≈μ, mixture target proportion≈pT, the mixture is a density
+    t.ok(Math.abs(L.wm.besselI0(0) - 1) < 1e-9, 'wm: I0(0)=1'); t.ok(L.wm.kappaToSD(2) > L.wm.kappaToSD(20), 'wm: κ→SD decreasing');
+    let sx = 0, sy = 0; for (let i = 0; i < 3000; i++) { const th = L.wm.vmSample(0.6, 8, U); sx += Math.cos(th); sy += Math.sin(th); } t.ok(Math.abs(Math.atan2(sy, sx) - 0.6) < 0.12, 'wm: von Mises sample mean ≈ μ');
+    let nt = 0; const TT = 5000; for (let i = 0; i < TT; i++) if (L.wm.mixtureRecall({ target: 0, nontargets: [1.5, -1.5], kappa: 10, pT: 0.6, pSwap: 0.25, pGuess: 0.15 }, U).branch === 'target') nt++;
+    t.ok(Math.abs(nt / TT - 0.6) < 0.05, 'wm: mixture target proportion ≈ pT');
+    for (const c of [{ kappa: 16, pT: 0.75, pSwap: 0.15, pGuess: 0.1, nontargetOffsets: [1.57, 3.14, -1.57] }, { kappa: 4, pT: 0.6, pSwap: 0, pGuess: 0.4, nontargetOffsets: [] }]) { let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.mixturePdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, c) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-4, `wm: mixturePdf integrates to 1 (κ=${c.kappa}: ${z.toFixed(6)})`); }
+    t.ok(Math.abs(L.wm.kappaToSD(400) * 20 - 1) < 0.01, 'wm: kappaToSD·√κ → 1 for large κ'); t.ok(t.rel(L.wm.sdToKappa(L.wm.kappaToSD(8)), 8) < 0.03, 'wm: sdToKappa inverts kappaToSD (tol 3%)'); }
+  { // network: Hopfield recalls a 1-bit-flipped cue; ring kernel has local excitation and the written form
+    const pat8 = [1, -1, 1, -1, 1, -1, 1, -1], Wh = L.network.hopfieldStore([pat8], 8); let sr = Int8Array.from(pat8); sr[0] = -sr[0]; L.network.hopfieldStep(Wh, sr, 8, [0, 1, 2, 3, 4, 5, 6, 7]);
+    t.ok(L.network.overlap(Array.from(sr), pat8, 8) > 0.9, 'network: Hopfield recall');
+    const Wr = L.network.ringKernel(16, 8, 1.3, 0.3); t.ok(Wr[0] > Wr[8], 'network: ring local excitation');
+    const N = 64, W = L.network.ringKernel(N, 8, 1.3, 0.3), dd = 2 * Math.PI * 3 / N; t.ok(Math.abs(W[3] - (8 * Math.exp(-dd * dd / (2 * 0.09)) - 1.3)) < 1e-12 && Math.abs(W[5 * N + 2] - W[3]) < 1e-12, 'network: ring kernel = J·exp(−d²/2σ²) − J_I, translation invariant'); }
+  { // osc: identical phases → r≈1; evenly-spread phases → r≈0; the mean-field step equals the pairwise sum
+    t.ok(L.osc.kuramotoOrder([0.5, 0.5, 0.5, 0.5]).r > 0.99 && L.osc.kuramotoOrder([0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]).r < 0.05, 'osc: sync vs incoherent r');
+    const kr = SIM.makeRNG('kur'), n = 12, ph = Array.from({ length: n }, () => (kr() * 2 - 1) * Math.PI), om = Array.from({ length: n }, () => SIM.gaussian(kr)), K = 2.3, dt = 0.01, out = L.osc.kuramotoStep(ph, om, K, dt, 0, () => 0); let w = 0;
+    for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) s += Math.sin(ph[j] - ph[i]); w = Math.max(w, Math.abs(out[i] - (ph[i] + dt * (om[i] + K / n * s)))); }
+    t.ok(w < 1e-12, 'osc: Kuramoto mean-field step = (K/N) Σ_j sin(θ_j − θ_i)'); }
+  { // belief: predict/update renormalise, update concentrates on the likely state, entropy(certain)=0
+    const bp = L.belief.predict([0, 1, 0, 0], [[.5, .5, 0, 0], [0, .5, .5, 0], [0, 0, .5, .5], [.5, 0, 0, .5]]), bu = L.belief.update([.25, .25, .25, .25], [.1, .7, .1, .1]);
+    t.ok(Math.abs(bp.reduce((a, b) => a + b, 0) - 1) < 1e-9 && Math.abs(bu.reduce((a, b) => a + b, 0) - 1) < 1e-9 && bu[1] > 0.5 && L.belief.entropy([1, 0, 0, 0]) < 1e-9, 'belief: predict/update normalise + concentrate'); }
+  { // vision: a balanced DoG (surround=1) is ~zero-sum (band-pass); a pure centre (surround=0) sums positive (low-pass)
+    const dks = L.vision.dogKernel(1.5, 4, 1); let dsum = 0; for (const v of dks.k) dsum += v; const dc = L.vision.dogKernel(1.5, 4, 0); let csum = 0; for (const v of dc.k) csum += v;
+    t.ok(Math.abs(dsum) < 0.15 && csum > 0.5, 'vision: DoG band-pass ≈ 0 vs low-pass > 0'); }
+  { // attn: softmax sums to 1 and is monotone in logits; uniform attention has entropy ln(N)
+    const sm = L.attn.softmax([1, 2, 3]); t.ok(Math.abs(sm.reduce((a, b) => a + b, 0) - 1) < 1e-9 && sm[2] > sm[1] && sm[1] > sm[0], 'attn: softmax sums to 1 + monotone');
+    t.ok(Math.abs(L.attn.entropy([.25, .25, .25, .25]) - Math.log(4)) < 1e-9, 'attn: uniform entropy = ln(N)'); }
+  // ---- every other exported block: one closed-form assertion each (an export no example uses is still shipped) ----
+  { // sde: one Euler–Maruyama step equals the written update; normpdf/normcdf against known values
+    t.ok(Math.abs(L.sde.wiener(0.2, 1.5, 0.8, 0.01, () => 0.7) - (0.2 + 1.5 * 0.01 + 0.8 * 0.1 * 0.7)) < 1e-15, 'sde: wiener step = x + drift·dt + c·√dt·ξ');
+    t.ok(Math.abs(L.sde.ou(0.3, 4, -1, 0.5, 0.01, () => -1.2) - (0.3 + 4 * (-1 - 0.3) * 0.01 + 0.5 * 0.1 * -1.2)) < 1e-15, 'sde: OU step = x + θ(μ−x)·dt + σ·√dt·ξ');
+    t.ok(Math.abs(L.sde.normpdf(1.3, 1.3, 0.5) - 1 / (0.5 * Math.sqrt(2 * Math.PI))) < 1e-12 && Math.abs(L.sde.normpdf(2.3, 1.3, 0.5) / L.sde.normpdf(1.3, 1.3, 0.5) - Math.exp(-2)) < 1e-12, 'sde: normpdf peak 1/(σ√2π), falls by e^(−z²/2)');
+    t.ok(Math.abs(L.sde.normcdf(0) - 0.5) < 3e-7 && Math.abs(L.sde.normcdf(1.959964) - 0.975) < 3e-7 && Math.abs(L.sde.normcdf(-1) - 0.158655254) < 3e-7, 'sde: normcdf(0)=0.5, Φ(1.96)=0.975, Φ(−1)=0.1587 (tol 3e-7, the Abramowitz–Stegun 26.2.17 approximation)'); }
+  { // bayes: central tendency is the line w·θ + (1−w)·μ0 with SD w·σ_m; Weber noise; one trial = posterior mean of m
+    const w = 1 / (1 + 0.8 * 0.8), ct = L.bayes.centralTendency([-2, 0, 3], 0.8, 0.5, 1);
+    t.ok(ct.every(q => Math.abs(q.est - (w * q.theta + (1 - w) * 0.5)) < 1e-12 && Math.abs(q.sd - w * 0.8) < 1e-12), 'bayes: centralTendency = w·θ + (1−w)·μ0, SD w·σ_m (w = σ0²/(σ0²+σ_m²))');
+    t.ok(Math.abs(L.bayes.weberNoise(-4, 0.15) - 0.6) < 1e-12 && L.bayes.weberNoise(0, 0.15) === 1e-3, 'bayes: weberNoise = wf·|θ|, floored');
+    const tr = L.bayes.trial(2, 0.8, 0.5, 1, () => 0.25); t.ok(Math.abs(tr.m - 2.2) < 1e-12 && Math.abs(tr.est - (w * 2.2 + (1 - w) * 0.5)) < 1e-12, 'bayes: trial draws m = θ + σ_m·ξ and estimates the posterior mean'); }
+  { // neuron: Izhikevich (2003) v' = 0.04v² + 5v + 140 − u + I, u' = a(bv − u), in ms; regular spiking at I = 10
+    const D = L.neuron.IZH_DEFAULT; t.ok(D.a === 0.02 && D.b === 0.2 && D.c === -65 && D.d === 8, 'neuron: IZH_DEFAULT is regular spiking (a .02, b .2, c −65, d 8)');
+    const s = { v: -60, u: -12 }, h = 0.5, v1 = -60 + h * (0.04 * 3600 + 5 * -60 + 140 + 12 + 10), u1 = -12 + h * (0.02 * (0.2 * v1 + 12));
+    L.neuron.izhStep(s, 10, null, h / 1000); t.ok(Math.abs(s.v - v1) < 1e-12 && Math.abs(s.u - u1) < 1e-12, 'neuron: one Izhikevich step equals the written equations (dt in s, model in ms)');
+    const sp = { v: 29, u: 0 }, vPeak = 29 + (0.04 * 29 * 29 + 5 * 29 + 140 + 10), fired = L.neuron.izhStep(sp, 10, null, 0.001);
+    t.ok(fired && sp.v === -65 && Math.abs(sp.u - (0.02 * 0.2 * vPeak + 8)) < 1e-9, 'neuron: Izhikevich reset v → c, u → u + d at v ≥ 30');
+    const fz = L.neuron.fI((st, I, dt) => L.neuron.izhStep(st, I, null, dt), () => ({ v: -65, u: -13 }), [3, 10], 0.00025, 2);
+    t.ok(fz[0].rate === 0 && fz[1].rate > 12 && fz[1].rate < 35, `neuron: Izhikevich RS silent at I = 3, tonic at I = 10 (${fz[1].rate} Hz)`); }
+  { // rl: qUpdate is Rescorla–Wagner on the chosen arm only; choose samples its probabilities; Kalman = conjugate Gaussian update
+    const Q = L.rl.qUpdate([0.2, 0.5, -1], 1, 1, 0.3); t.ok(Q[0] === 0.2 && Math.abs(Q[1] - (0.5 + 0.3 * (1 - 0.5))) < 1e-15 && Q[2] === -1, 'rl: qUpdate = Rescorla–Wagner on arm a, the others untouched');
+    const pr = [0.2, 0.5, 0.3], cnt = [0, 0, 0], n = 20000; for (let i = 0; i < n; i++) cnt[L.rl.choose(pr, U)]++; t.ok(cnt.every((c, i) => Math.abs(c / n - pr[i]) < 0.015), `rl: choose draws arm i with probability p_i (${cnt.map(c => (c / n).toFixed(3)).join(', ')})`);
+    const k = L.rl.kalman({ mu: 1, sigma: 0.8 }, 3, 0.25, 2), pv = 0.64 + 0.25, post = 1 / (1 / pv + 1 / 2);
+    t.ok(Math.abs(k.sigma * k.sigma - post) < 1e-12 && Math.abs(k.mu - (1 + pv / (pv + 2) * 2)) < 1e-12, 'rl: kalman posterior 1/σ² = 1/(σ²+q) + 1/r, mean moves by the gain K = (σ²+q)/(σ²+q+r)'); }
+  { // efficient: decision-conditioned mean and the bias curve (repulsive: away from the prior peak, Wei & Stocker 2015)
+    const xs = [-2, -1, 0, 1, 2], post = [0.1, 0.2, 0.4, 0.2, 0.1];
+    t.ok(Math.abs(L.efficient.condMean(post, xs, 0, 1) - (0.4 * 0 + 0.2 * 1 + 0.1 * 2) / 0.7) < 1e-12 && Math.abs(L.efficient.condMean(post, xs, 0, -1) - (-0.1 * 2 - 0.2) / 0.3) < 1e-12, 'efficient: condMean = posterior mean truncated to the decided side');
+    const gx = L.bayes.linspace(-4, 4, 81), pri = Array.from(gx, x => Math.exp(-x * x / 2)), F = L.efficient.cdf(gx, pri), br = SIM.makeRNG('ec-bias'), b = L.efficient.biasCurve(gx, 0.08, F, pri, 'BLS', 600, () => SIM.gaussian(br));
+    t.ok(b[50] > 0.01 && b[30] < -0.01, `efficient: BLS bias is repulsive, away from the prior peak (θ=+1: ${b[50].toFixed(3)}, θ=−1: ${b[30].toFixed(3)})`); }
+  { // causal: reliability weights ∝ 1/σ²; segregated estimate; size principle; generalization of a one-hypothesis posterior
+    const rw = L.causal.reliabilityWeights([1, 2]); t.ok(Math.abs(rw[0] - 0.8) < 1e-12 && Math.abs(rw[1] - 0.2) < 1e-12, 'causal: reliabilityWeights ∝ 1/σ², sum to 1');
+    t.ok(Math.abs(L.causal.ciSegEstimate(6, 2, 4, 1) - (6 / 4 + 1 / 16) / (1 / 4 + 1 / 16)) < 1e-12, 'causal: segregated estimate = precision-weighted cue and prior mean');
+    const h = { members: new Set([2, 4, 6, 8]), size: 4 }; t.ok(Math.abs(L.causal.sizePrincipleLikelihood(h, [2, 8]) - 1 / 16) < 1e-15 && L.causal.sizePrincipleLikelihood(h, [2, 3]) === 0, 'causal: size principle (1/|h|)^n, 0 if an example is outside h');
+    const H = L.causal.numberGameHypotheses(100), iE = H.findIndex(x => x.name === 'even'), gc = L.causal.generalizationCurve(H, H.map((_, i) => i === iE ? 1 : 0), 100);
+    t.ok(gc[64] === 1 && gc[63] === 0 && gc.reduce((a, v) => a + v, 0) === 50, 'causal: generalization of a posterior on "even" = indicator of the even numbers'); }
+  { // wm: I1 against the integral I_n(κ) = (1/π)∫₀^π e^{κ cos t} cos(nt) dt (series and asymptotic branches); Fisher information κ·I1/I0
+    const In = (nn, x) => { const M = 2000; let s = 0; for (let k = 0; k < M; k++) { const tt = Math.PI * (k + 0.5) / M; s += Math.exp(x * Math.cos(tt)) * Math.cos(nn * tt); } return s / M; };
+    let e1 = 0, ef = 0; for (const k of [0.5, 1, 5, 14.9, 15, 20, 40]) { e1 = Math.max(e1, t.rel(L.wm.besselI1(k), In(1, k))); ef = Math.max(ef, t.rel(L.wm.fisherInfo(k), k * In(1, k) / In(0, k))); }
+    t.ok(e1 < 1e-5 && Math.abs(L.wm.besselI1(-1) + L.wm.besselI1(1)) < 1e-15, `wm: besselI1 matches the integral, odd in κ (max rel err ${e1.toExponential(1)})`);
+    t.ok(ef < 1e-5, `wm: fisherInfo = κ·I1(κ)/I0(κ) (max rel err ${ef.toExponential(1)})`);
+    t.ok(Math.abs(L.wm.precisionFromSetsize(4, { P1: 2, k: 0.5 }) - 1) < 1e-12, 'wm: precisionFromSetsize = P1·N^(−k)'); }
+  { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
+  // Exports that the checks above reach only through another function (or not at all): each called directly.
+  { const gp = L.bayes.gaussPosterior(1, 1, 0, 1); t.ok(Math.abs(gp.mu - 0.5) < 1e-12 && Math.abs(gp.sigma - Math.SQRT1_2) < 1e-12, 'bayes: gaussPosterior(m=1, σm=1, μ0=0, σ0=1) = N(0.5, 1/2)');
+    const xs = L.bayes.linspace(-4, 4, 161), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) ** 2), post = L.bayes.gridPost(Array.from(xs, x => npd(x, 1, 1)), Array.from(xs, x => npd(x, 0, 1)));
+    t.ok(Math.abs(post.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(L.bayes.gridMean(post, xs) - 0.5) < 1e-5 && Math.abs(L.bayes.gridMode(post, xs) - 0.5) < 1e-9, 'bayes: gridPost normalises like·prior; gridMean and gridMode of that Gaussian posterior = 0.5'); }
+  { const p = L.rl.softmax([1, 2, 3], 2), u = L.rl.softmax([1, 2, 3], 0);
+    t.ok(Math.abs(p.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(p[1] / p[0] - Math.exp(2)) < 1e-9 && u.every(v => Math.abs(v - 1 / 3) < 1e-12) && L.rl.softmax([1000, 0], 1)[0] === 1, 'rl: softmax sums to 1, odds = e^{β·Δv}, β=0 is uniform, no overflow at large values'); }
+  { const xs = L.bayes.linspace(-4, 4, 241), F = L.efficient.cdf(xs, Array.from(xs, x => Math.exp(-0.5 * x * x)));
+    t.ok(Math.abs(L.efficient.interp(0.25, [0, 1], [0, 10]) - 2.5) < 1e-12 && Math.abs(L.efficient.inv(L.efficient.encode(1.2, xs, F), xs, F) - 1.2) < 1e-3, 'efficient: interp is linear; inv undoes encode (F⁻¹(F(θ)) = θ)');
+    t.ok(Math.abs(L.efficient.measure(1, 0.1, xs, F, () => 1) - (L.efficient.encode(1, xs, F) + 0.1)) < 1e-12, 'efficient: measure = F(θ) + σ·noise'); }
+  { const [xv, xa, sv, sa, sp, pc] = [2, -1, 1, 2, 10, 0.4], e = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc), pC = L.causal.ciPosteriorCommon(xv, xa, sv, sa, sp, pc), sF = L.causal.ciFusedEstimate(xv, xa, sv, sa, sp);
+    const sV = (xv / sv ** 2) / (1 / sv ** 2 + 1 / sp ** 2), sel = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc, { strategy: 'select' });
+    t.ok(Math.abs(e.pCommon - pC) < 1e-12 && Math.abs(e.sSegV - sV) < 1e-12 && Math.abs(e.sHatV - (pC * sF + (1 - pC) * sV)) < 1e-12 && sel.sHatV === (pC > 0.5 ? sF : e.sSegV), 'causal: ciEstimate averages fused and segregated estimates by p(C=1) (select picks one)'); }
+  { const w = L.wm.wrap; t.ok(Math.abs(w(3 * Math.PI / 2) + Math.PI / 2) < 1e-12 && Math.abs(w(-3 * Math.PI / 2) - Math.PI / 2) < 1e-12 && Math.abs(w(0.3) - 0.3) < 1e-15, 'wm: wrap maps angles into (−π, π]');
+    let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.vmPdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, 0.7, 6) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-6 && L.wm.vmPdf(0.7, 0.7, 6) > L.wm.vmPdf(2, 0.7, 6), `wm: vmPdf integrates to 1 and peaks at μ (${z.toFixed(8)})`); }
+  { const pat = [1, -1, 1, 1, -1, -1, 1, -1], W = L.network.hopfieldStore([pat], 8), s = Int8Array.from(pat); s[0] = -s[0]; s[3] = -s[3];
+    const E0 = L.network.hopfieldEnergy(W, s, 8); L.network.hopfieldStep(W, s, 8); const E1 = L.network.hopfieldEnergy(W, s, 8);
+    t.ok(E1 <= E0 && Math.abs(E1 - L.network.hopfieldEnergy(W, Int8Array.from(pat), 8)) < 1e-12, `network: hopfieldEnergy falls under an async sweep to the stored pattern's energy (${E0.toFixed(3)} → ${E1.toFixed(3)})`);
+    const N = 12, r = L.network.ringStep(new Float64Array(N).fill(0.2), new Float64Array(N * N), null, 0.5, 1, 1, 0, 0, () => 0);
+    t.ok(r.every(v => Math.abs(v - (0.2 + 0.5 * (0.5 - 0.2))) < 1e-12), 'network: ringStep is one Euler step of τ dr/dt = −r + f(·) (no input: f = 1/2)');
+    const one = new Float64Array(8); one[3] = 2.5; const pv = L.network.popVector(one, 8), flat = L.network.popVector(new Float64Array(8).fill(1), 8);
+    t.ok(Math.abs(pv.angle - 2 * Math.PI * 3 / 8) < 1e-12 && Math.abs(pv.length - 1) < 1e-12 && flat.length < 1e-12, 'network: popVector decodes a one-unit bump at its angle (length 1 whatever its rate), a flat profile has length 0'); }
+  { const p = { wEE: 12, wEI: 10, wIE: 10, wII: 2, P: 1, Q: 0, theta: 4, k: 1, tauE: 1, tauI: 2 }, S = x => 1 / (1 + Math.exp(-(x - p.theta) / p.k)), s0 = { E: 0.3, I: 0.2 }, dt = 0.01, o = L.osc.wilsonCowanStep(s0, p, dt);
+    t.ok(Math.abs(o.E - (0.3 + dt * (-0.3 + S(12 * 0.3 - 10 * 0.2 + 1)) / 1)) < 1e-12 && Math.abs(o.I - (0.2 + dt * (-0.2 + S(10 * 0.3 - 2 * 0.2 + 0)) / 2)) < 1e-12, 'osc: wilsonCowanStep is one Euler step of the Wilson–Cowan equations'); }
+};
+
+const guarded = (label, fn) => { try { fn(toolkit); } catch (e) { console.log(`    ${label} check threw: ${e.message}   [${ok(false)}]`); } };
+console.log('\n--- engine + plot helpers ---');
+guarded('core', CORE_CHECKS);
+console.log(`\n--- analytic checks (tied to each model's science) — from ${CHECK_FILES.join(', ') || 'no checks file'} ---`);
+const asserted = new Set();
+for (const id of usable) { if (!MODEL_CHECKS[id]) continue; console.log(`  ${id}`); const n0 = nAsserts; checkScript = CHECK_SRC[id]; guarded(id, MODEL_CHECKS[id]); checkScript = null; if (nAsserts > n0) asserted.add(id); }
+// Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic passes
+// above only prove it ran and drew). A model without one is a counted warning, not a failure — a
+// vacuous check written to silence the gate would be worse than none (see gui-qc.md §1).
+{ const missing = ORDER.filter(id => !asserted.has(id));
+  if (missing.length) warn(`no analytic check for ${missing.length} model${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — write one in engine.checks.mjs (see gui-qc.md §1)`); }
+
+// ---- reusable library modules/mslib.js: each block is sane ----
+if (MSLIB) { console.log('\n=== mslib.js building blocks ===\n'); guarded('mslib', LIBRARY_CHECKS); }
+else console.log('\n(modules/mslib.js is not loaded by index.html — library checks skipped)');
+
+// ---------------------------------------------------------------------------------------------
+// Opt-in regression lock for YOUR models: digests of simulate() at defaults and every extreme.
+// ---------------------------------------------------------------------------------------------
+if (ARGV.includes('--snapshot') || ARGV.includes('--against')) {
+  const snap = { format: 1, seed: 'seed-1', models: {} };
+  for (const id of usable) { const m = SIM.MODELS[id], base = def(id), cases = { default: base };
+    for (const s of (m.params || [])) for (const v of extremesOf(s)) cases[s.name + '=' + v] = { ...base, [s.name]: v };
+    const sims = {}; for (const [name, p] of Object.entries(cases)) { try { sims[name] = digest(m.simulate({ ...p }, { rng: SIM.makeRNG('seed-1'), seed: 'seed-1', params: { ...p }, batch: false })); } catch (e) { sims[name] = 'threw'; } }
+    snap.models[id] = { params: (m.params || []).map(s => [s.name, s.type || 'num', s.min, s.max, s.step, s.default].join(',')), simulate: sims }; }
+  console.log('\n--- snapshot ---');
+  if (ARGV.includes('--against')) {
+    const file = optOf('--against'); let ref = null; try { ref = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { console.log(`  cannot read ${file}: ${e.message}   [${ok(false)}]`); }
+    if (ref) { const diffs = [];
+      for (const [id, r] of Object.entries(ref.models || {})) { const now = snap.models[id]; if (!now) { diffs.push(`${id}: model missing`); continue; }
+        if (r.params.join(';') !== now.params.join(';')) diffs.push(`${id}: parameter schema changed`);
+        for (const [k, v] of Object.entries(r.simulate)) if (now.simulate[k] !== v) diffs.push(`${id}: simulate(${k}) ${v} → ${now.simulate[k]}`); }
+      const n = Object.keys(ref.models || {}).length, nDiff = new Set(diffs.map(d => d.split(':')[0])).size;
+      console.log(`  ${nDiff === 0 ? `${n} model(s) match ${file}` : `${nDiff} of ${n} model(s) differ from ${file}`}   [${ok(diffs.length === 0)}]`); diffs.slice(0, 20).forEach(d => console.log('    ' + d)); if (diffs.length > 20) console.log(`    … and ${diffs.length - 20} more`); }
+  }
+  if (ARGV.includes('--snapshot')) { const file = optOf('--snapshot'); if (!file) console.log(`  --snapshot needs a file name   [${ok(false)}]`); else { fs.writeFileSync(file, JSON.stringify(snap, null, 1) + '\n'); console.log(`  wrote ${file}: ${Object.keys(snap.models).length} model(s), ${Object.values(snap.models).reduce((a, m) => a + Object.keys(m.simulate).length, 0)} simulate digests`); } }
 }
 
-// Rescorla–Wagner: the value TRACKS the reward probability (single-point V is exponentially-weighted
-// and noisy, so check the time-average of V over the second half, which converges to p)
-{
-  const m = SIM.MODELS.rl, p = {}; m.params.forEach(s => p[s.name] = s.default); p.nTrials = 300; p.alpha = 0.12;
-  const d = m.simulate(p, env('rl'));
-  let s = 0, c = 0; for (let t = Math.floor(d.n/2); t <= d.n; t++) { s += d.V[t]; c++; }
-  const meanV = s/c;
-  console.log(`  RW: time-averaged V → reward prob (mean=${meanV.toFixed(2)} vs p=${d.pRew})   [${ok(Math.abs(meanV - d.pRew) < 0.1)}]`);
-}
-
-// Decision comparison: both models reduce to chance with no signal; DDM accuracy is monotonic in the bound
-{
-  const m = SIM.MODELS.compare, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const z0 = m.simulate({ ...p, A: 0 }, env('cmp0'));
-  const chance = Math.abs(z0.accD - 0.5) < 1e-6 && Math.abs(z0.accS - 0.5) < 1e-6;
-  const d = m.simulate(p, env('cmp'));
-  const mono = d.satDDM.every((q,i)=> i===0 || q[1] >= d.satDDM[i-1][1] - 1e-9);   // accuracy ↑ with the bound
-  let inb = true; for (const v of d.grid) if (v < 0.5 - 1e-6 || v > 1 + 1e-6) inb = false;   // metric=0 → accuracy in [0.5,1]
-  console.log(`  compare: chance@A=0 [${ok(chance)}]   DDM accuracy monotonic in bound [${ok(mono)}]   accuracy heatmap∈[0.5,1] [${ok(inb)}]`);
-}
-
-// Attractor network: strong + coherence drives pool 1 to win (winner-take-all), and a decision is reached
-{
-  const m = SIM.MODELS.attractor, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  let win1 = 0, decided = 0; for (let k = 0; k < 8; k++) { const d = m.simulate({ ...p, coh: 25 }, env('att'+k)); if (d.decT > 0) decided++; if (d.win === 1) win1++; }
-  console.log(`  attractor: pool 1 wins at +25% coh ${win1}/8, decided ${decided}/8   [${ok(win1 >= 6 && decided >= 6)}]`);
-}
-
-// Spatial SIR: epidemic threshold at R0=1 — below it the outbreak fizzles, above it a real peak; sweep is monotonic
-{
-  const m = SIM.MODELS.sir, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('sir'));
-  const below = d.sweep.find(q => q[0] <= 0.8), above = d.sweep[d.sweep.length-1];
-  const mono = d.sweep.every((q,i)=> i===0 || q[1] >= d.sweep[i-1][1] - 1e-6);
-  console.log(`  SIR: peak below R₀=1 = ${(below[1]*100).toFixed(1)}% « above = ${(above[1]*100).toFixed(0)}%; threshold monotonic [${ok(below[1] < 0.02 && above[1] > 0.2 && mono && d.peakI > 0.05)}]`);
-}
-
-// Efficient-coding observer: BLS & MAP estimates are finite and inside the stimulus range; bias/discriminability curves exist
-{
-  const m = SIM.MODELS.efficient, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('eff'));
-  const sane = isFinite(d.estBLS) && isFinite(d.estMAP) && d.estBLS>=d.lo && d.estBLS<=d.hi && d.estMAP>=d.lo && d.estMAP<=d.hi && d.bias.length>0 && d.disc.length>0;
-  console.log(`  efficient: BLS/MAP estimates finite ∈[${d.lo},${d.hi}] (BLS=${d.estBLS.toFixed(2)}); bias & discriminability curves present   [${ok(sane)}]`);
-}
-
-// Causal inference: the ventriloquism bias is N-shaped — it peaks at intermediate disparity, then RELEASES (segregates) at large disparity
-{
-  const m = SIM.MODELS.causal, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('ci'));
-  const mags = d.biasV.map(b => Math.abs(b[1])), maxMag = Math.max(...mags), endMag = mags[mags.length-1];
-  const nShape = maxMag > 1e-3 && endMag < maxMag*0.9 && d.biasV.every(b => isFinite(b[1]));   // bias largest mid-disparity, smaller at the extreme (capture then release)
-  console.log(`  causal: ventriloquism bias peaks mid-disparity then releases (max=${maxMag.toFixed(2)}, |end|=${endMag.toFixed(2)})   [${ok(nShape)}]`);
-}
-
-// Working memory: with a target-dominated mixture, reports CLUSTER at the target far above the uniform-guess rate
-{
-  const m = SIM.MODELS.wm, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('wm'));
-  const wrap = x => { x=(x+Math.PI)%(2*Math.PI); if(x<0)x+=2*Math.PI; return x-Math.PI; };
-  let C=0,S=0, finite=true; for (let k=0;k<d.errs.length;k++){ if(!isFinite(d.errs[k]))finite=false; const e=wrap(d.errs[k]-d.target); C+=Math.cos(e); S+=Math.sin(e); }
-  const R = Math.hypot(C,S)/d.errs.length;   // circular resultant toward the target; uniform guessing → R≈0, a target-dominated mixture → R well above 0
-  console.log(`  wm: reports concentrate toward target (resultant R=${R.toFixed(2)} » ~0 uniform)   [${ok(finite && R>0.15)}]`);
-}
-
-// Hopfield: at low load a corrupted cue is recalled (final overlap≈1); recall accuracy falls with load (capacity)
-{
-  const m = SIM.MODELS.hopfield, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('hop'));
-  const recalled = d.finalOv > 0.9, lowLoadOk = d.sweep[0][1] >= 0.8, falls = d.sweep[d.sweep.length-1][1] <= d.sweep[0][1];
-  console.log(`  hopfield: cue recalled (overlap=${d.finalOv.toFixed(2)}); accuracy ${(d.sweep[0][1]*100).toFixed(0)}% at low load → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}% at high load   [${ok(recalled && lowLoadOk && falls)}]`);
-}
-
-// Kuramoto: synchrony (order parameter r) rises with coupling K — incoherent at K=0, synchronised at high K
-{
-  const m = SIM.MODELS.kuramoto, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('kur'));
-  const lowK = d.sweep[0][1], hiK = d.sweep[d.sweep.length-1][1], rises = hiK > lowK + 0.3;
-  console.log(`  kuramoto: synchrony rises with coupling (r=${lowK.toFixed(2)} at K=0 → ${hiK.toFixed(2)} at K=8; K_c≈${d.Kc.toFixed(2)})   [${ok(lowK<0.5 && hiK>0.6 && rises)}]`);
-}
-
-// Belief tracking: the belief concentrates below the uniform prior, and tracking error grows with observation noise
-{
-  const m = SIM.MODELS.belief, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('bel'));
-  let he=0,c=0; for (let t=Math.floor(d.nF/2);t<d.nF;t++){ he+=d.entropy[t]; c++; } const meanH=he/c;
-  const concentrates = meanH < d.Huniform*0.85, errRises = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.3;
-  console.log(`  belief: concentrates below uniform (H=${meanH.toFixed(2)} < ${d.Huniform.toFixed(2)}); tracking error rises with noise (${d.sweep[0][1].toFixed(1)} → ${d.sweep[d.sweep.length-1][1].toFixed(1)})   [${ok(concentrates && errRises)}]`);
-}
-
-// Ring attractor: a localized bump persists after the cue and holds the cued location (population vector ≈ cue)
-{
-  const m = SIM.MODELS.ring, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('ring'));
-  const decLast = ((d.dec[d.nF-1]%360)+360)%360, dd = Math.abs(decLast - d.cue), decErr = Math.min(dd, 360-dd);
-  const bump = d.amp > 0.5 && d.width > 0.02 && d.width < 0.6, holds = decErr < 25;
-  console.log(`  ring: localized bump persists (amp=${d.amp.toFixed(2)}, width=${(d.width*100).toFixed(0)}% of ring) and holds the cue (decoded ${decLast.toFixed(0)}° vs ${d.cue}°)   [${ok(bump && holds)}]`);
-}
-
-// Retina→V1: the V1 complex-cell tuning decodes the stimulus orientation; the surround changes the output
-{
-  const m = SIM.MODELS.retina, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('ret'));
-  const dd = Math.abs(d.dec - d.ori), decErr = Math.min(dd, 180-dd), ys = d.sweep.map(q=>q[1]), effect = Math.max(...ys) - Math.min(...ys);
-  console.log(`  retina: V1 tuning decodes orientation (${d.dec.toFixed(0)}° vs ${d.ori}°); surround changes output contrast (Δ=${effect.toFixed(3)})   [${ok(decErr<25 && effect>1e-3)}]`);
-}
-
-// Causal graph: do(X) recovers the true causal effect; the observed slope is inflated by confounding; the gap grows with confounding
-{
-  const m = SIM.MODELS.causalg, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('cg'));
-  const doMatches = Math.abs(d.doSlope - d.causal) < 0.15, confounded = d.obsSlope > d.causal + 0.15, sweepRises = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.1;
-  console.log(`  causal-graph: do(X) recovers the effect (do=${d.doSlope.toFixed(2)} ≈ ${d.causal.toFixed(2)}); observed inflated to ${d.obsSlope.toFixed(2)} by confounding   [${ok(doMatches && confounded && sweepRises)}]`);
-}
-
-// Self-attention: each attention row is a softmax (sums to 1); sharpness — entropy rises with temperature
-{
-  const m = SIM.MODELS.attention, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('attn'));
-  const rowsum1 = d.attn.every(r => Math.abs(r.reduce((a,b)=>a+b,0)-1) < 1e-9);
-  const sharpens = d.sweep[0][1] < 0.6 && d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.2;
-  console.log(`  attention: rows are softmax (sum=1) [${ok(rowsum1)}]; entropy rises with temperature (${d.sweep[0][1].toFixed(2)} → ${d.sweep[d.sweep.length-1][1].toFixed(2)}) [${ok(sharpens)}]`);
-}
-
-// POMDP (tiger): the value-iteration policy is open-left | listen | open-right; a less accurate ear widens the listen region
-{
-  const m = SIM.MODELS.pomdp, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('pom'));
-  const ends = d.pol[0]===1 && d.pol[d.N-1]===2, listensMid = d.pol[Math.floor(d.N/2)]===0, hasListen = d.listenFrac>0.05 && d.listenFrac<0.999;
-  const widens = d.sweep[d.sweep.length-1][1] > d.sweep[0][1] + 0.05;   // bigger penalty → wider listen region
-  console.log(`  pomdp: policy open-left|listen|open-right (listen ${(d.listenFrac*100).toFixed(0)}% of beliefs); a bigger penalty widens it (${(d.sweep[0][1]*100).toFixed(0)}% → ${(d.sweep[d.sweep.length-1][1]*100).toFixed(0)}%)   [${ok(ends && listensMid && hasListen && widens)}]`);
-}
-
-// Wilson-Cowan E/I: a limit cycle at default drive, born at a Hopf bifurcation (flat below a critical drive, oscillating above)
-{
-  const m = SIM.MODELS.wilson, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('wc'));
-  const osc = d.amp > 0.1, lowFlat = d.sweep[0][1] < 0.05, highOsc = d.sweep[d.sweep.length-1][1] > 0.3;
-  console.log(`  wilson-cowan: limit cycle at default (amp=${d.amp.toFixed(2)}); Hopf bifurcation in drive (P=0: ${d.sweep[0][1].toFixed(2)} → P=3: ${d.sweep[d.sweep.length-1][1].toFixed(2)})   [${ok(osc && lowFlat && highOsc)}]`);
-}
-
-// Multi-head attention: each head's rows are a softmax; the heads route differently; entropy rises with temperature
-{
-  const m = SIM.MODELS.mha, p = {}; m.params.forEach(s => p[s.name] = s.default);
-  const d = m.simulate(p, env('mha'));
-  const rows1 = d.heads.every(M => M.every(r => Math.abs(r.reduce((a,b)=>a+b,0)-1) < 1e-9));
-  let differ=false; for(let i=0;i<d.N;i++) for(let j=0;j<d.N;j++) if(Math.abs(d.heads[0][i][j]-d.heads[1][i][j])>0.15) differ=true;
-  const sharpens = d.sweep[0][1] < d.sweep[d.sweep.length-1][1] - 0.2;
-  console.log(`  mha: ${d.H} heads, rows softmax [${ok(rows1)}]; heads route differently [${ok(differ)}]; entropy rises with temp [${ok(sharpens)}]`);
-}
-
-// Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic loop
-// above only proves it ran). Warn for any model without a dedicated check here — add one (see gui-qc.md §1).
-{
-  const checked = new Set(['bayes','ddm','compare','attractor','sir','vision','lif','rl','efficient','causal','wm','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson','mha']);   // models with an analytic check above
-  const missing = SIM.MODEL_ORDER.filter(id => !checked.has(id));
-  if (missing.length) console.log(`\n  \x1b[33m⚠ no analytic check: ${missing.join(', ')} — add one to validate.mjs (see gui-qc.md §1)\x1b[0m`);
-}
-
-// ---- reusable library modules/mslib.js: each block is sane (loaded above) ----
-console.log('\n=== mslib.js building blocks ===\n');
-try {
-  const L = globalThis.MSLIB, g = () => { let u = Math.random() || 1e-9; return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*Math.random()); }, U = () => Math.random();
-  const fam = ['sde','bayes','neuron','decision','rl','psy','efficient','causal','wm','network','osc','belief','vision','attn'].every(k => L[k]);
-  const wgt = L.bayes.weight(0.9, 1);
-  const fi = L.neuron.fI((s,I,dt)=>L.neuron.lifStep(s,I,null,dt), ()=>({v:-65,refr:0}), [0.1,0.3,0.6,1.0], 1e-4, 1.0);
-  const mono = fi.every((p,i)=>i===0||p.rate>=fi[i-1].rate) && fi[3].rate>fi[0].rate;
-  let s={S1:0.1,S2:0.1,In1:0,In2:0}, r; for (let k=0;k<3000;k++) r=L.decision.wwStep(s,{coh:25.6},0.0005,g);
-  let V=0; for (let t=0;t<200;t++) V=L.rl.rescorlaWagner(V,1,0.1);
-  const pm = L.psy.psychometric(-2,{mu:0,sigma:1}) < L.psy.psychometric(2,{mu:0,sigma:1});
-  const sdOk = Math.abs(L.psy.sdt(0.84,0.16).dprime - 2) < 0.2;
-  console.log(`  families present [${ok(fam)}]   bayes weight∈(0,1) [${ok(wgt>0&&wgt<1)}]   LIF f-I monotonic [${ok(mono)}]`);
-  console.log(`  Wong-Wang unit1 wins @ +coh [${ok(r.r1>r.r2)}]   Rescorla-Wagner converges [${ok(Math.abs(V-1)<0.01)}]   psychometric monotonic [${ok(pm)}]   SDT sensitivity [${ok(sdOk)}]`);
-  // efficient coding: consistent zero-noise decode, discriminability ∝ 1/p (tails>peak), skewed likelihood (tail away from prior peak)
-  const xs=L.bayes.linspace(-4,4,241), npd=(x,m,sd)=>Math.exp(-0.5*((x-m)/sd)*((x-m)/sd))/(sd*Math.sqrt(2*Math.PI)), pri=Array.from(xs,x=>npd(x,0,1)), F=L.efficient.cdf(xs,pri);
-  const decok = Math.abs(L.efficient.decode(L.efficient.encode(1.2,xs,F),1e-3,xs,F,pri,'BLS')-1.2)<0.05;
-  const dsc=L.efficient.discrim(xs,pri), dscok = dsc[20]>dsc[120] && dsc[220]>dsc[120];
-  const lk=L.efficient.likelihood(L.efficient.encode(1,xs,F),0.12,xs,F); let z=0,mean=0,mode=0,md=-1; for(let i=0;i<xs.length;i++){ z+=lk[i]; mean+=lk[i]*xs[i]; if(lk[i]>md){md=lk[i];mode=xs[i];} } mean/=z;
-  console.log(`  efficient: zero-noise decode≈θ [${ok(decok)}]   D∝1/p tails>peak [${ok(dscok)}]   likelihood skewed off peak [${ok(mean>mode)}]`);
-  // causal: MLE shrinks variance, p(C=1) higher when cues agree, number-game size principle
-  const mle=L.causal.cueCombineMLE([1,3],[0.5,1]), mleok=mle.variance<0.25;
-  const agree=L.causal.ciPosteriorCommon(0.1,-0.1,2,9,12,0.3)>L.causal.ciPosteriorCommon(10,-10,2,9,12,0.3);
-  const H=L.causal.numberGameHypotheses(100), pst=L.causal.conceptPosterior(H,[2,4,8,16]); let iP=-1,iE=-1; H.forEach((h,i)=>{ if(h.name==='powers 2')iP=i; if(h.name==='even')iE=i; });
-  console.log(`  causal: MLE var<min single [${ok(mleok)}]   p(C=1) agree>disagree [${ok(agree)}]   size principle powers>even [${ok(pst[iP]>pst[iE])}]`);
-  // working memory: I0(0)=1, κ→SD monotone, von Mises sampler mean≈μ, mixture target proportion≈pT
-  const i0=Math.abs(L.wm.besselI0(0)-1)<1e-9, sdm=L.wm.kappaToSD(2)>L.wm.kappaToSD(20);
-  let sx=0,sy=0; for(let i=0;i<3000;i++){ const t=L.wm.vmSample(0.6,8,U); sx+=Math.cos(t); sy+=Math.sin(t); } const cmOk=Math.abs(Math.atan2(sy,sx)-0.6)<0.12;
-  let nt=0,TT=5000; for(let i=0;i<TT;i++) if(L.wm.mixtureRecall({target:0,nontargets:[1.5,-1.5],kappa:10,pT:0.6,pSwap:0.25,pGuess:0.15},U).branch==='target') nt++;
-  console.log(`  wm: I0(0)=1 [${ok(i0)}]   κ→SD decreasing [${ok(sdm)}]   vonMises mean≈μ [${ok(cmOk)}]   mixture target≈pT [${ok(Math.abs(nt/TT-0.6)<0.05)}]`);
-  // network: Hopfield recalls a 1-bit-flipped cue; ring kernel has local excitation
-  const pat8=[1,-1,1,-1,1,-1,1,-1], Wh=L.network.hopfieldStore([pat8],8); let sr=Int8Array.from(pat8); sr[0]=-sr[0]; L.network.hopfieldStep(Wh,sr,8,[0,1,2,3,4,5,6,7]); const recOK=L.network.overlap(Array.from(sr),pat8,8)>0.9;
-  const Wr=L.network.ringKernel(16,8,1.3,0.3), ringOK=Wr[0]>Wr[8];
-  // osc: identical phases → r≈1; evenly-spread phases → r≈0
-  const oscOK=L.osc.kuramotoOrder([0.5,0.5,0.5,0.5]).r>0.99 && L.osc.kuramotoOrder([0,Math.PI/2,Math.PI,3*Math.PI/2]).r<0.05;
-  // belief: predict/update renormalise, update concentrates on the likely state, entropy(certain)=0
-  const bp=L.belief.predict([0,1,0,0],[[.5,.5,0,0],[0,.5,.5,0],[0,0,.5,.5],[.5,0,0,.5]]), bpOK=Math.abs(bp.reduce((a,b)=>a+b,0)-1)<1e-9;
-  const bu=L.belief.update([.25,.25,.25,.25],[.1,.7,.1,.1]), buOK=Math.abs(bu.reduce((a,b)=>a+b,0)-1)<1e-9 && bu[1]>0.5 && L.belief.entropy([1,0,0,0])<1e-9;
-  // vision: a balanced DoG (surround=1) is ~zero-sum (band-pass); a pure centre (surround=0) sums positive (low-pass)
-  const dks=L.vision.dogKernel(1.5,4,1); let dsum=0; for(const v of dks.k) dsum+=v; const dc=L.vision.dogKernel(1.5,4,0); let csum=0; for(const v of dc.k) csum+=v; const dogOK=Math.abs(dsum)<0.15 && csum>0.5;
-  console.log(`  network: Hopfield recall [${ok(recOK)}]  ring local-excitation [${ok(ringOK)}]   osc: sync vs incoherent r [${ok(oscOK)}]`);
-  console.log(`  belief: predict/update normalise + concentrate [${ok(bpOK&&buOK)}]   vision: DoG band-pass≈0 vs low-pass>0 [${ok(dogOK)}]`);
-  // attn: softmax sums to 1 and is monotone in logits; uniform attention has entropy ln(N)
-  const sm=L.attn.softmax([1,2,3]), smOK=Math.abs(sm.reduce((a,b)=>a+b,0)-1)<1e-9 && sm[2]>sm[1] && sm[1]>sm[0], entU=Math.abs(L.attn.entropy([.25,.25,.25,.25])-Math.log(4))<1e-9;
-  console.log(`  attn: softmax sums to 1 + monotone [${ok(smOK)}]   uniform entropy = ln(N) [${ok(entU)}]`);
-} catch (e) { console.log('  ' + ok(false) + ' mslib failed: ' + e.message); }
-
-console.log(`\n${fails===0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}\n`);
-process.exit(fails===0 ? 0 : 1);
+finish();

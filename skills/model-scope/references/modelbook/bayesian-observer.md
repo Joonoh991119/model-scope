@@ -43,7 +43,7 @@ prior (repulsive/anti-Bayesian bias, bias↔discriminability, decision-condition
 ```js
 const post = MSLIB.bayes.gaussPosterior(m, sigma_m, mu0, sigma0);   // {mu, sigma}
 const w    = MSLIB.bayes.weight(sigma_m, sigma0);
-const curve= MSLIB.bayes.centralTendency(thetaGrid, sigma_m, sigma0 /* via */, mu0, sigma0);
+const curve= MSLIB.bayes.centralTendency(thetaGrid, sigma_m, mu0, sigma0);
 const sm   = MSLIB.bayes.weberNoise(theta, w_f);                    // Weber-scaled noise
 const tr   = MSLIB.bayes.trial(theta, sigma_m, mu0, sigma0, ()=>SIM.gaussian(rng));
 ```

@@ -1,2 +1,5 @@
 node_modules/
 .DS_Store
+.scratch/
+evals/results/
+skills/model-scope/assets/template/bundle.html

@@ -3,10 +3,11 @@
  * graphics. No fixed layout: a view's draw(g, data, ui) calls g.frame({x,y,…})
  * to set up whatever axes it wants, then draws primitives in data coordinates.
  *
- * Classic script → window.Plot = { make, setup, TH, histify }.
+ * Classic script → window.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS }.
  * Text size scales with window.__plotFontScale (the app's "Text size" control):
- * fonts, frame margins and label offsets all grow together so larger text still
- * gets its own space and never overlaps the graphics. Theme is light; DPR-correct.
+ * fonts, frame margins and label offsets all grow together so larger text keeps
+ * its own space (at the largest sizes in a narrow or pinned pane, long titles and
+ * strip names can still truncate). Theme is light; DPR-correct.
  * ========================================================================== */
 (function (global) {
   'use strict';
@@ -169,5 +170,22 @@
     for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop out-of-range (no fake edge mass)
     return { edges, counts, binW:bw, max:Math.max(1,...counts) };
   }
-  global.Plot = { make, setup, TH, histify };
+  // y of the point in `points` ([[x,y],…]) whose x is nearest to `x`; the first one wins a tie.
+  // Use it to put a "now" marker on a sweep curve at the current parameter value.
+  function nearestY(points, x){ let b=points[0]; for(const q of points) if(Math.abs(q[0]-x)<Math.abs(b[0]-x)) b=q; return b[1]; }
+  // ramp(from, to): a colour map t → [r,g,b] that runs linearly from rgb `from` (t=0) to `to` (t=1); t is clamped to [0,1].
+  // Hand it to g.heat / g.image / g.colorbar as v => ramp((v-lo)/(hi-lo)).
+  function ramp(a, b){ return t=>{ t=Math.max(0,Math.min(1,t));
+    return [Math.round(a[0]-(a[0]-b[0])*t), Math.round(a[1]-(a[1]-b[1])*t), Math.round(a[2]-(a[2]-b[2])*t)]; }; }
+  const PAPER=[247,245,240];
+  const RAMPS = {
+    blue:  ramp(PAPER, [74,122,147]),            // paper → accent blue (attention, belief, weights ≥ 0)
+    green: ramp([246,241,228], [96,163,136]),    // cream → teal green
+    red:   ramp([245,245,232], [225,40,82]),     // cream → deep red
+    night: ramp([40,38,72], [245,236,237]),      // dark (slow) → light (fast)
+    signed(t){ t=Math.max(-1,Math.min(1,t));     // diverging, t in [-1,1]: blue below 0, cream at 0, rust above 0
+      return t>=0 ? SIGNED_POS(t) : SIGNED_NEG(-t); },
+  };
+  const SIGNED_POS=ramp([245,243,238],[194,91,66]), SIGNED_NEG=ramp([245,243,238],[74,122,147]);
+  global.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS };
 })(typeof window!=='undefined'?window:globalThis);

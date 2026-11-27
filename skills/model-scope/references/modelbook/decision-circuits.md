@@ -21,6 +21,10 @@ model (DDM).
 - Currents: `I_i = J_s·S_i − J_c·S_j + I₀ + J_{A,ext}·μ₀·(1 ± coh/100) + noise(OU)`.
 - Defaults (Wong & Wang 2006): `a=270 Hz/nA, b=108 Hz, d=0.154 s, γ=0.641, τ_S=0.1 s,
   J_s=0.2609, J_c=0.0497, I₀=0.3255 nA, J_{A,ext}=5.2e-4 nA/Hz, μ₀=30 Hz, σ=0.02 nA`.
+- These are the paper's **Appendix** values (the simplified reduction without recurrent AMPA).
+  The main text uses a different set (`J_s=0.1561, J_c=0.0264, I₀=0.2346 nA, σ=0.007 nA`); say
+  which set a screen uses. Not yet checked against the paper: how the noise amplitude is scaled
+  (the library drives the OU noise so its stationary SD is σ).
 - Decide when a population rate crosses ~15 Hz.
 
 ## Parameters (meaning · typical range)

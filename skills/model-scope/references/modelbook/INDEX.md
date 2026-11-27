@@ -62,6 +62,6 @@ computation stage by stage. See [../architecture.md](../architecture.md) ("Proce
 1. Add a small pure sub-object to `MSLIB` (e.g. `MSLIB.network = {...}`) — functions that
    take randomness as a `g` argument, no globals. Nothing else in the library couples to it.
 2. Add a `modelbook/<family>.md` with the six sections above and a row in this table.
-3. (Optional) add a worked example model to the template's `engine.js` registry.
+3. (Optional) add a worked example model to the template's `examples.js`, with its check in `examples.checks.mjs`.
 
 The whole point is breadth without bloat: the toolbox stays tiny; knowledge accretes here.
