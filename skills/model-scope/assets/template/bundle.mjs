@@ -42,9 +42,10 @@ export function bundle(dir, { title, standalone = false } = {}) {
   const bodyM = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(page);
   if (!bodyM) throw new Error('index.html has no <body>');
   const scripts = [];
-  let body = bodyM[1].replace(/<!--[\s\S]*?-->/g, '');                       // HTML comments are notes for the editor of index.html
+  // HTML comments are notes for the editor of index.html: drop those outside scripts (a script's own text is left alone)
+  let body = bodyM[1].replace(/(<script\b[^>]*>[\s\S]*?<\/script>)|<!--[\s\S]*?-->/gi, (all, script) => script || '');
   body = body.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (all, attrs, inline) => {
-    const src = (/\bsrc\s*=\s*["']([^"']+)["']/i.exec(attrs) || [])[1];
+    const sm = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attrs), src = sm ? (sm[1] ?? sm[2] ?? sm[3]) : undefined;   // quoted or not
     if (!src) return `<script>${escScript(inline)}</script>`;
     if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) throw new Error(`index.html loads ${src} from another host; a bundle must be self-contained`);
     const file = path.join(dir, src);
@@ -54,7 +55,8 @@ export function bundle(dir, { title, standalone = false } = {}) {
   });
   body = body.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
   // the name: --title, else SIM.APP.title if the app sets one that fits, else a neutral default
-  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(fs.readFileSync(path.join(dir, s), 'utf8')); if (m) return m[2]; } return null; })();
+  const noComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');   // a commented-out example must not name the page
+  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(noComments(fs.readFileSync(path.join(dir, s), 'utf8'))); if (m) return m[2]; } return null; })();
   const name = title || (appTitle && !titleProblem(appTitle) ? appTitle : 'Model Scope Explorer');
   const bad = titleProblem(name); if (bad) throw new Error(bad);
   const head = `<title>${escText(name)}</title>\n<style>\n${style}\n</style>`;
@@ -74,6 +76,10 @@ export function bundleProblems(html, { standalone = false } = {}) {
   }
   if (/<[a-z][^>]*\s(?:src|srcset|data|poster)\s*=/i.test(markup)) out.push('an element still references a file (src=)');
   if (/<link\b|<iframe\b|<object\b|<embed\b/i.test(markup)) out.push('contains a <link>, <iframe>, <object> or <embed>');
+  // a file beside the page is gone once it is one file: an SVG <image>/<use>/<feImage> href, or a CSS url()/image-set() that is not data: or #
+  if (/<(?:image|use|feImage)\b[^>]*\shref\s*=\s*["']?\s*(?!#|data:)[^\s"'>]/i.test(markup)) out.push('an SVG element still references a file (href=)');
+  const css = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '') + [...markup.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)].map(m => m[1]).join('\n');
+  if (/url\(\s*["']?\s*(?!data:|#|["')])/i.test(css) || /image-set\(\s*["']\s*(?!data:)/i.test(css)) out.push('a CSS url() or image-set() still references a file');
   if (/\b(?:src|href)\s*=\s*["']?\s*(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(markup) || /url\(\s*["']?\s*(?:https?:)?\/\//i.test(html) || /@import\b/i.test(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ''))) out.push('references another host');
   const titles = [...html.matchAll(/<title>([\s\S]*?)<\/title>/gi)].map(m => m[1]);
   if (titles.length !== 1) out.push(`has ${titles.length} <title> elements (needs exactly one)`); else { const t = titleProblem(titles[0].replace(/&amp;/g, '&')); if (t) out.push(t); if (html.indexOf('<title>') > 8192) out.push('the <title> is not within the first 8 KB'); }

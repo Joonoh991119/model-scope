@@ -246,6 +246,12 @@ if (ORDER.length === 0) fatal('no model is registered — add one to MODELS and 
   if (dup.length || ghost.length) { console.log(`  MODEL_ORDER and MODELS agree   [${ok(false)}]${dup.length ? '  listed twice: ' + [...new Set(dup)].join(',') : ''}${ghost.length ? '  in MODEL_ORDER but not in MODELS: ' + ghost.join(',') : ''}`); finish(); }
   if (hidden.length) warn(`in MODELS but not in MODEL_ORDER (no tab, not checked): ${hidden.join(', ')}`);
 }
+{ // every #<model>-<lens> link must open that screen: the page reads a hash left to right, so ids and lens keys with '-' can shadow each other
+  const lensOf = id => (SIM.MODELS[id] && SIM.MODELS[id].lenses) || null;
+  const resolve = h => { if (ORDER.includes(h)) return h; for (let i = h.indexOf('-'); i > 0; i = h.indexOf('-', i + 1)) { const id = h.slice(0, i), k = h.slice(i + 1); if (ORDER.includes(id) && lensOf(id) && Object.prototype.hasOwnProperty.call(lensOf(id), k)) return id + ' lens ' + k; } return 'nothing'; };
+  const clash = []; for (const id of ORDER) for (const k of Object.keys(lensOf(id) || {})) { const r = resolve(id + '-' + k); if (r !== id + ' lens ' + k) clash.push(`#${id}-${k} opens ${r}, not ${id} lens ${k}: rename the id or the lens key`); }
+  console.log(`  every #model-lens link opens its own screen   [${ok(clash.length === 0)}]`); clash.forEach(c => console.log('    ' + c));
+}
 const usable = [];   // models whose simulate() ran at defaults — the later passes skip the rest (already reported)
 for (const id of ORDER) {
   const m = SIM.MODELS[id], lint = lintModel(id, m), p = def(id);
@@ -254,11 +260,12 @@ for (const id of ORDER) {
   const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
   const nv = specs.reduce((a, s) => a + ((s.views && s.views.length) || 0), 0);
   const ran = !threw && !!data && typeof data === 'object';
-  let same = false; if (ran) { try { same = digest(m.simulate({ ...p }, env('det-' + id, p))) === digest(m.simulate({ ...p }, env('det-' + id, p))); } catch (e) { same = false; } }
+  let same = false, detErr = null; if (ran) { try { same = digest(m.simulate({ ...p }, env('det-' + id, p))) === digest(m.simulate({ ...p }, env('det-' + id, p))); } catch (e) { same = false; detErr = e; } }
   console.log(`  ${label(m)}schema [${ok(lint.length === 0)}]  simulate=${threw ? '\x1b[31mthrew\x1b[0m' : 'ok'}  views=${nv}${m.lenses ? ` (${specs.length} lenses)` : ''}  [${ok(ran && viewsOk)}]  deterministic [${ok(ran && same)}]`);
   lint.forEach(l => console.log('    schema: ' + l));
   if (threw) console.log('    ' + threw.message);
-  if (ran && !same) console.log('    two runs with the same seed returned different data — draw every random number from env.rng / trialRng(env.seed, k)');
+  if (detErr) console.log(`    simulate() threw with another seed ('det-${id}'): ${(detErr && detErr.message) || detErr}`);
+  else if (ran && !same) console.log('    two runs with the same seed returned different data — draw every random number from env.rng / trialRng(env.seed, k)');
   if (ran && viewsOk) usable.push(id);
 }
 
@@ -272,7 +279,7 @@ for (const id of ORDER) {
 console.log('\n--- view render at defaults (draws · finite axes · colorbar on heatmaps · not empty) ---');
 for (const id of usable) {
   const m = SIM.MODELS[id], p = def(id);
-  let data; try { data = m.simulate({ ...p }, env('r-' + id, p)); } catch (e) { continue; }   // simulate-throw already reported above
+  let data; try { data = m.simulate({ ...p }, env('r-' + id, p)); } catch (e) { console.log(`  ${label(m)}[${ok(false)}]  simulate() threw with seed 'r-${id}' (it ran with 'v-${id}'): ${(e && e.message) || e}`); continue; }
   const r = renderModel(m, p, data, { nonEmpty: true });
   console.log(`  ${label(m)}[${ok(r.good)}]  ${r.draws} draws${r.text}`);
   r.threw.forEach(f => console.log('    ' + f.tag + ': ' + f.msg));

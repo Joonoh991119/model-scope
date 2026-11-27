@@ -26,6 +26,10 @@ golden baseline (`tests/baseline/v1.21.1.json`, captured from v1.21.1) passes on
   independent recursion, and others). A model with no check is still a counted warning.
 - The page itself: missing scripts, external hosts or network APIs fail; the bundle is checked when
   `bundle.mjs` is present.
+- A seed-dependent `simulate()` throw in the view-render pass fails (it used to skip that model in
+  silence); every `#model-lens` link must open its own screen (ids and lens keys with `-` can shadow
+  each other); the bundle check also reports SVG `href` and CSS `url()` / `image-set()` references to
+  files.
 - `--snapshot f.json` / `--against f.json`: an opt-in regression lock for a researcher's own models.
 - Seeded-error probe: the gate alone now catches 51 of 54 (before: 7 of 46).
 - Every exported `MSLIB` function is called directly by at least one closed-form check, including the ones no shipped
@@ -41,15 +45,21 @@ golden baseline (`tests/baseline/v1.21.1.json`, captured from v1.21.1) passes on
   (empty state, clear gate message) instead of a crash. Pure code motion, proven by the baseline.
 - Toolbox (`index.html`): a typed 0 no longer becomes the default; a keyboard lens switch no longer
   cancels a `runChunks` computation; the active tab scrolls into view; parameters are remembered per
-  model; a `simulate()` error is shown and recovers.
+  model; a `simulate()` error is shown and recovers, including a throw in a later `runChunks` chunk
+  (it used to leave the loading overlay on); when the last chunk lands the lens is bound again, so
+  `anim.length` and `stages` may depend on the finished data; a typed value in an integer field is
+  rounded at once; a copied link is hidden as soon as the state it describes changes; `?text=` is
+  clamped to the slider's range.
 - Accessibility: landmarks, one `<h1>`, a name for every control and canvas, a polite live region,
-  4.5:1 text contrast, a visible focus ring. axe: 0 violations on all 60 screens (before: 5 rules
+  4.5:1 text contrast, a visible focus ring; the playhead, speed and text-size sliders announce their
+  value in words (`aria-valuetext`), and the loading overlay is a named progress bar. axe: 0 violations on all 60 screens (before: 5 rules
   failed on every screen).
 - Phone layout: at 400 px no model overflows (11 of 21 did) and the first plot is on the first
   screen.
 - Links: `#model` / `#model-lens` (the form a hosted page passes through), `?p.<name>=` and `?seed=`,
   a **Copy link** button, optional `SIM.APP = {title, tagline}`.
 - **Pin**: keep the current result and see it beside every view, with one line naming what differs.
+  Pin keeps the parameters the result was made with, even when pressed while a slider change waits.
 - `bundle.mjs` (optional, plain Node): the app as one self-contained page, a fragment for a host such
   as an Artifact, or `--standalone` for a complete document.
 - `plot.js`: `Plot.nearestY`, `Plot.ramp`, `Plot.RAMPS`; `examples.js` uses them instead of 11 copies
@@ -111,7 +121,12 @@ Not done in this release, on purpose:
 - **Plot readability (planned 6b)**: round 1-2-5 ticks, a left margin sized to the tick labels, a
   process strip that wraps instead of truncating names, one font helper for the custom views,
   captions that wrap. It changes how most screens look, so it needs the draw baseline re-recorded and
-  every screenshot regenerated in one reviewed change.
+  every screenshot regenerated in one reviewed change. Until then, at large text sizes in the pinned
+  layout (each pane is half a card wide) titles and process-strip names truncate and some labels
+  overlap the graphics.
+- Contrast of non-text control edges (`--edge-2` on white is about 1.5:1, below WCAG 1.4.11's 3:1)
+  and of the faint canvas text (`#a39e91`, about 2.7:1): a palette change that alters every screen,
+  so it goes with 6b.
 - The remaining hand-written colour maps (the sqrt and grey maps, per-view colour lists) were not
   moved onto `Plot.ramp`.
 - Dark theme with a second canvas palette; Worker offload; predict-then-reveal prompts; named
@@ -133,4 +148,5 @@ Not verified for this release:
 - Publishing the bundle as an Artifact (not done; the bundle was tested in a host-like frame under a
   strict Content-Security-Policy).
 - Pinning inside the bundle, and the accessibility audit of the pinned layout.
+- The pinned layout at text sizes above 100% (see Deferred); forced-colours mode; a real screen reader.
 - The commands run end to end from an installed copy (path substitution was read in the docs).

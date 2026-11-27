@@ -17,6 +17,12 @@
 //   6. same id, no check     a model of yours named 'lif' with no check of its own: the gate stays green
 //                            (the LIF example's check is not run against your model) and warns about it.
 //   7. env.params            the skeleton reading its parameter from env.params, as documented: gate green.
+//   8. seed-dependent throw  the skeleton throws only for the seed the view-render pass uses: the gate FAILS
+//                            and says which seed (it used to skip that model's render pass in silence).
+//   9. link clash            a model 'my-a' next to a model 'my' with a lens 'a-b': #my-a-b must open one
+//                            screen only, so the gate FAILS and names the link.
+//  10. bundle                index.html loads a script with an unquoted src and a <style> uses a relative
+//                            url(): bundle() inlines the script, and bundleProblems() reports the url().
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -91,6 +97,25 @@ edit(d7, 'engine.js', s => { must(s.includes('1-Math.exp(-p.gain*x)'), 'the skel
 { const g = gate(d7); check(g.status === 0 && /ALL CHECKS PASSED/.test(g.out), `a model that reads env.params: gate exit ${g.status}`);
   if (g.status !== 0) console.log(g.out.split('\n').filter(l => /FAIL|threw|Error/.test(l)).slice(0, 6).join('\n')); }
 
+// 8. simulate() throws only for one seed
+const d8 = copy(); makeBare(d8); addSkeleton(d8, { withCheck: true });
+edit(d8, 'engine.js', s => { const i = s.lastIndexOf('1-Math.exp(-p.gain*x)'); must(i > 0, 'skeleton'); return s.replace(/simulate: *\(p, *env\) *=> *\{/g, (m, at) => at > s.indexOf('const MODELS = {') ? m + " if(String(env.seed).startsWith('r-')) throw new Error('seed r');" : m); });
+{ const g = gate(d8); check(g.status === 1 && /threw with seed 'r-mymodel'/.test(g.out), `a model that throws for one seed only: gate exit ${g.status} and names the seed`);
+  if (!/threw with seed/.test(g.out)) console.log(g.out.split('\n').filter(l => /FAIL|threw|Error|simulate/.test(l)).slice(0, 6).join('\n')); }
+
+// 9. two models whose #model-lens links collide
+const d9 = copy(); makeBare(d9); addSkeleton(d9, { withCheck: false });
+edit(d9, 'engine.js', s => s.replace("const MODEL_ORDER = ['mymodel'];", () => `MODELS.my = { id:'my', name:'My', params:[], simulate:()=>({}), lenses:{ 'a-b':{ label:'AB', views:[{ title:'v', draw:g=>g.note('x') }] } } };
+  MODELS['my-a'] = { id:'my-a', name:'My A', params:[], simulate:()=>({}), lenses:{ b:{ label:'B', views:[{ title:'v', draw:g=>g.note('x') }] } } };
+  const MODEL_ORDER = ['mymodel','my','my-a'];`));
+{ const g = gate(d9); check(g.status === 1 && /#my-a-b opens my lens a-b, not my-a lens b/.test(g.out), `two models whose links collide (#my-a-b): gate exit ${g.status} and names the link`); }
+
+// 10. bundle: an unquoted script src is inlined; a relative CSS url() is reported
+const d10 = copy(); edit(d10, 'index.html', h => { must(h.includes('<script src="engine.js">') && h.includes('</style>'), 'index.html script/style');
+  return h.replace('<script src="engine.js">', '<script src=engine.js>').replace('</style>', '.x{background:url(img/bg.png)}\n</style>'); });
+{ const B = await import(pathToFileURL(path.join(d10, 'bundle.mjs')).href), b = B.bundle(d10, { title: 'Bare App Bundle' }), pr = B.bundleProblems(b.html);
+  check(b.scripts.includes('engine.js') && pr.some(x => /url\(\)/.test(x)), `bundle: unquoted <script src=engine.js> inlined (${b.scripts.join(', ')}); relative url() reported (${pr.length} problem(s))`); }
+
 // browser: the empty state and the skeleton app
 if (PW) {
   const require = createRequire(PW + '/'); const { chromium } = require('playwright');
@@ -100,7 +125,8 @@ if (PW) {
     p.on('request', r => { if (!r.url().startsWith('file:')) reqs.push(r.url()); });
     await p.goto(pathToFileURL(path.join(dir, 'index.html')).href); await p.waitForTimeout(400); return { p, errs, reqs }; };
   { const { p, errs, reqs } = await open(d1); const text = await p.evaluate(() => document.body.innerText);
-    check(errs.length === 0 && reqs.length === 0 && /No model is registered/i.test(text) && /engine\.js/.test(text), `bare app with no model in the browser: empty state shown, ${errs.length} errors${errs.length ? ' (' + errs[0] + ')' : ''}`); await p.close(); }
+    const off = await p.evaluate(() => ['runBtn', 'resetBtn', 'pinBtn', 'linkBtn', 'diceBtn'].filter(id => !document.getElementById(id).disabled));
+    check(errs.length === 0 && reqs.length === 0 && /No model is registered/i.test(text) && /engine\.js/.test(text) && off.length === 0, `bare app with no model in the browser: empty state shown, buttons disabled${off.length ? ' (still enabled: ' + off.join(',') + ')' : ''}, ${errs.length} errors${errs.length ? ' (' + errs[0] + ')' : ''}`); await p.close(); }
   { const { p, errs, reqs } = await open(d2);
     const o = await p.evaluate(() => { const c = document.querySelector('#views canvas'); if (!c || !c.width) return { tabs: 0, ink: 0 }; const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0; for (let i = 0; i < d.length; i += 4 * 31) if (d[i] !== d[0] || d[i + 1] !== d[1] || d[i + 2] !== d[2] || d[i + 3] !== d[3]) n++; return { tabs: document.querySelectorAll('#modelTabs button').length, ink: n }; });
     check(errs.length === 0 && reqs.length === 0 && o.tabs === 1 && o.ink > 20, `bare app + skeleton in the browser: ${o.tabs} tab, the view paints (${o.ink} sampled pixels), ${errs.length} errors${errs.length ? ' (' + errs[0] + ')' : ''}`); await p.close(); }
