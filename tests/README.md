@@ -11,8 +11,8 @@ node tests/run.mjs --browser    # ... plus the headless-Chrome smoke test
 
 | File | What it proves | Needs |
 |---|---|---|
-| `baseline.mjs` | The 21 shipped examples behave as they did at v1.21.1: same parameter ids, ranges and defaults; the same numbers out of `simulate()` at defaults and at every control's min and max; the same drawing through the real `plot.js`. | Node |
-| `mutations.mjs` | The gate bites: 48 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
+| `baseline.mjs` | The 21 shipped examples behave as they did at v1.21.1: same parameter ids, ranges and defaults; the same numbers out of `simulate()` at defaults and at every control's min and max; the same drawing through the real `plot.js` (draws are recorded at default parameters only, at the start and end of the playhead; a drawing error that only shows away from the defaults is not caught here). | Node |
+| `mutations.mjs` | The gate bites: 52 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
 | `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the commented skeleton model and check in `engine.js` / `engine.checks.mjs` are real code; deleting one example leaves the gate green. | Node (+ Playwright with `--pw`) |
 | `docs-check.mjs` | The docs say what the code is: model and family counts equal the registry and the modelbook INDEX; every MSLIB block and function named exists; every path named in the skill, command and agent files exists; vendored files use `${CLAUDE_PLUGIN_ROOT}` and the literal `model-scope:` only in the two command names; description lengths; one plugin version field. | Node |
 | `smoke.mjs` | The page works in a real browser from `file://`: every model and lens paints, no console or page error, no network request, plus accessibility (axe), phone width, and toolbox behaviour. | Playwright |
@@ -50,7 +50,7 @@ Rules:
 
 ## The mutation probe
 
-`node tests/mutations.mjs` copies the template 48 times, applies one wrong edit to each copy
+`node tests/mutations.mjs` copies the template 52 times, applies one wrong edit to each copy
 (a reliability weight inverted, a drift 10% low, a leak term removed, a default changed, a script
 that no longer parses, a bundler that stops escaping a closing script tag, ...) and runs the layers in order: the gate, then the baseline, then (with
 `--pw <dir>`) the browser smoke. Thresholds live at the top of the file. Raise them when the gate

@@ -25,7 +25,10 @@ golden baseline (`tests/baseline/v1.21.1.json`, captured from v1.21.1) passes on
 - The page itself: missing scripts, external hosts or network APIs fail; the bundle is checked when
   `bundle.mjs` is present.
 - `--snapshot f.json` / `--against f.json`: an opt-in regression lock for a researcher's own models.
-- Seeded-error probe: the gate alone now catches 45 of 48 (before: 7 of 46).
+- Seeded-error probe: the gate alone now catches 49 of 52 (before: 7 of 46).
+- Every exported `MSLIB` block has at least one closed-form check, including the ones no shipped
+  example uses (Kalman update, Izhikevich step, `qUpdate`, `choose`, `besselI1`, `fisherInfo`,
+  central tendency, the efficient-coding bias curve, the number-game helpers, and others).
 
 ### Template
 
@@ -59,6 +62,23 @@ golden baseline (`tests/baseline/v1.21.1.json`, captured from v1.21.1) passes on
 - Attractor network: the Landscape lens is a flow-speed map, not an energy landscape.
 - Modelbook: `centralTendency` takes four arguments; Wilson–Cowan uses `MSLIB.osc.wilsonCowanStep`;
   the Wong–Wang defaults are the paper's Appendix set, not its main-text set.
+- Attractor network: the darkest point of the flow-speed map can be the saddle, so it reads
+  "dark = slow, near a fixed point", not "dark = attractor".
+- POMDP: Compare sweeps the tiger penalty, not listening accuracy; less accurate listening does not
+  widen the listen region (at defaults it shrinks from 92% to 86% of beliefs between a = 0.85 and 0.55).
+- Causal inference: the bias curve is labelled visual bias vs disparity; it is N-shaped only when the
+  two senses are comparably reliable (at the defaults, sigma_V = 2 and sigma_A = 8, the expected visual
+  bias is monotone and small).
+- Integrate vs one sample: the single-sample frontier is not flat; it trades only by observing longer.
+- Retina: the DoG kernel is zero-sum only near surround weight 1; a stronger surround removes coarse
+  contrast most (band-pass), it does not sharpen edges in the RMS sweep.
+- Kuramoto: the marked K_c is the noise-free value; phase noise raises the real threshold.
+- Spatial SIR: the Curve lens shows totals over the line of sites, not a well-mixed population.
+- LIF: the f-I curve is noise-free; the current noise is drawn per 0.5 ms step.
+- Self-attention: the attention map put query 0 in the top row while the y ticks count up from the
+  bottom; it now draws query i in row i (a drawing fix; `simulate()` is unchanged).
+- These text and drawing fixes changed eight draw digests (causal, compare, retina, attention),
+  re-recorded in the same commit; schema and `simulate()` digests are unchanged.
 - Template README lists all 21 models (it listed 18); `ui` has eight fields (docs said three).
 
 ### Plugin conventions
@@ -97,8 +117,12 @@ Not done in this release, on purpose:
   the agent; a plugin icon.
 - Running the evals (it spends model calls on the owner's account).
 - Checking the Wong–Wang noise scaling and the other model constants against primary sources. The
-  library drives the noise so its stationary SD equals σ; whether the paper's equation gives σ/√2
-  could not be read from the online versions.
+  library drives the noise so its stationary SD equals σ, which matches the paper's text
+  ("σ²_noise is the variance of the noise", jneurosci.org/content/26/4/1314); the equation itself
+  is an image there, and a literal reading of the commonly reproduced form gives σ/√2.
+- LIF current noise scaled per step rather than as a white-noise density (σ/√dt); POMDP value
+  iteration truncated at 200 and 90 sweeps, which is not converged at γ = 0.99; draw digests only at
+  default parameters. Each fix changes `simulate()` output or needs a new baseline.
 
 Not verified for this release:
 

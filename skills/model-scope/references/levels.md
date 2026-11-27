@@ -31,7 +31,7 @@ the model's behaviour, and its dependence on parameters and model choice, legibl
 
 - **drift-diffusion** — one trial (evidence to a bound) and the RT / accuracy histogram over many trials.
 - **early-vision** (image/CNN, structure first) — the filter-bank **architecture** (the oriented Gabor channels and their receptive fields), then the input image, the channels re-representing it, and the decoded readout.
-- **attractor** (network) — the recurrent input to one pool, the pools racing to a winner, and the (S₁,S₂) flow-speed map (dark = slow, where it settles).
+- **attractor** (network) — the recurrent input to one pool, the pools racing to a winner, and the (S₁,S₂) flow-speed map (dark = slow, near a fixed point: the attractors and the saddle).
 - **sir** (macro / field) — a space-time kymograph of a spreading epidemic, the S/I/R curves, and peak-vs-R₀.
 - **compare** — a model toggle (integrate vs one sample), a metric heatmap over a parameter grid, and metric bars: the comparison idiom itself.
 

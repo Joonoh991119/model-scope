@@ -82,7 +82,7 @@ process-mode stepper, and the **lens switch**):
 | **Drift-diffusion decision** | decision-making | lens switch | one update (drift plus noise to new evidence); one trial walking to a bound; the RT histogram building up |
 | **Decision: integrate vs one sample** | comparison | sliders + toggle | toggle two models; a speed-accuracy overlay; a metric heatmap over a (drift, noise) grid; accuracy / speed / reward bars; the mechanism |
 | **Early vision (orientation)** | sensory / image | lens switch | the filter-bank architecture (oriented Gabor receptive fields), structure first; the input grating; the channels re-representing it; the orientation tuning and decoded angle |
-| **Attractor network** | network | lens switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) flow-speed map (dark = slow, where the network settles) and the trajectory |
+| **Attractor network** | network | lens switch | one pool's recurrent input; the pools racing (winner-take-all); the (S1, S2) flow-speed map (dark = slow, near a fixed point: the two attractors and the saddle between them) and the trajectory |
 | **Epidemic (spatial SIR)** | macro / population | lens switch | a space-time kymograph of a travelling infection wave; the S/I/R curves; peak prevalence vs R0 (the epidemic threshold) |
 | **Spiking neuron (LIF)** | single-neuron biophysics | lens switch | a V(t) trace integrating to threshold; a spike raster over repeats; the f-I transfer curve (with a refractory toggle) |
 | **Reinforcement learning (RW)** | learning | lens switch | one Rescorla-Wagner update; the value learning curve; curves across learning rates |
@@ -392,8 +392,9 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   to the science — for example the drift-diffusion error rate and mean decision time against the
   closed forms `1/(1 + e^{2Az/c²})` and `(z/A)·tanh(Az/c²)` with the discretisation correction,
   mass conservation in the SIR model, and the Bayes-filter trajectory against an independent
-  recursion. It then checks the `mslib.js` building blocks. It must pass before a model is "done".
-  A deliberate-error probe in `tests/` measures how much the gate catches: 45 of 48 seeded
+  recursion. It then checks every exported `mslib.js` building block against a closed form or a
+  known value, including the ones no shipped example uses. It must pass before a model is "done".
+  A deliberate-error probe in `tests/` measures how much the gate catches: 49 of 52 seeded
   errors on its own, two more by the golden baseline of the shipped examples, and the last (a
   toolbox that throws on load) by the browser smoke test.
 - **GUI QC pipeline.** Beyond the static gate, every build walks

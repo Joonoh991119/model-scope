@@ -211,7 +211,7 @@
         {key:'lik',     name:'Hypothesis likelihoods', about:'How well does ONE common cause explain the pair vs TWO separate causes? Compute p(x|C=1) and p(x|C=2).'},
         {key:'postC',   name:'Causal posterior',       about:'Bayes with the prior p_common gives p(C=1|x) — the belief the senses share a cause.'},
         {key:'branch',  name:'Branch estimates',       about:'Fused estimate (assume common) vs segregated estimates (assume separate), each reliability-weighted with the prior.'},
-        {key:'combine', name:'Combine',                about:'Blend the branches by p(C=1) (or Select / Match). The N-shaped bias vs disparity is the signature.'},
+        {key:'combine', name:'Combine',                about:'Blend the branches by p(C=1) (or Select / Match). The bias vs disparity is N-shaped (fusion, then release) when the senses are comparably reliable; with σᵥ ≪ σₐ vision barely moves.'},
       ],
       views:[
         { title:'Process pipeline', draw:(g,d,ui)=> g.flow(ui.stages, ui.stage) },
@@ -235,7 +235,7 @@
         }},
         { title:'Estimates & bias', draw:(g,d,ui)=>{ const T=TH();
           if(ui.stage>=4){ let mn=0,mx=0; for(const b of d.biasV){ mn=Math.min(mn,b[1]); mx=Math.max(mx,b[1]); } const pad=(mx-mn)*0.15||1;
-            g.frame({x:[-20,20],y:[mn-pad,mx+pad],xlabel:'disparity sᵥ−sₐ',ylabel:'visual bias',title:'N-shaped bias (ventriloquism)'});
+            g.frame({x:[-20,20],y:[mn-pad,mx+pad],xlabel:'disparity sᵥ−sₐ',ylabel:'visual bias',title:'visual bias vs disparity (N-shaped when σᵥ ≈ σₐ)'});
             g.hline(0,{color:T.faint,dash:[3,3]}); g.line(d.biasV,{color:T.pos,width:2});
           } else { g.frame({x:[-18,18],y:[0,1],xlabel:'spatial position',title:'estimates on the spatial axis'});
             g.vline(d.xv,{color:T.accent,label:'xᵥ'}); g.vline(d.xa,{color:T.neg,label:'xₐ'});
@@ -398,7 +398,7 @@
     compare: {
       id:'compare', name:'Decision: integrate vs one sample',
       blurb:'Two 2-alternative strategies with the SAME signal (drift A) and noise c — toggle between them: a drift-diffusion model INTEGRATES evidence to a bound ±z (variable time), or a single-sample observer takes ONE noisy reading over a fixed time T and reports its sign. Panel 1 overlays their speed-accuracy frontiers, panel 2 maps the chosen metric over the (drift, noise) plane, panel 3 compares accuracy, speed, and reward at the operating point, panel 4 shows the mechanism.',
-      note:'Same A, c — only the mechanism differs. DDM: accuracy 1/(1+e^(−2Az/c²)), mean decision time (z/A)·tanh(Az/c²) — raising the bound z buys accuracy but costs time, so reward rate is NON-monotonic in z. Single-sample: a FIXED accuracy Φ(A√T/c) and a flat tradeoff (it can only trade by observing longer). Integration dominates when the signal is strong; they converge at low noise. The toggle re-skins panels 2 and 3; the Metric selector swaps the surface in panel 2. (Bogacz et al. 2006; Gold & Shadlen 2007.)',
+      note:'Same A, c — only the mechanism differs. DDM: accuracy 1/(1+e^(−2Az/c²)), mean decision time (z/A)·tanh(Az/c²) — raising the bound z buys accuracy but costs time, so reward rate is NON-monotonic in z. Single-sample: accuracy Φ(A√T/c) is fixed once T is chosen; it has no bound to trade with and can only trade by observing longer (its curve sweeps T). Integration dominates when the signal is strong; they converge at low noise. The toggle re-skins panels 2 and 3; the Metric selector swaps the surface in panel 2. (Bogacz et al. 2006; Gold & Shadlen 2007.)',
       params:[
         {name:'A', label:'Drift A (signal)', min:0, max:3, step:0.01, default:1.0},
         {name:'c', label:'Noise c', min:0.2, max:2.5, step:0.01, default:1.0},
@@ -425,7 +425,7 @@
         return { accD, dtD, accS, dtS, rrD, rrS, satDDM, satSS, tMax, grid, NX, NY, Amin, Amax, cmin, cmax, gmin, gmax, metric:p.metric, metricName, useDDM:p.useDDM, A:p.A, c:p.c, z:p.z, T:p.T, Ter:p.Ter }; },
       views:[
         { title:'speed–accuracy: integrate-to-bound vs one sample', draw:(g,d)=>{ const T=TH();
-          g.frame({x:[0,d.tMax], y:[0.46,1.02], xlabel:'time to decision (s)', ylabel:'accuracy', title:'DDM trades time for accuracy along the bound; one sample is flat'});
+          g.frame({x:[0,d.tMax], y:[0.46,1.02], xlabel:'time to decision (s)', ylabel:'accuracy', title:'DDM trades time for accuracy along the bound; one sample only by observing longer'});
           g.hline(1,{color:'rgba(80,75,65,.28)',dash:[2,3],label:'ceiling'}); g.hline(0.5,{color:'rgba(80,75,65,.3)',dash:[4,3],label:'chance'});
           const clip=a=>a.map(q=>[q[0],Math.max(0.5,Math.min(1,q[1]))]);
           g.line(clip(d.satDDM),{color:T.accent,width:d.useDDM?2.6:1.3,dash:d.useDDM?null:[4,3]});
@@ -529,7 +529,7 @@
     lif: {
       id:'lif', name:'Spiking neuron (LIF)',
       blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the lens switch for the angles: one V(t) trace, a spike raster over repeats, the f-I transfer curve. Move the current, noise, and membrane sliders.',
-      note:'dV/dt = (−(V−EL) + R·I)/τ with a hard threshold→reset (Vth→Vreset) and a refractory period. Stronger current → faster charging → higher rate (the f–I curve); current noise jitters spike times (the raster); toggle the refractory period off and the f–I curve loses its ceiling. A canonical single-neuron model, composed from MSLIB.neuron.',
+      note:'dV/dt = (−(V−EL) + R·I)/τ with a hard threshold→reset (Vth→Vreset) and a refractory period. Stronger current → faster charging → higher rate (the f–I curve); current noise jitters spike times (the raster); the noise is a fresh draw every 0.5 ms step, so σ is the SD of the current per step, not a white-noise density (halving the step would change its effect); toggle the refractory period off and the f–I curve loses its ceiling. A canonical single-neuron model, composed from MSLIB.neuron.',
       params:[
         {name:'I', label:'Input current I (condition)', min:0, max:0.8, step:0.005, default:0.35, unit:'nA'},
         {name:'sigma', label:'Current noise σ', min:0, max:0.3, step:0.005, default:0.06, unit:'nA'},
@@ -560,7 +560,7 @@
             g.frame({x:[0,d.T], y:[0,d.reps], xlabel:'time (s)', ylabel:'repeat #', title:`raster — mean rate ${d.rate.toFixed(1)} Hz`});
             g.raster(d.raster.slice(0,k),{color:T.ink,width:1.2});
           }} ] },
-        fI:{ label:'f–I curve', about:'firing rate vs input current — the neuron’s transfer function',
+        fI:{ label:'f–I curve', about:'firing rate vs input current without noise — the neuron’s deterministic transfer function',
           views:[ { title:'f–I transfer curve', draw:(g,d)=>{ const T=TH(), ymax=Math.max(10,...d.fI.map(q=>q[1]))*1.12;
             g.frame({x:[0,0.8], y:[0,ymax], xlabel:'input current I (nA)', ylabel:'firing rate (Hz)', title:'rate rises with current (rheobase, then ~linear)'});
             g.line(d.fI,{color:T.accent,width:2}); g.points(d.fI,{color:T.accent,r:2.4}); g.vline(d.I,{color:T.pos,dash:[5,4],label:'current I'});
@@ -680,8 +680,8 @@
             if(d.decT>=0 && d.t[k]>=d.decT) g.vline(d.decT,{color:T.ink,label:'decided, pool '+d.win});
             g.legend([{label:'pool 1',color:T.pos},{label:'pool 2',color:T.neg}],{corner:'tl'});
           }} ] },
-        landscape:{ label:'Landscape', about:'the (S₁,S₂) state plane — dark = slow = where the network settles',
-          views:[ { title:'state-space flow (dark = attractor) + this trajectory', draw:(g,d)=>{ const T=TH();
+        landscape:{ label:'Landscape', about:'the (S₁,S₂) state plane — dark = slow, near a fixed point (the two attractors and the saddle between them)',
+          views:[ { title:'state-space flow (dark = slow: attractors and the saddle) + this trajectory', draw:(g,d)=>{ const T=TH();
             const cmap=v=>Plot.RAMPS.night(v/(d.fmax||1));
             g.frame({cbar:true, x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
             g.heat(d.NG, d.NG, (i,j)=>d.flow[j*d.NG+i], cmap);
@@ -695,11 +695,11 @@
 
     /* ---- MACRO-level exemplar: a spatial SIR epidemic on a 1-D line of sites (reaction–diffusion).
        A different scale entirely (no neurons, no trials) — angles fit a population/field model:
-       Spread (space-time kymograph), Curve (well-mixed totals), Threshold (peak vs R0). */
+       Spread (space-time kymograph), Curve (totals over the line), Threshold (peak vs R0). */
     sir: {
       id:'sir', name:'Epidemic (spatial SIR)',
       blurb:'A population model at the MACRO scale: Susceptible, Infected, Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the lens switch for the angles: Spread (the epidemic as a space-time map), Curve (the classic S/I/R totals), Threshold (how the peak depends on R0). Move R0, γ, and spread.',
-      note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion); β = R0·γ. Below the epidemic THRESHOLD R0=1 the outbreak fizzles; above it, a travelling wave sweeps the line (the Spread map) and the well-mixed curve shows the familiar infected peak. The Threshold lens traces peak prevalence vs R0 — flat then rising sharply past 1. Same harness, angles chosen for a field/population model.',
+      note:'Per site: dS=−βS·Ĩ, dI=βS·Ĩ−γI, dR=γI, where Ĩ = I + D·(neighbours−I) couples sites (a discrete diffusion); β = R0·γ. Below the epidemic THRESHOLD R0=1 the outbreak fizzles; above it, a travelling wave sweeps the line (the Spread map) and the Curve lens sums S / I / R over the whole line: a lower peak than one well-mixed population, because infection travels as a wave. The Threshold lens traces peak prevalence vs R0 — flat then rising sharply past 1. Same harness, angles chosen for a field/population model.',
       params:[
         {name:'R0', label:'Basic reproduction number R₀ (condition)', min:0, max:4, step:0.05, default:2.5},
         {name:'gamma', label:'Recovery rate γ', min:0.05, max:0.5, step:0.01, default:0.12, unit:'/day'},
@@ -724,12 +724,12 @@
             g.frame({cbar:true, x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
             g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap, {smooth:false});
             g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
-        curve:{ label:'Curve', about:'the well-mixed S / I / R totals — the classic epidemic curve',
+        curve:{ label:'Curve', about:'S / I / R summed over the line of sites — a lower peak than the well-mixed one in Threshold',
           views:[ { title:'population fractions S, I, R over time', draw:(g,d)=>{ const T=TH(), tE=d.times[d.nF-1]||1;
             g.frame({x:[0,tE], y:[0,1.02], xlabel:'time (days)', ylabel:'fraction of population', title:'peak infected = '+(d.peakI*100).toFixed(0)+'% (R₀='+d.R0.toFixed(2)+')'});
             const mk=a=>a.map((v,i)=>[d.times[i],v]); g.line(mk(d.totS),{color:T.accent,width:2}); g.line(mk(d.totI),{color:T.neg,width:2.4}); g.line(mk(d.totR),{color:T.pos,width:2});
             g.legend([{label:'S susceptible',color:T.accent},{label:'I infected',color:T.neg},{label:'R recovered',color:T.pos}],{corner:'tr'}); }} ] },
-        threshold:{ label:'Threshold', about:'peak prevalence vs R₀ — flat below 1, rising sharply above',
+        threshold:{ label:'Threshold', about:'peak prevalence vs R₀ for one well-mixed population (no space) — flat below 1, rising sharply above',
           views:[ { title:'epidemic threshold: peak infected vs R₀', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.05,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[0,4], y:[0,ymax], xlabel:'basic reproduction number R₀', ylabel:'peak infected fraction', title:'no outbreak below R₀ = 1; epidemic above'});
             g.vline(1,{color:'#7a5a93',dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
@@ -807,7 +807,7 @@
     kuramoto: {
       id:'kuramoto', name:'Kuramoto oscillators (sync)',
       blurb:'N phase oscillators, each with its own natural frequency, all-to-all coupled with strength K. Below a critical coupling they drift incoherently; above it they spontaneously synchronise. Use the lens switch for the angles — structure first: Structure (the frequency spread and the coupling), Dynamics (the phases racing around a circle), Sync (the order parameter r as a function of K — the synchronization transition).',
-      note:'Mean-field Kuramoto: dθ_i/dt = ω_i + K·r·sin(ψ − θ_i), where the order parameter r·e^{iψ} = (1/N)Σ e^{iθ_j} measures global synchrony (r=0 incoherent, r=1 locked). Synchrony emerges above a critical coupling K_c ≈ 2/(π·g(0)) set by the spread of natural frequencies g (for a Gaussian spread σ, K_c ≈ 1.6σ). Raise K past K_c, or narrow the frequency spread, and r jumps up. Composed from MSLIB.osc.',
+      note:'Mean-field Kuramoto: dθ_i/dt = ω_i + K·r·sin(ψ − θ_i), where the order parameter r·e^{iψ} = (1/N)Σ e^{iθ_j} measures global synchrony (r=0 incoherent, r=1 locked). Synchrony emerges above a critical coupling K_c ≈ 2/(π·g(0)) set by the spread of natural frequencies g (for a Gaussian spread σ, K_c ≈ 1.6σ). That K_c is the noise-free value; phase noise raises the real threshold (with D = noise²/2, 2/K_c = ∫ D/(D²+ω²) g(ω) dω), so at high noise and a narrow spread r rises well past the marked K_c. Raise K past K_c, or narrow the frequency spread, and r jumps up. Composed from MSLIB.osc.',
       params:[
         {name:'K', label:'Coupling K', min:0, max:8, step:0.05, default:3, unit:''},
         {name:'spread', label:'Natural-frequency spread σ', min:0.2, max:3, step:0.05, default:1},
@@ -987,7 +987,7 @@
     retina: {
       id:'retina', name:'Retina → V1 (layered vision)',
       blurb:'A layered early-vision model on an image: photoreceptors → a center-surround stage (bipolar + horizontal cells, a difference-of-Gaussians receptive field) → ganglion edge signals → V1 simple cells (oriented Gabor) → V1 complex cells (orientation energy). Use the lens switch for the angles — architecture first: Architecture (the layer stack and its receptive fields), Layers (the image transformed stage by stage), RF (the receptive-field profiles and V1 tuning), Compare (how the horizontal-cell surround changes the output).',
-      note:'The center-surround stage is a difference-of-Gaussians RF: an excitatory center minus an inhibitory surround supplied by horizontal cells. Being zero-mean, it suppresses uniform regions and enhances edges/contrast (lateral inhibition). V1 simple cells are oriented Gabors on that edge signal; complex cells pool the quadrature pair (even² + odd²) for phase-invariant orientation energy. Turn the surround up and flat regions vanish while edges sharpen. Composed from MSLIB.vision (DoG) + the oriented-filter helpers.',
+      note:'The center-surround stage is a difference-of-Gaussians RF: an excitatory center minus an inhibitory surround supplied by horizontal cells. With the surround weight near 1 it sums to about zero, so it suppresses uniform regions and passes edges (lateral inhibition, band-pass); below 1 it keeps part of the mean. V1 simple cells are oriented Gabors on that edge signal; complex cells pool the quadrature pair (even² + odd²) for phase-invariant orientation energy. Turn the surround up and coarse (low spatial frequency) contrast is removed while fine detail passes. Composed from MSLIB.vision (DoG) + the oriented-filter helpers.',
       params:[
         {name:'ori', label:'Orientation θ (condition)', min:0, max:179, step:1, default:60, unit:'°'},
         {name:'sf', label:'Spatial frequency', min:1, max:7, step:0.1, default:3, unit:'cyc/img'},
@@ -1039,8 +1039,8 @@
               g.line(tun,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
           ] },
         compare:{ label:'Compare', about:'how the horizontal-cell surround changes the output',
-          views:[ { title:'edge enhancement vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;
-            g.frame({x:[0,1.4], y:[0,ymax], xlabel:'horizontal-cell surround strength', ylabel:'output contrast (RMS)', title:'a stronger surround removes flat regions and sharpens edges (band-pass)'});
+          views:[ { title:'output contrast vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;
+            g.frame({x:[0,1.4], y:[0,ymax], xlabel:'horizontal-cell surround strength', ylabel:'output contrast (RMS)', title:'a stronger surround subtracts more; coarse gratings lose the most (band-pass)'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
             g.marker(d.surround, Plot.nearestY(d.sweep, d.surround), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
       },
@@ -1124,7 +1124,7 @@
         structure:{ label:'Structure', about:'the attention matrix — which token (row) attends to which (col)',
           views:[ { title:'attention matrix: query i (row) attends to key j (column)', draw:(g,d)=>{ const T=TH(), N=d.N, amax=Math.max(...d.attn.flat());
             g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'dark cells = strong attention; same-type / nearby tokens form blocks'});
-            g.heat(N, N, (i,j)=>d.attn[N-1-j][i], v=>Plot.RAMPS.blue(v/amax), {smooth:false});
+            g.heat(N, N, (i,j)=>d.attn[j][i], v=>Plot.RAMPS.blue(v/amax), {smooth:false});   // row j of the map = query j, matching the y ticks (heat puts j=0 at the bottom)
             g.colorbar(0, amax, v=>Plot.RAMPS.blue(v/amax), {label:'attention'});
           }} ] },
         mix:{ label:'Mix', about:'how one token’s output is the attention-weighted mix of the values',
@@ -1150,8 +1150,8 @@
        STRUCTURE FIRST. Angles: Structure, Policy (value function + regions), Episode, Compare. */
     pomdp: {
       id:'pomdp', name:'POMDP — the tiger (value iteration)',
-      blurb:'The classic Tiger POMDP. A tiger is behind one of two doors; you cannot see which. You may LISTEN (a noisy roar, small cost) to sharpen your belief, or OPEN a door — the safe one for a reward, the tiger one for a big penalty. Solving it is value iteration over the BELIEF (the probability the tiger is on the left): the optimal policy listens while uncertain and opens once confident. Use the lens switch for the angles — structure first: Structure (the problem), Policy (the value function and when to listen vs open), Episode (belief updating until you act), Compare (how listening accuracy reshapes the strategy).',
-      note:'Belief b = P(tiger left). Reward: open the safe door +10, the tiger door −(penalty); listening costs 1 and returns a roar from the true side with accuracy a, updating b by Bayes. Value iteration on a belief grid: V(b)=max over actions of Q; Q(listen)=−1+γ·E_obs V(b′); Q(open)=immediate reward + γ·V(½) (the game resets). The value function is convex and piecewise-linear; the policy splits into open-left / listen / open-right regions. Less accurate listening WIDENS the listen region — you must gather more evidence before acting. This is POMDP control (beyond the belief-tracking model). Composed inline.',
+      blurb:'The classic Tiger POMDP. A tiger is behind one of two doors; you cannot see which. You may LISTEN (a noisy roar, small cost) to sharpen your belief, or OPEN a door — the safe one for a reward, the tiger one for a big penalty. Solving it is value iteration over the BELIEF (the probability the tiger is on the left): the optimal policy listens while uncertain and opens once confident. Use the lens switch for the angles — structure first: Structure (the problem), Policy (the value function and when to listen vs open), Episode (belief updating until you act), Compare (how the tiger penalty reshapes the strategy).',
+      note:'Belief b = P(tiger left). Reward: open the safe door +10, the tiger door −(penalty); listening costs 1 and returns a roar from the true side with accuracy a, updating b by Bayes. Value iteration on a belief grid: V(b)=max over actions of Q; Q(listen)=−1+γ·E_obs V(b′); Q(open)=immediate reward + γ·V(½) (the game resets). The value function is convex and piecewise-linear; the policy splits into open-left / listen / open-right regions. A bigger tiger penalty widens the listen region (Compare). Less accurate listening makes each listen worth less, so it does not simply widen the region: at the defaults it shrinks from 92% of beliefs (a = 0.85) to 86% (a = 0.55). This is POMDP control (beyond the belief-tracking model). Composed inline.',
       params:[
         {name:'obsAcc', label:'Listening accuracy', min:0.55, max:0.98, step:0.01, default:0.85},
         {name:'rTiger', label:'Tiger penalty', min:20, max:200, step:5, default:100},

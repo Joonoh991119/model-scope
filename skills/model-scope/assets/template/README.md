@@ -14,7 +14,7 @@ that fit its class; the payoff is comparing what changes across parameters and m
   speed-accuracy overlay, a metric heatmap over a (drift, noise) grid, and metric bars.
 - **Attractor network — decision** *(lens switch)* — structure first: the circuit wiring and E/I,
   then one pool's input, winner-take-all dynamics, and the (S1, S2) flow-speed map
-  (dark = slow, where the network settles).
+  (dark = slow, near a fixed point: the two attractors and the saddle between them).
 - **Epidemic (spatial SIR)** *(lens switch)* — a macro model: a space-time kymograph, the S/I/R
   curves, and peak prevalence vs R0 (the epidemic threshold).
 - **Early vision — orientation** *(lens switch)* — an image-input model: the grating image, oriented
