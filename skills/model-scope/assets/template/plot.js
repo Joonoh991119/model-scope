@@ -5,8 +5,9 @@
  *
  * Classic script → window.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS }.
  * Text size scales with window.__plotFontScale (the app's "Text size" control):
- * fonts, frame margins and label offsets all grow together so larger text still
- * gets its own space and never overlaps the graphics. Theme is light; DPR-correct.
+ * fonts, frame margins and label offsets all grow together so larger text keeps
+ * its own space (at the largest sizes in a narrow or pinned pane, long titles and
+ * strip names can still truncate). Theme is light; DPR-correct.
  * ========================================================================== */
 (function (global) {
   'use strict';

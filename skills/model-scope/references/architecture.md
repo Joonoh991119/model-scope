@@ -81,9 +81,11 @@ stages stay drawn, the current one is emphasised. The playhead auto-advances slo
    keeps going while the other lens is shown. Stopping playback and superseding a simulation are
    separate operations (`stopPlayback()` and `supersede()` in `index.html`).
 5. For **heavy** screens it exposes a loading overlay: `window.__setLoading(on,prog,label)`,
-   `window.__redraw()` (repaint), and `window.__simGen` (the live generation). `SIM.runChunks`
-   in `engine.js` uses all three — a `simulate()` returns `{loading:true}` immediately and the
-   batch fills in across frames. In Node (no rAF) `runChunks` runs synchronously, so the same
+   `window.__redraw()` (the last chunk landed: bind the lens again from the finished data),
+   `window.__simFailed(error)` (a later chunk threw: show it where the views would be) and
+   `window.__simGen` (the live generation). `SIM.runChunks` in `engine.js` uses them: a
+   `simulate()` returns `{loading:true}` immediately and the batch fills in across frames;
+   playback starts once it is done. In Node (no rAF) `runChunks` runs synchronously, so the same
    code validates.
 
 6. If `simulate()` throws or returns no object, the view area says so (with the message) instead

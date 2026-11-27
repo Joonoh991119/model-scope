@@ -166,6 +166,12 @@ if (keep) { tag = 'rapid'; const before = errs.length; await p.goto(pageUrl(T, `
   const sup = await q.evaluate(() => ({ first: window.__first.done, firstLoading: window.__first.loading, same: window.__first === window.__heavy }));
   check('slider-supersedes-compute', !sup.same && sup.first === frozenAt && sup.first < 240, `runChunks fixture: moving a slider mid-compute starts a new run; the old one stopped at ${sup.first}/240 and stayed there`);
   await q.context().close(); }
+{ // a throw in a later chunk (after simulate() returned): the overlay clears and the view area says what failed
+  tag = 'heavy-throw'; const dir = withFixture('heavy.js'); const q = await browser.newContext({ viewport: { width: 1320, height: 760 } }).then(c => c.newPage()); const perr = []; q.on('pageerror', e => perr.push(String(e.message)));
+  await q.goto(pageUrl(dir, '?model=heavy&p.fail=1')); const t0 = Date.now(); let o;
+  do { await q.waitForTimeout(250); o = await q.evaluate(() => ({ overlay: document.getElementById('loading').classList.contains('on'), msg: (document.querySelector('#views [role="alert"]') || {}).textContent || '', busy: document.getElementById('views').getAttribute('aria-busy') })); } while (o.overlay && Date.now() - t0 < 20000);
+  check('chunk-error-shown', !o.overlay && /chunk boom from the fixture/.test(o.msg) && o.busy !== 'true' && perr.length === 0, `runChunks fixture throwing at item 100 of 240: overlay ${o.overlay ? 'still on' : 'cleared'}, view area says "${o.msg.slice(52, 100)}", ${perr.length} page errors`);
+  await q.context().close(); }
 
 // ---- D2. links, remembered state, error display, announcements ----
 const byId = Object.fromEntries(order.map(m => [m.id, m]));
@@ -193,7 +199,9 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
   const z2 = await p.locator('#f_z').inputValue(); check('query-params-remembered', parseFloat(z2) === 2, `z=2 from the link, after leaving for ${away.id} and returning: ${z2}`);
   await p.locator('#linkBtn').click(); await p.waitForTimeout(150); const link = await p.locator('#linkOut').inputValue();
   const q2 = await newPage(); await q2.goto(link + (link.includes('?') ? '' : '')); await q2.waitForTimeout(260); const b = await state(q2), zb = await q2.locator('#f_z').inputValue(); await q2.context().close();
-  check('copy-link-round-trip', /[?&]p\.z=2\b/.test(link) && /seed=abc/.test(link) && /#ddm/.test(link) && b.model === 'ddm' && parseFloat(zb) === 2 && b.seed === 'abc', `"Copy link" gives ${link.replace(/^.*index\.html/, 'index.html')}; opening it restores z=${zb}, seed "${b.seed}"`); }
+  check('copy-link-round-trip', /[?&]p\.z=2\b/.test(link) && /seed=abc/.test(link) && /#ddm/.test(link) && b.model === 'ddm' && parseFloat(zb) === 2 && b.seed === 'abc', `"Copy link" gives ${link.replace(/^.*index\.html/, 'index.html')}; opening it restores z=${zb}, seed "${b.seed}"`);
+  await p.locator('#seedInput').fill('changed'); await p.waitForTimeout(60); const stale = await p.locator('#linkOut').isVisible();
+  check('copied-link-hidden-when-stale', !stale, `after Copy link, editing the seed ${stale ? 'leaves the old link visible' : 'hides the copied link'}`); }
 { tag = 'a11y-live'; const m = order.find(x => x.lenses.length === 0) || order[0]; await p.goto(pageUrl(T, `?model=${m.id}`)); await p.waitForTimeout(250);
   const seqVisible = await p.locator('#transport').isVisible();
   if (seqVisible) { await p.locator('#toStartBtn').click(); await p.waitForTimeout(120); const playing = await p.locator('#playBtn').getAttribute('aria-label');
@@ -254,6 +262,11 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
   const resized = r2.every((s, i) => s.split(':')[0] !== r1[i].split(':')[0]), retext = r3.every((s, i) => s !== r2[i]);
   check('pin-compare', keeps && live && named && resized && retext && /same parameters/.test(same),
     `${m0.id}: before a change "${same}"; ${np ? np.name : '-'} -> ${changed}: live ${live ? 'redrawn' : 'UNCHANGED'}, reference ${keeps ? 'kept' : 'CHANGED'}, line "${line}"; resize redraws ${r2.filter((s, i) => s.split(':')[0] !== r1[i].split(':')[0]).length}/${r1.length} references, text size ${r3.filter((s, i) => s !== r2[i]).length}/${r2.length}`);
+  // Pin pressed while a slider change is still waiting to run keeps the parameters of the result it pins
+  tag = 'pin-debounce'; if (np) { await pp.locator('#pinBtn').click(); await pp.waitForTimeout(100);
+    await pp.evaluate(([name, v]) => { const el = document.getElementById('f_' + name); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('pinBtn').click(); }, [np.name, np.def]);
+    await pp.waitForTimeout(450); const ln = await pp.locator('#pinLine').textContent();
+    check('pin-during-debounce', /→/.test(ln) && ln.includes('→ ' + String(+np.def)), `${m0.id}: ${np.name} typed back to ${np.def} and Pin pressed at once: "${ln}" (the pinned result was made with the earlier value)`); }
   await pp.context().close();
   // phone: pinned cards stack and nothing overflows sideways
   tag = 'pin-phone'; const ph = await newPage({ viewport: { width: 400, height: 800 } }); const over = [];

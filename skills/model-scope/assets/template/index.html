@@ -155,13 +155,13 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
       <p class="tip" id="tip"></p>
       <p class="pinline" id="pinLine" hidden></p>
       <div class="views" id="views"></div>
-      <div id="loading"><div class="ttl">computing…</div><div class="barwrap"><div class="bar" id="loadingBar"></div></div><div class="sub" id="loadingSub"></div></div>
+      <div id="loading"><div class="ttl">computing…</div><div class="barwrap" id="loadingProg" role="progressbar" aria-label="Computing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="loadingBar"></div></div><div class="sub" id="loadingSub"></div></div>
       <div class="sr" id="live" aria-live="polite"></div>
     </main>
   </div>
 </div>
 <script src="plot.js"></script>
-<script src="modules/mslib.js"></script>   <!-- optional reusable model library (window.MSLIB) -->
+<script src="modules/mslib.js"></script>   <!-- reusable model library (window.MSLIB); examples.js needs it -->
 <script src="engine.js"></script>            <!-- the core + YOUR models -->
 <script src="examples.js"></script>          <!-- optional: the 21 worked examples. Delete this line (and examples.js, examples.checks.mjs) to ship only your own models -->
 <script>
@@ -225,7 +225,7 @@ function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.i
   S.lensKeys.forEach(k=>{ const L=S.model.lenses[k], b=document.createElement('button'); b.type='button'; b.dataset.id=k; b.textContent=L.label||k;
     b.setAttribute('aria-pressed',k===S.lens); b.title=L.about||''; b.onclick=()=>{ if(k===S.lens) return; switchLens(k); writeHash(); }; box.appendChild(b); }); }
 // same data, different zoom level — no re-simulate, so a computation that is still filling in (runChunks) keeps going
-function switchLens(k){ if(k===S.lens || !has(S.model.lenses,k)) return; S.lens=k; S.lensMem[S.modelId]=k; stopPlayback();
+function switchLens(k){ if(k===S.lens || !has(S.model.lenses,k)) return; S.lens=k; S.lensMem[S.modelId]=k; stopPlayback(); staleLink();
   for(const b of $('#lensSwitch').querySelectorAll('button')) b.setAttribute('aria-pressed', b.dataset.id===k);
   bindLens(); }
 function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
@@ -252,7 +252,7 @@ function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
   const fill=v=>range.style.setProperty('--fill',clamp((v-spec.min)/(spec.max-spec.min)*100,0,100)+'%');
   const apply=v=>{ v=clamp(spec.int?Math.round(v):v,spec.min,spec.max); obj[spec.name]=v; num.value=spec.int?v:+v.toFixed(4); range.value=v; fill(v); onChange&&onChange(); };
   range.addEventListener('input',()=>apply(parseFloat(range.value)));
-  num.addEventListener('input',()=>{const v=parseFloat(num.value); if(!Number.isNaN(v)){obj[spec.name]=clamp(v,spec.min,spec.max); range.value=obj[spec.name]; fill(obj[spec.name]); onChange&&onChange();}});
+  num.addEventListener('input',()=>{const v=parseFloat(num.value); if(!Number.isNaN(v)){obj[spec.name]=clamp(spec.int?Math.round(v):v,spec.min,spec.max); range.value=obj[spec.name]; fill(obj[spec.name]); onChange&&onChange();}});
   num.addEventListener('blur',()=>{ const v=parseFloat(num.value); apply(Number.isNaN(v) ? obj[spec.name] : v); });    // an empty or unreadable field returns to the current value; a typed 0 stays 0
   apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
 function setModel(id, lens){ S.suppress=true; S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
@@ -274,8 +274,8 @@ function buildCards(){ const vc=$('#views'); vc.innerHTML=''; const P=S.pins[S.m
     else d.appendChild(cv);
     vc.appendChild(d); return cv; }); }
 // the pinned result's own playhead range under the active lens (its data may have a different length or stage list)
-function refFrame(spec,P){ let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(P.params, P.data) : spec.stages) : null; }catch(e){ st=null; }
-  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(P.params, P.data); }catch(e){ len=1; } }
+function refFrame(spec,P){ let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(P.params, P.data) : spec.stages) : null; }catch(e){ console.error('[model-scope] stages() threw on the pinned result', {model:S.modelId, error:e}); st=null; }
+  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(P.params, P.data); }catch(e){ console.error('[model-scope] anim.length() threw on the pinned result', {model:S.modelId, error:e}); len=1; } }
   len = sm ? st.length : Math.max(1, (Number.isFinite(len)?Math.floor(len):1) || 1);
   return { stages: sm?st:null, len, max: sm ? Math.max(0,len-1) : len }; }
 const fmtVal=(s,v)=> s.type==='bool' ? (v?'on':'off') : s.type==='enum' ? String((s.options||[])[v]!=null ? s.options[v] : v) : String(+(+v).toFixed(4));
@@ -291,10 +291,11 @@ function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.vi
   d.appendChild(b); d.appendChild(document.createElement('br')); d.appendChild(document.createTextNode(detail)); vc.appendChild(d); }
 
 /* ---- simulate (shared by all lenses), then bind the active lens ---- */
-function recompute(){ clearTimeout(rt); supersede(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
-  const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null;
-  try{ S.data=S.model.simulate({...S.params}, env); }
+function recompute(){ clearTimeout(rt); supersede(); staleLink(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
+  const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null; S.dataParams={...S.params};   // the parameters S.data was made with (Pin keeps these, not a value typed since)
+  S.inSim=true; try{ S.data=S.model.simulate({...S.params}, env); }
   catch(e){ S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[model-scope] simulate() threw', {model:S.modelId, error:e}); }
+  finally{ S.inSim=false; }
   if(!S.simError && (!S.data || typeof S.data!=='object')){ S.data=null; S.simError='simulate() returned no data object'; console.error('[model-scope] '+S.simError, {model:S.modelId}); }
   if(myGen!==S.gen) return; bindLens(); }
 // bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
@@ -314,11 +315,11 @@ function bindLens(){ const spec=activeSpec(); pinUi();
   $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));    // keep the bar (for the lens switch) even if THIS lens is static
   $('#transport').style.display = seq ? 'flex' : 'none'; $('#lensSep').style.display = (S.lensKeys && seq) ? 'block' : 'none';
   $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
-  const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; }
-  const useQ = boot && (Q.still==='1' || Q.head!=null); boot=false;       // deep-link: freeze at a requested frame for a clean screenshot
+  const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; } speedUi();
+  const useQ = boot && (Q.still==='1' || Q.head!=null); if(!S.loading) boot=false;    // while runChunks fills the data in, the lens is bound again when it is done       // deep-link: freeze at a requested frame for a clean screenshot
   if(useQ){ S.head = Q.head!=null ? clamp(parseFloat(Q.head)||0, 0, S.maxHead) : S.maxHead; readout(); drawAll(); return; }
   S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
-  readout(); if(seq && !reduceMotion){ play(); } else { drawAll(); } }
+  readout(); if(seq && !reduceMotion && !S.loading){ play(); } else { drawAll(); } }
 function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, Math.floor(S.head))) : null;
   const ui={ head:S.head, playing:S.playing, params:S.params, frac:S.head-Math.floor(S.head),
     stage:stg, stageKey:(stg!=null && S.stageList[stg]) ? S.stageList[stg].key : null, stages:S.stageList, nStages:S.stageMode?S.length:0 };
@@ -336,7 +337,7 @@ function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
     catch(e){ console.error('[model-scope] pinned view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
       try{ Plot.make(S.refCanvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
 function redrawAll(){ S.refDrawn=false; drawAll(); }
-let rt; function schedule(){ clearTimeout(rt); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
+let rt; function schedule(){ clearTimeout(rt); staleLink(); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
 
 /* ---- playhead (for sequential models) ---- */
 function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;   // wall-clock → frame-rate independent
@@ -344,26 +345,33 @@ function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S
   if(S.playing){ S.head=Math.min(S.maxHead, S.head + S.speed*fdt); if(S.head>=S.maxHead){ S.playing=false; ended=true; } }    // stop BEFORE drawing the final frame (so views see frac→1, not 0)
   drawAll(); readout();
   if(S.playing) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; pico(); if(ended) say('End. '+readoutText()); } }
-function play(){ if(S.head>=S.maxHead) S.head=0; S.playing=true; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
+function play(){ if(S.head>=S.maxHead) S.head=0; S.playing=true; S.refDrawn=false; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
 function pause(){ if(!S.playing) return; S.playing=false; pico(); say('Paused. '+readoutText()); }
 // Two different things, kept apart: stopPlayback() halts the animation of what is on screen; supersede() also
 // starts a new generation, which makes an in-flight runChunks() of the OLD simulate() bail, and clears its overlay.
 function stopPlayback(){ S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; pico(); }
 function supersede(){ S.gen++; window.__simGen=S.gen; stopPlayback(); window.__setLoading(false); }
-function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%');
+function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%'); sc.setAttribute('aria-valuetext', readoutText());
   if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k];
     $('#tread').innerHTML=`<b>${k+1}</b> / ${S.length} — ${st?esc(st.name):''}`; }
   else { const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`; } }
 function pico(){ const b=$('#playBtn'), t=S.playing?'Pause':'Play'; b.title=t; b.setAttribute('aria-label',t);
   $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
 
+const rangeFill=el=>el.style.setProperty('--fill', clamp((+el.value-+el.min)/((+el.max-+el.min)||1)*100,0,100)+'%');
+function speedUi(){ const el=$('#spd'); rangeFill(el); el.setAttribute('aria-valuetext', (+el.value)+(S.stageMode?' steps':' frames')+' per second'); }
+function setFontScale(v){ const f=$('#fontScale'); v=clamp(v, +f.min, +f.max); f.value=v; window.__plotFontScale=v; const t=Math.round(v*100)+'%';
+  $('#fontScaleVal').textContent=t; f.setAttribute('aria-valuetext', t); rangeFill(f); }
+function staleLink(){ const o=$('#linkOut'); if(o && !o.hidden){ o.hidden=true; o.value=''; } }    // a copied link describes the state it was made from: hide it once that changes
+
 /* loading overlay + async hooks — a heavy simulate() drives these via runChunks (see engine.js):
    __simGen lets superseded runs bail, __setLoading shows progress, __redraw repaints when a chunk lands. */
 window.__simGen=S.gen;
-window.__redraw=()=>drawAll();
+window.__redraw=()=>{ if(!S.inSim) bindLens(); };      // the last chunk landed: bind the lens again (length, stages and the pinned frame come from the finished data)
+window.__simFailed=e=>{ if(S.inSim) throw e; S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[model-scope] simulate() threw in a later chunk', {model:S.modelId, error:e}); stopPlayback(); bindLens(); };
 window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; on=!!on; el.classList.toggle('on',on);
-  if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); pinUi(); }
-  if(on){ const b=$('#loadingBar'); if(b)b.style.width=Math.round((prog||0)*100)+'%'; const s=$('#loadingSub'); if(s)s.textContent=label||(Math.round((prog||0)*100)+'%'); } };
+  if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); pinUi(); const v=$('#views'); if(v) v.setAttribute('aria-busy', on); }
+  if(on){ const b=$('#loadingBar'); if(b)b.style.width=Math.round((prog||0)*100)+'%'; const pg=$('#loadingProg'); if(pg) pg.setAttribute('aria-valuenow', Math.round((prog||0)*100)); const s=$('#loadingSub'); if(s)s.textContent=label||(Math.round((prog||0)*100)+'%'); } };
 
 $('#runBtn').onclick=()=>recompute();
 $('#resetBtn').onclick=()=>{ S.suppress=true; (S.model.params||[]).forEach(p=>{const f=$('#f_'+p.name); if(!f)return;
@@ -372,7 +380,7 @@ $('#resetBtn').onclick=()=>{ S.suppress=true; (S.model.params||[]).forEach(p=>{c
     else { f.value=p.default; f.dispatchEvent(new Event('input')); }}); $('#seedInput').value=DEFAULT_SEED; S.suppress=false; recompute(); };
 $('#pinBtn').onclick=()=>{ const id=S.modelId;
   if(S.pins[id]){ delete S.pins[id]; say('Unpinned.'); }
-  else { if(!S.data || S.simError || S.loading) return; S.pins[id]={ params:{...S.params}, seed:S.seed, data:S.data }; say('Pinned. Each view now shows this result beside the live one.'); }
+  else { if(!S.data || S.simError || S.loading) return; S.pins[id]={ params:{...(S.dataParams||S.params)}, seed:S.seed, data:S.data }; say('Pinned. Each view now shows this result beside the live one.'); }
   pinUi(); if(!S.simError){ buildCards(); drawAll(); } };
 $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
@@ -387,8 +395,8 @@ $('#stepBackBtn').onclick=()=>stepBy(-1);
 $('#stepFwdBtn').onclick=()=>stepBy(1);
 $('#scrub').addEventListener('input',()=>{ stopPlayback(); S.head=clamp(+$('#scrub').value,0,S.maxHead); drawAll(); readout(); });
 $('#scrub').addEventListener('change',()=>say(readoutText()));
-$('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; });
-$('#fontScale').addEventListener('input',()=>{ window.__plotFontScale=+$('#fontScale').value; $('#fontScaleVal').textContent=Math.round(window.__plotFontScale*100)+'%'; redrawAll(); });
+$('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; speedUi(); });
+$('#fontScale').addEventListener('input',()=>{ setFontScale(+$('#fontScale').value); redrawAll(); });
 let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,90); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
 if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };   // the setting can change while the page is open
@@ -402,10 +410,12 @@ addEventListener('hashchange',()=>{ const h=parseHash(); if(!h) return;
 const APP=SIM.APP||{};      // optional: SIM.APP = { title:'My paper', tagline:'…' } names the page
 if(APP.title){ $('#appTitle').textContent=APP.title; document.title=APP.title; }
 if(APP.tagline!=null) $('#appTagline').textContent=APP.tagline;
-if(Q.text){ const ts=parseFloat(Q.text); if(ts>0){ window.__plotFontScale=ts; const f=$('#fontScale'); if(f)f.value=ts; const fv=$('#fontScaleVal'); if(fv)fv.textContent=Math.round(ts*100)+'%'; } }
+setFontScale(+$('#fontScale').value);
+if(Q.text){ const ts=parseFloat(Q.text); if(ts>0) setFontScale(ts); }     // clamped to the slider's range, so the label says what is drawn
 if(!SIM.MODEL_ORDER.length){   // nothing registered: say what to do instead of throwing
   $('#views').innerHTML='<div class="empty"><b>No model is registered yet.</b><br>Add one to <code>MODELS</code> and <code>MODEL_ORDER</code> in <code>engine.js</code> (README.md shows the entry), or put the <code>examples.js</code> script line back in <code>index.html</code> to load the worked examples.</div>';
-  $('#blurb').textContent='No model registered.'; $('#note').hidden=true; return; }
+  $('#blurb').textContent='No model registered.'; $('#note').hidden=true;
+  for(const b of ['runBtn','resetBtn','pinBtn','linkBtn','diceBtn','seedInput']) $('#'+b).disabled=true; return; }
 { const H=parseHash(), qm=(Q.model!=null && isModel(Q.model)) ? Q.model : null;
   const startModel = H ? H.model : (qm || S.modelId);
   const startLens = (H && H.lens) || ((!H || !qm || qm===H.model) ? Q.lens : null);

@@ -37,15 +37,20 @@
        const doItem = k => { … ; Object.assign(d.perCond[i], summarise(acc[i])); if(k===total-1) d.loading=false; };  // the LAST item clears loading
        if (env.batch===false) { for(let k=0;k<total;k++) doItem(k); }              // sync for validate.mjs / Node
        else runChunks(total, doItem, 'sweeping conditions');
-       return d;                                           // returns immediately; chunks fill it in, then ONE __redraw at the end
-     While it runs only the overlay's progress bar moves; the views are redrawn once, after the last chunk.
+       return d;                                           // returns immediately; chunks fill it in, then the lens is bound once more at the end
+     While it runs only the overlay's progress bar moves; after the last chunk the lens is bound again
+     (its length and stages read from the finished data) and drawn. A throw in a later chunk is shown
+     in the view area, like a throw in simulate().
      In Node (no rAF) it runs synchronously. */
   function runChunks(total, doItem, label){
     if(typeof window==='undefined' || !window.requestAnimationFrame){ for(let k=0;k<total;k++) doItem(k); return; }
-    const myGen=window.__simGen, chunk=Math.max(1, Math.round(total/60)); let k=0;
+    const myGen=window.__simGen, chunk=Math.max(1, Math.round(total/60)); let k=0, first=true;
     const step=()=>{ if(window.__simGen!==myGen) return;                       // a newer slider move / model switch superseded us
-      const end=Math.min(total, k+chunk); for(; k<end; k++) doItem(k);
-      const done=k>=total, prog=total?k/total:1;
+      try{ const end=Math.min(total, k+chunk); for(; k<end; k++) doItem(k); }
+      catch(e){ if(first) throw e;                                             // the first chunk runs inside simulate(): the page reports it like any throw
+        if(window.__setLoading) window.__setLoading(false);                    // a later chunk: clear the overlay and say what failed where the plots would be
+        if(window.__simFailed) window.__simFailed(e); else console.error(e); return; }
+      first=false; const done=k>=total, prog=total?k/total:1;
       if(window.__setLoading) window.__setLoading(!done, prog, label);
       if(done){ if(window.__redraw) window.__redraw(); } else window.requestAnimationFrame(step); };
     step();

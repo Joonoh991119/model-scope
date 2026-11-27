@@ -54,7 +54,9 @@ contour, a vector field) rather than working around it.
 
 **Text size.** Fonts, frame margins and label offsets all scale with `window.__plotFontScale`
 (the toolbox's "Text size" control), so larger text keeps its own space instead of overlapping the
-graphics — never hard-code pixel offsets that assume one font size.
+graphics — never hard-code pixel offsets that assume one font size. In a narrow pane (a phone, or a
+pinned card, where each pane is half as wide) long titles and strip names can still truncate at the
+largest sizes.
 
 **Readability conventions — make every plot self-interpretable:**
 - Label every axis **with units**; give every heatmap a **colorbar** (`g.colorbar`).

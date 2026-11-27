@@ -204,8 +204,9 @@ not exact numbers: disclose it (README and in-plot), measure robustly (a peak sl
 fixed-window slope an easy condition saturates past), and never tune a panel to fake a trend.
 
 **Heavy screens.** Return data at once with `loading:true`, run the batch with
-`SIM.runChunks(total, doItem, label)` (it shows the loading overlay with a progress bar, redraws the
-views once after the last chunk and stops when a newer run supersedes it); clear `loading` in the last
+`SIM.runChunks(total, doItem, label)` (it shows the loading overlay with a progress bar, binds the
+lens again after the last chunk, so `anim.length` and `stages` may read the finished data, shows a
+throw from any chunk where the views would be, and stops when a newer run supersedes it); clear `loading` in the last
 `doItem`, and have views draw a placeholder while it is set.
 Keep the mechanism screen instant.
 
