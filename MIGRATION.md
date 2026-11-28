@@ -39,7 +39,7 @@ model-scope/
     assets/template/                # THE app a user copies
       index.html        toolbox (sliders, lenses, transport, links, Pin). No external resources.
       engine.js         window.SIM: RNG, runChunks, the MODELS registry. A researcher's models go here.
-      engine.checks.mjs analytic checks for those models (ships as a commented example)
+      engine.checks.mjs analytic checks for those models (ships empty)
       examples.js       the 21 worked examples, registered after engine.js's models (optional)
       examples.checks.mjs their analytic checks
       plot.js           window.Plot: frame + primitives, histify, nearestY, ramp, RAMPS, TH

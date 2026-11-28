@@ -1,27 +1,3 @@
-/* =============================================================================
- * validate.mjs — the model-scope correctness gate.          Run:  node validate.mjs
- *
- * It loads exactly what index.html loads (the same <script src> list, in the same order, with
- * the REAL plot.js drawing onto a recording canvas stub), so the math and the views it checks are
- * the ones the page runs. The toolbox imposes no fixed output shape, so the gate is layered:
- *   (0) page      — every listed script exists and loads; nothing references another host or a
- *                   network API (the app must work offline from file://); the inline script parses;
- *                   the single-page bundle (bundle.mjs, if present) is self-contained;
- *   (1) schema    — every model's id, parameters, lenses and views are well-formed;
- *   (2) simulate  — runs at defaults, returns data, and is deterministic for a given seed;
- *   (3) views     — every view DRAWS at the start, middle and end of its playhead, per lens, with
- *                   finite axes, finite heatmap/image/graph data, a colorbar on every heatmap, and
- *                   (at the end of the playhead) at least one mark that is not axis furniture;
- *   (4) extremes  — simulate() stays finite and every view still draws at each control's min and max;
- *   (5) analytic  — per-model checks tied to the science (a closed form, a conservation law, a limit),
- *                   read from `<script>.checks.mjs` next to each script the page loads
- *                   (engine.checks.mjs for your models, examples.checks.mjs for the examples);
- *   (6) library   — the modules/mslib.js building blocks.
- * Options:
- *   --snapshot <file>   write digests of simulate() (defaults + every extreme) for YOUR models
- *   --against  <file>   compare with such a file and fail on any difference (an opt-in regression lock)
- * Deterministic: no Math.random, no clock — two runs print the same text.
- * ========================================================================== */
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -34,10 +10,6 @@ const warn = msg => { warns++; console.log(`  \x1b[33m⚠ ${msg}\x1b[0m`); };
 const finish = () => { console.log(`\n${fails === 0 ? '\x1b[32m✓ ALL CHECKS PASSED\x1b[0m' : `\x1b[31m✗ ${fails} FAILED\x1b[0m`}${warns ? `  (${warns} warning${warns > 1 ? 's' : ''})` : ''}\n`); process.exit(fails === 0 ? 0 : 1); };
 const fatal = msg => { console.log(`  ${msg}   [${ok(false)}]`); finish(); };
 
-// ---------------------------------------------------------------------------------------------
-// Browser stubs: a canvas whose 2d context counts INK calls, split into "chrome" (issued while an
-// axis/legend/annotation helper is running) and "data" (everything else).
-// ---------------------------------------------------------------------------------------------
 const INK = new Set(['stroke', 'fill', 'fillRect', 'strokeRect', 'fillText', 'strokeText', 'drawImage', 'putImageData']);
 let REC = null;
 function mkCtx() {
@@ -55,23 +27,17 @@ const mkCanvas = (w, h) => { const ctx = mkCtx(); return { width: 0, height: 0, 
 globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
 globalThis.document = { createElement: () => mkCanvas(1, 1) };
 
-// ---------------------------------------------------------------------------------------------
-// (0) Load what the page loads, in the page's order.
-// ---------------------------------------------------------------------------------------------
 console.log('\n=== model-scope gate ===\n');
 if (!fs.existsSync(new URL('index.html', HERE))) fatal('index.html not found next to validate.mjs');
 const html = fs.readFileSync(new URL('index.html', HERE), 'utf8');
 const tags = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(m => ({ body: m[2], src: (m[1].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] }));
 const scripts = tags.filter(t => t.src).map(t => t.src), inline = tags.filter(t => !t.src).map(t => t.body);
 const isRemote = s => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(s);
-const sources = {};   // file → text, for the static scan
+const sources = {};
 console.log(`--- page: index.html loads ${scripts.length} script${scripts.length === 1 ? '' : 's'} (${scripts.join(', ')}) ---`);
-// OWNER: model id → the script that registered it. SHADOWED: script → ids it tried to register but an
-// earlier script already had (engine.js register() keeps the first), so that script's check for the id
-// must not run against somebody else's model.
 const OWNER = {}, SHADOWED = {}; let current = null;
 for (const s of scripts) {
-  if (isRemote(s)) continue;                                   // reported by the static scan below
+  if (isRemote(s)) continue;
   if (!fs.existsSync(new URL(s, HERE))) fatal(`index.html loads ${s} but that file is missing`);
   sources[s] = fs.readFileSync(new URL(s, HERE), 'utf8');
   const before = new Set((globalThis.SIM && globalThis.SIM.MODEL_ORDER) || []); current = s;
@@ -87,7 +53,6 @@ const SIM = globalThis.SIM, Plot = globalThis.Plot, MSLIB = globalThis.MSLIB;
 if (!SIM || !SIM.MODELS || !Array.isArray(SIM.MODEL_ORDER)) fatal('no script defined window.SIM with MODELS and MODEL_ORDER (engine.js)');
 if (!Plot || typeof Plot.make !== 'function') fatal('no script defined window.Plot (plot.js)');
 
-// static scan: the app must be self-contained. Comments are dropped first so prose cannot trip it.
 const stripComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');
 const lineOf = (text, i) => text.slice(0, i).split('\n').length;
 const EXTERNAL = [
@@ -110,11 +75,9 @@ const NETWORK = [/\bfetch\s*\(/, /\bXMLHttpRequest\b/, /\bWebSocket\b/, /\bEvent
   const bad = []; inline.forEach((body, i) => { try { new Function(body); } catch (e) { bad.push(`inline script ${i + 1}: ${e.message}`); } });
   console.log(`  the inline toolbox script parses   [${ok(bad.length === 0)}]`); bad.forEach(b => console.log('    ' + b));
 }
-// bundle.mjs (optional) writes the app as one page: check that what it would write is self-contained.
 if (fs.existsSync(new URL('bundle.mjs', HERE))) {
   let problems = [], size = 0;
   try { const B = await import(new URL('bundle.mjs', HERE).href), b = B.bundle(fileURLToPath(HERE), { title: 'Gate Check Bundle' }); size = b.bytes; problems = B.bundleProblems(b.html);
-    // a script that contains a closing tag or an HTML comment opener must come out inert, and mean the same
     const probe = "const a='</script>', b='<!-- x', c=/<\\/SCRIPT>/i;", safe = B.escScript(probe), val = s => JSON.stringify(new Function(s + ' return [a, b, c.test("</script>")];')());
     if (/<\/script/i.test(safe) || /<!--/.test(safe)) problems.push('a closing script tag or an HTML comment opener inside a script is not escaped (the page would be cut short)');
     else if (val(safe) !== val(probe)) problems.push('escaping a script changed what it computes'); }
@@ -123,20 +86,16 @@ if (fs.existsSync(new URL('bundle.mjs', HERE))) {
   problems.forEach(b => console.log('    ' + b));
 }
 
-// ---------------------------------------------------------------------------------------------
-// Helpers shared by the generic passes and the analytic checks.
-// ---------------------------------------------------------------------------------------------
-const env = (seed, p) => ({ rng: SIM.makeRNG(seed), seed, params: { ...(p || {}) }, batch: false });   // params as the page passes them (index.html run())   // batch:false → heavy models run a SMALL synchronous batch here (see runChunks)
+const env = (seed, p) => ({ rng: SIM.makeRNG(seed), seed, params: { ...(p || {}) }, batch: false });
 const def = id => { const p = {}; (SIM.MODELS[id].params || []).forEach(s => { p[s.name] = s.default; }); return p; };
 const isNum = v => typeof v === 'number' && isFinite(v);
-const allFinite = (v, depth = 0) => {   // scan returned data for a non-finite number (bounded: ≤3000 per array level, depth ≤6)
+const allFinite = (v, depth = 0) => {
   if (typeof v === 'number') return isFinite(v);
   if (depth > 6) return true;
   if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n = Math.min(v.length, 3000); for (let i = 0; i < n; i++) if (!allFinite(v[i], depth + 1)) return false; return true; }
   if (v && typeof v === 'object') { for (const k in v) if (!allFinite(v[k], depth + 1)) return false; return true; }
-  return true;   // strings / functions / null: skip
+  return true;
 };
-// digest of everything simulate() returned: FNV-1a over toPrecision(10) of every number (plus strings, booleans, keys)
 const fnv = (s, h) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
 function digest(data) {
   const st = { n: 0, h: 0x811c9dc5 };
@@ -150,14 +109,13 @@ function digest(data) {
 }
 const extremesOf = s => s.type === 'enum' ? [0, ((s.options && s.options.length) || 1) - 1] : s.type === 'bool' ? [false, true] : (typeof s.min === 'number' && typeof s.max === 'number') ? [s.min, s.max] : [];
 
-// one view, drawn through the real plot.js onto a recording canvas
 const CHROME = ['frame', 'legend', 'colorbar', 'note', 'vline', 'hline', 'text'];
 function drawView(view, data, ui) {
   const rec = { badFrame: false, badData: false, heat: 0, colorbar: 0, dataInk: 0, chromeInk: 0, chrome: 0, threw: null };
   REC = rec;
   try {
     const g = Plot.make(mkCanvas(600, 400));
-    const sample = (nx, ny, val) => { if (typeof val !== 'function') return; for (const [i, j] of [[0, 0], [nx - 1, ny - 1], [nx >> 1, ny >> 1]]) if (!isNum(val(i, j))) rec.badData = true; };   // a heatmap/image fed non-finite values renders black — flag it
+    const sample = (nx, ny, val) => { if (typeof val !== 'function') return; for (const [i, j] of [[0, 0], [nx - 1, ny - 1], [nx >> 1, ny >> 1]]) if (!isNum(val(i, j))) rec.badData = true; };
     const before = {
       frame: o => { o = o || {}; if (o.x && (!isNum(o.x[0]) || !isNum(o.x[1]))) rec.badFrame = true; if (o.y && (!isNum(o.y[0]) || !isNum(o.y[1]))) rec.badFrame = true; },
       heat: (nx, ny, val) => { rec.heat++; sample(nx, ny, val); },
@@ -173,7 +131,6 @@ function drawView(view, data, ui) {
   } catch (e) { rec.threw = e; }
   REC = null; return rec;
 }
-// every lens × view × playhead position of a model, for one parameter set
 function renderModel(m, p, data, { nonEmpty = false } = {}) {
   const out = { draws: 0, threw: [], axis: [], dat: [], cbar: [], empty: [], hooks: [] }, add = (list, tag) => { if (!list.includes(tag)) list.push(tag); };
   for (const [key, spec] of (m.lenses ? Object.entries(m.lenses) : [['', m]])) {
@@ -200,11 +157,8 @@ function renderModel(m, p, data, { nonEmpty = false } = {}) {
   return out;
 }
 
-// ---------------------------------------------------------------------------------------------
-// (1) schema lint — the toolbox builds its controls, element ids and links from these fields.
-// ---------------------------------------------------------------------------------------------
 const ID_RE = /^[A-Za-z0-9_-]+$/, NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const RESERVED = id => ['settings', 'sidebar', 'customize', 'upgrade', 'downloads'].includes(id) || /^comment-/.test(id);   // names a hosting page may claim for itself in a #link
+const RESERVED = id => ['settings', 'sidebar', 'customize', 'upgrade', 'downloads'].includes(id) || /^comment-/.test(id);
 function lintModel(key, m) {
   const bad = [];
   if (!m || typeof m !== 'object') return ['not an object'];
@@ -246,17 +200,17 @@ if (ORDER.length === 0) fatal('no model is registered — add one to MODELS and 
   if (dup.length || ghost.length) { console.log(`  MODEL_ORDER and MODELS agree   [${ok(false)}]${dup.length ? '  listed twice: ' + [...new Set(dup)].join(',') : ''}${ghost.length ? '  in MODEL_ORDER but not in MODELS: ' + ghost.join(',') : ''}`); finish(); }
   if (hidden.length) warn(`in MODELS but not in MODEL_ORDER (no tab, not checked): ${hidden.join(', ')}`);
 }
-{ // every #<model>-<lens> link must open that screen: the page reads a hash left to right, so ids and lens keys with '-' can shadow each other
+{
   const lensOf = id => (SIM.MODELS[id] && SIM.MODELS[id].lenses) || null;
   const resolve = h => { if (ORDER.includes(h)) return h; for (let i = h.indexOf('-'); i > 0; i = h.indexOf('-', i + 1)) { const id = h.slice(0, i), k = h.slice(i + 1); if (ORDER.includes(id) && lensOf(id) && Object.prototype.hasOwnProperty.call(lensOf(id), k)) return id + ' lens ' + k; } return 'nothing'; };
   const clash = []; for (const id of ORDER) for (const k of Object.keys(lensOf(id) || {})) { const r = resolve(id + '-' + k); if (r !== id + ' lens ' + k) clash.push(`#${id}-${k} opens ${r}, not ${id} lens ${k}: rename the id or the lens key`); }
   console.log(`  every #model-lens link opens its own screen   [${ok(clash.length === 0)}]`); clash.forEach(c => console.log('    ' + c));
 }
-const usable = [];   // models whose simulate() ran at defaults — the later passes skip the rest (already reported)
+const usable = [];
 for (const id of ORDER) {
   const m = SIM.MODELS[id], lint = lintModel(id, m), p = def(id);
   let data, threw = null; try { data = m.simulate({ ...p }, env('v-' + id, p)); } catch (e) { threw = e; }
-  const specs = m.lenses ? Object.values(m.lenses) : [m];   // a lens model carries its views per lens
+  const specs = m.lenses ? Object.values(m.lenses) : [m];
   const viewsOk = specs.length >= 1 && specs.every(s => Array.isArray(s.views) && s.views.length >= 1 && s.views.every(v => typeof v.draw === 'function'));
   const nv = specs.reduce((a, s) => a + ((s.views && s.views.length) || 0), 0);
   const ran = !threw && !!data && typeof data === 'object';
@@ -269,13 +223,6 @@ for (const id of ORDER) {
   if (ran && viewsOk) usable.push(id);
 }
 
-// ---------------------------------------------------------------------------------------------
-// (3) view-render pass: every view must DRAW without throwing (at the start, middle and end of its
-//     playhead, per lens) through the real plot.js, with FINITE axis ranges, finite heatmap/image/
-//     graph data, a COLORBAR on every heatmap, and real marks at the end of the playhead. This is the
-//     machine-checkable slice of gui-qc.md — a view that dies on first paint, a NaN axis (blank
-//     panel), a heatmap with no scale, or a panel of bare axes all FAIL the gate instead of shipping.
-// ---------------------------------------------------------------------------------------------
 console.log('\n--- view render at defaults (draws · finite axes · colorbar on heatmaps · not empty) ---');
 for (const id of usable) {
   const m = SIM.MODELS[id], p = def(id);
@@ -285,11 +232,6 @@ for (const id of usable) {
   r.threw.forEach(f => console.log('    ' + f.tag + ': ' + f.msg));
 }
 
-// ---------------------------------------------------------------------------------------------
-// (4) parameter property pass: at each control's MIN and MAX (bool and enum choices included)
-//     simulate() returns finite data AND every view still draws — catches a NaN or a throw at a
-//     slider extreme (zero drift, a tiny dt, an empty batch).
-// ---------------------------------------------------------------------------------------------
 console.log('\n--- parameter extremes (simulate stays finite, views still draw, at each control min/max) ---');
 for (const id of usable) {
   const m = SIM.MODELS[id], base = def(id), bad = []; let draws = 0;
@@ -305,23 +247,16 @@ for (const id of usable) {
   console.log(`  ${label(m)}[${ok(!bad.length)}]  ${draws} draws` + (bad.length ? '  ' + bad.slice(0, 3).join(' | ') : ''));
 }
 
-// ---------------------------------------------------------------------------------------------
-// (5)(6) analytic checks. Each is a function of a small toolkit `t`; a check for a model runs
-//        only when that model is registered, so deleting an example never breaks the gate.
-//        The per-model tables are separate files (`<script>.checks.mjs`), so a researcher's
-//        checks sit next to the researcher's models and the examples' checks leave with them.
-// ---------------------------------------------------------------------------------------------
 const rel = (a, b) => Math.abs(a - b) / Math.max(1e-300, Math.abs(b));
-let nAsserts = 0;   // t.ok calls so far — a check that asserts nothing does not count as a check
+let nAsserts = 0;
 const toolkit = {
   SIM, Plot, L: MSLIB, env, def, rel,
-  has: id => !!SIM.MODELS[id] && !(SHADOWED[checkScript] || []).includes(id),   // false when the model under that id is not the one the running check's script registered
+  has: id => !!SIM.MODELS[id] && !(SHADOWED[checkScript] || []).includes(id),
   sim: (id, over, seed) => { const p = { ...def(id), ...(over || {}) }; return SIM.MODELS[id].simulate({ ...p }, env(seed, p)); },
   ok: (cond, text) => { nAsserts++; console.log(`    ${text}   [${ok(!!cond)}]`); },
   info: text => console.log(`    ${text}`),
 };
 
-/* engine + plot helpers every model leans on */
 const CORE_CHECKS = t => {
   const { SIM, Plot } = t;
   { let z = 0; for (let i = 0; i < 4000; i++) z += SIM.npdf(-8 + 16 * (i + 0.5) / 4000, 0.3, 1.2) * 16 / 4000; t.ok(Math.abs(z - 1) < 1e-9, `npdf integrates to 1 (${z.toFixed(10)})`); }
@@ -336,9 +271,6 @@ const CORE_CHECKS = t => {
       'Plot.histify: values land in their own bin, out-of-range values are dropped, bin width snaps to the quantum'); }
 };
 
-/* Per-model checks live next to the script that registers the model: for every `X.js` that
-   index.html loads, `X.checks.mjs` is imported when it exists. Its default export is a table
-   keyed by model id (see examples.checks.mjs for the worked examples, engine.checks.mjs for yours). */
 const MODEL_CHECKS = {}, CHECK_SRC = {}, CHECK_FILES = []; let checkScript = null;
 for (const s of scripts) {
   if (isRemote(s) || !/\.js$/i.test(s)) continue;
@@ -348,25 +280,24 @@ for (const s of scripts) {
   if (!table || typeof table !== 'object') fatal(`${file} must export default { modelId(t) { ... } }`);
   const ids = Object.keys(table).filter(id => typeof table[id] === 'function');
   for (const id of ids) {
-    if ((SHADOWED[s] || []).includes(id)) continue;   // this file's model of that id is hidden (warned below): its check is not for the model that runs
+    if ((SHADOWED[s] || []).includes(id)) continue;
     if (MODEL_CHECKS[id]) warn(`${file}: a check for '${id}' is already defined by an earlier checks file — keeping the first`); else { MODEL_CHECKS[id] = table[id]; CHECK_SRC[id] = s; } }
   CHECK_FILES.push(`${file} (${ids.length})`);
 }
 for (const [s, ids] of Object.entries(SHADOWED)) for (const id of ids)
   warn(`model '${id}' from ${OWNER[id] || 'an earlier script'} hides the ${s} model with the same id: that model's tab and its analytic check are skipped — rename yours to keep both`);
 
-/* modules/mslib.js building blocks, keyed by family. g = N(0,1), U = uniform [0,1), both seeded. */
 const LIBRARY_CHECKS = t => {
   const { L, SIM } = t, rng = SIM.makeRNG('mslib'), g = () => SIM.gaussian(rng), U = () => rng();
   const fam = ['sde', 'bayes', 'neuron', 'decision', 'rl', 'psy', 'efficient', 'causal', 'wm', 'network', 'osc', 'belief', 'vision', 'attn'].every(k => L[k]);
   t.ok(fam, 'families present'); if (!fam) return;
   { const wgt = L.bayes.weight(0.9, 1); t.ok(wgt > 0 && wgt < 1, 'bayes: weight ∈ (0,1)'); }
-  { // neuron
+  {
     const fi = L.neuron.fI((s, I, dt) => L.neuron.lifStep(s, I, null, dt), () => ({ v: -65, refr: 0 }), [0.1, 0.3, 0.6, 1.0], 1e-4, 1.0);
     t.ok(fi.every((p, i) => i === 0 || p.rate >= fi[i - 1].rate) && fi[3].rate > fi[0].rate, 'neuron: LIF f–I monotonic');
     const want = { tau: 0.02, EL: -65, R: 100, Vth: -50, Vreset: -65, tref: 0.003 }, D = L.neuron.LIF_DEFAULT;
     t.ok(Object.keys(want).every(k => D[k] === want[k]), 'neuron: LIF_DEFAULT is the documented set (τ 20 ms, E_L −65 mV, R 100 MΩ, V_th −50 mV, V_reset −65 mV, t_ref 3 ms; rheobase 0.15 nA)'); }
-  { // decision: Wong & Wang (2006) reduced circuit
+  {
     let s = { S1: 0.1, S2: 0.1, In1: 0, In2: 0 }, r; for (let k = 0; k < 3000; k++) r = L.decision.wwStep(s, { coh: 25.6 }, 0.0005, g);
     t.ok(r.r1 > r.r2, 'decision: Wong–Wang unit 1 wins at +coherence');
     const W = L.decision.WW, want = { a: 270, b: 108, d: 0.154, gamma: 0.641, tauS: 0.1, tauN: 0.002, sigma: 0.02, Js: 0.2609, Jc: 0.0497, I0: 0.3255, JAext: 5.2e-4, mu0: 30 };
@@ -379,13 +310,13 @@ const LIBRARY_CHECKS = t => {
     t.ok(t.rel(Math.sqrt(s2 / n), W.sigma) < 0.05, `decision: the noise current inside wwStep has stationary SD σ (${Math.sqrt(s2 / n).toFixed(5)} vs ${W.sigma}, tol 5%)`); }
   { let V = 0; for (let k = 0; k < 200; k++) V = L.rl.rescorlaWagner(V, 1, 0.1); t.ok(Math.abs(V - 1) < 0.01, 'rl: Rescorla–Wagner converges'); }
   { t.ok(L.psy.psychometric(-2, { mu: 0, sigma: 1 }) < L.psy.psychometric(2, { mu: 0, sigma: 1 }), 'psy: psychometric monotonic'); t.ok(Math.abs(L.psy.sdt(0.84, 0.16).dprime - 2) < 0.2, 'psy: SDT sensitivity'); }
-  { // efficient coding: consistent zero-noise decode, discriminability ∝ 1/p (tails>peak), skewed likelihood (tail away from prior peak)
+  {
     const xs = L.bayes.linspace(-4, 4, 241), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) * ((x - m) / sd)) / (sd * Math.sqrt(2 * Math.PI)), pri = Array.from(xs, x => npd(x, 0, 1)), F = L.efficient.cdf(xs, pri);
     t.ok(Math.abs(L.efficient.decode(L.efficient.encode(1.2, xs, F), 1e-3, xs, F, pri, 'BLS') - 1.2) < 0.05, 'efficient: zero-noise decode ≈ θ');
     const dsc = L.efficient.discrim(xs, pri); t.ok(dsc[20] > dsc[120] && dsc[220] > dsc[120], 'efficient: D ∝ 1/p, tails > peak');
     const lk = L.efficient.likelihood(L.efficient.encode(1, xs, F), 0.12, xs, F); let z = 0, mean = 0, mode = 0, md = -1; for (let i = 0; i < xs.length; i++) { z += lk[i]; mean += lk[i] * xs[i]; if (lk[i] > md) { md = lk[i]; mode = xs[i]; } } mean /= z;
     t.ok(mean > mode, 'efficient: likelihood skewed off peak'); t.ok(Math.abs(mode - 1) < 0.05, `efficient: the likelihood of m = F(1) peaks at θ = 1 (${mode.toFixed(3)})`); }
-  { // causal: MLE shrinks variance, p(C=1) higher when cues agree, number-game size principle, limits of the CI block
+  {
     t.ok(L.causal.cueCombineMLE([1, 3], [0.5, 1]).variance < 0.25, 'causal: MLE variance < the best single cue');
     t.ok(L.causal.ciPosteriorCommon(0.1, -0.1, 2, 9, 12, 0.3) > L.causal.ciPosteriorCommon(10, -10, 2, 9, 12, 0.3), 'causal: p(C=1) agree > disagree');
     const H = L.causal.numberGameHypotheses(100), pst = L.causal.conceptPosterior(H, [2, 4, 8, 16]); let iP = -1, iE = -1; H.forEach((h, i) => { if (h.name === 'powers 2') iP = i; if (h.name === 'even') iE = i; });
@@ -395,44 +326,43 @@ const LIBRARY_CHECKS = t => {
     t.ok(Math.abs(L.causal.ciFusedEstimate(3, -2, 2, 8, 1e6) - L.causal.cueCombineMLE([3, -2], [2, 8]).estimate) < 1e-6, 'causal: a flat prior reduces fusion to MLE cue combination');
     let z1 = 0, z2 = 0; const sv = 2, sa = 3, sp = 5, h = 0.25; for (let xv = -40; xv <= 40; xv += h) for (let xa = -40; xa <= 40; xa += h) { z1 += L.causal.ciLikCommon(xv, xa, sv, sa, sp) * h * h; z2 += L.causal.ciLikSeparate(xv, xa, sv, sa, sp) * h * h; }
     t.ok(Math.abs(z1 - 1) < 1e-3 && Math.abs(z2 - 1) < 1e-3, `causal: both likelihoods integrate to 1 (${z1.toFixed(5)}, ${z2.toFixed(5)})`); }
-  { // working memory: I0(0)=1, κ→SD monotone, von Mises sampler mean≈μ, mixture target proportion≈pT, the mixture is a density
+  {
     t.ok(Math.abs(L.wm.besselI0(0) - 1) < 1e-9, 'wm: I0(0)=1'); t.ok(L.wm.kappaToSD(2) > L.wm.kappaToSD(20), 'wm: κ→SD decreasing');
     let sx = 0, sy = 0; for (let i = 0; i < 3000; i++) { const th = L.wm.vmSample(0.6, 8, U); sx += Math.cos(th); sy += Math.sin(th); } t.ok(Math.abs(Math.atan2(sy, sx) - 0.6) < 0.12, 'wm: von Mises sample mean ≈ μ');
     let nt = 0; const TT = 5000; for (let i = 0; i < TT; i++) if (L.wm.mixtureRecall({ target: 0, nontargets: [1.5, -1.5], kappa: 10, pT: 0.6, pSwap: 0.25, pGuess: 0.15 }, U).branch === 'target') nt++;
     t.ok(Math.abs(nt / TT - 0.6) < 0.05, 'wm: mixture target proportion ≈ pT');
     for (const c of [{ kappa: 16, pT: 0.75, pSwap: 0.15, pGuess: 0.1, nontargetOffsets: [1.57, 3.14, -1.57] }, { kappa: 4, pT: 0.6, pSwap: 0, pGuess: 0.4, nontargetOffsets: [] }]) { let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.mixturePdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, c) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-4, `wm: mixturePdf integrates to 1 (κ=${c.kappa}: ${z.toFixed(6)})`); }
     t.ok(Math.abs(L.wm.kappaToSD(400) * 20 - 1) < 0.01, 'wm: kappaToSD·√κ → 1 for large κ'); t.ok(t.rel(L.wm.sdToKappa(L.wm.kappaToSD(8)), 8) < 0.03, 'wm: sdToKappa inverts kappaToSD (tol 3%)'); }
-  { // network: Hopfield recalls a 1-bit-flipped cue; ring kernel has local excitation and the written form
+  {
     const pat8 = [1, -1, 1, -1, 1, -1, 1, -1], Wh = L.network.hopfieldStore([pat8], 8); let sr = Int8Array.from(pat8); sr[0] = -sr[0]; L.network.hopfieldStep(Wh, sr, 8, [0, 1, 2, 3, 4, 5, 6, 7]);
     t.ok(L.network.overlap(Array.from(sr), pat8, 8) > 0.9, 'network: Hopfield recall');
     const Wr = L.network.ringKernel(16, 8, 1.3, 0.3); t.ok(Wr[0] > Wr[8], 'network: ring local excitation');
     const N = 64, W = L.network.ringKernel(N, 8, 1.3, 0.3), dd = 2 * Math.PI * 3 / N; t.ok(Math.abs(W[3] - (8 * Math.exp(-dd * dd / (2 * 0.09)) - 1.3)) < 1e-12 && Math.abs(W[5 * N + 2] - W[3]) < 1e-12, 'network: ring kernel = J·exp(−d²/2σ²) − J_I, translation invariant'); }
-  { // osc: identical phases → r≈1; evenly-spread phases → r≈0; the mean-field step equals the pairwise sum
+  {
     t.ok(L.osc.kuramotoOrder([0.5, 0.5, 0.5, 0.5]).r > 0.99 && L.osc.kuramotoOrder([0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]).r < 0.05, 'osc: sync vs incoherent r');
     const kr = SIM.makeRNG('kur'), n = 12, ph = Array.from({ length: n }, () => (kr() * 2 - 1) * Math.PI), om = Array.from({ length: n }, () => SIM.gaussian(kr)), K = 2.3, dt = 0.01, out = L.osc.kuramotoStep(ph, om, K, dt, 0, () => 0); let w = 0;
     for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) s += Math.sin(ph[j] - ph[i]); w = Math.max(w, Math.abs(out[i] - (ph[i] + dt * (om[i] + K / n * s)))); }
     t.ok(w < 1e-12, 'osc: Kuramoto mean-field step = (K/N) Σ_j sin(θ_j − θ_i)'); }
-  { // belief: predict/update renormalise, update concentrates on the likely state, entropy(certain)=0
+  {
     const bp = L.belief.predict([0, 1, 0, 0], [[.5, .5, 0, 0], [0, .5, .5, 0], [0, 0, .5, .5], [.5, 0, 0, .5]]), bu = L.belief.update([.25, .25, .25, .25], [.1, .7, .1, .1]);
     t.ok(Math.abs(bp.reduce((a, b) => a + b, 0) - 1) < 1e-9 && Math.abs(bu.reduce((a, b) => a + b, 0) - 1) < 1e-9 && bu[1] > 0.5 && L.belief.entropy([1, 0, 0, 0]) < 1e-9, 'belief: predict/update normalise + concentrate'); }
-  { // vision: a balanced DoG (surround=1) is ~zero-sum (band-pass); a pure centre (surround=0) sums positive (low-pass)
+  {
     const dks = L.vision.dogKernel(1.5, 4, 1); let dsum = 0; for (const v of dks.k) dsum += v; const dc = L.vision.dogKernel(1.5, 4, 0); let csum = 0; for (const v of dc.k) csum += v;
     t.ok(Math.abs(dsum) < 0.15 && csum > 0.5, 'vision: DoG band-pass ≈ 0 vs low-pass > 0'); }
-  { // attn: softmax sums to 1 and is monotone in logits; uniform attention has entropy ln(N)
+  {
     const sm = L.attn.softmax([1, 2, 3]); t.ok(Math.abs(sm.reduce((a, b) => a + b, 0) - 1) < 1e-9 && sm[2] > sm[1] && sm[1] > sm[0], 'attn: softmax sums to 1 + monotone');
     t.ok(Math.abs(L.attn.entropy([.25, .25, .25, .25]) - Math.log(4)) < 1e-9, 'attn: uniform entropy = ln(N)'); }
-  // ---- every other exported block: one closed-form assertion each (an export no example uses is still shipped) ----
-  { // sde: one Euler–Maruyama step equals the written update; normpdf/normcdf against known values
+  {
     t.ok(Math.abs(L.sde.wiener(0.2, 1.5, 0.8, 0.01, () => 0.7) - (0.2 + 1.5 * 0.01 + 0.8 * 0.1 * 0.7)) < 1e-15, 'sde: wiener step = x + drift·dt + c·√dt·ξ');
     t.ok(Math.abs(L.sde.ou(0.3, 4, -1, 0.5, 0.01, () => -1.2) - (0.3 + 4 * (-1 - 0.3) * 0.01 + 0.5 * 0.1 * -1.2)) < 1e-15, 'sde: OU step = x + θ(μ−x)·dt + σ·√dt·ξ');
     t.ok(Math.abs(L.sde.normpdf(1.3, 1.3, 0.5) - 1 / (0.5 * Math.sqrt(2 * Math.PI))) < 1e-12 && Math.abs(L.sde.normpdf(2.3, 1.3, 0.5) / L.sde.normpdf(1.3, 1.3, 0.5) - Math.exp(-2)) < 1e-12, 'sde: normpdf peak 1/(σ√2π), falls by e^(−z²/2)');
     t.ok(Math.abs(L.sde.normcdf(0) - 0.5) < 3e-7 && Math.abs(L.sde.normcdf(1.959964) - 0.975) < 3e-7 && Math.abs(L.sde.normcdf(-1) - 0.158655254) < 3e-7, 'sde: normcdf(0)=0.5, Φ(1.96)=0.975, Φ(−1)=0.1587 (tol 3e-7, the Abramowitz–Stegun 26.2.17 approximation)'); }
-  { // bayes: central tendency is the line w·θ + (1−w)·μ0 with SD w·σ_m; Weber noise; one trial = posterior mean of m
+  {
     const w = 1 / (1 + 0.8 * 0.8), ct = L.bayes.centralTendency([-2, 0, 3], 0.8, 0.5, 1);
     t.ok(ct.every(q => Math.abs(q.est - (w * q.theta + (1 - w) * 0.5)) < 1e-12 && Math.abs(q.sd - w * 0.8) < 1e-12), 'bayes: centralTendency = w·θ + (1−w)·μ0, SD w·σ_m (w = σ0²/(σ0²+σ_m²))');
     t.ok(Math.abs(L.bayes.weberNoise(-4, 0.15) - 0.6) < 1e-12 && L.bayes.weberNoise(0, 0.15) === 1e-3, 'bayes: weberNoise = wf·|θ|, floored');
     const tr = L.bayes.trial(2, 0.8, 0.5, 1, () => 0.25); t.ok(Math.abs(tr.m - 2.2) < 1e-12 && Math.abs(tr.est - (w * 2.2 + (1 - w) * 0.5)) < 1e-12, 'bayes: trial draws m = θ + σ_m·ξ and estimates the posterior mean'); }
-  { // neuron: Izhikevich (2003) v' = 0.04v² + 5v + 140 − u + I, u' = a(bv − u), in ms; regular spiking at I = 10
+  {
     const D = L.neuron.IZH_DEFAULT; t.ok(D.a === 0.02 && D.b === 0.2 && D.c === -65 && D.d === 8, 'neuron: IZH_DEFAULT is regular spiking (a .02, b .2, c −65, d 8)');
     const s = { v: -60, u: -12 }, h = 0.5, v1 = -60 + h * (0.04 * 3600 + 5 * -60 + 140 + 12 + 10), u1 = -12 + h * (0.02 * (0.2 * v1 + 12));
     L.neuron.izhStep(s, 10, null, h / 1000); t.ok(Math.abs(s.v - v1) < 1e-12 && Math.abs(s.u - u1) < 1e-12, 'neuron: one Izhikevich step equals the written equations (dt in s, model in ms)');
@@ -440,30 +370,29 @@ const LIBRARY_CHECKS = t => {
     t.ok(fired && sp.v === -65 && Math.abs(sp.u - (0.02 * 0.2 * vPeak + 8)) < 1e-9, 'neuron: Izhikevich reset v → c, u → u + d at v ≥ 30');
     const fz = L.neuron.fI((st, I, dt) => L.neuron.izhStep(st, I, null, dt), () => ({ v: -65, u: -13 }), [3, 10], 0.00025, 2);
     t.ok(fz[0].rate === 0 && fz[1].rate > 12 && fz[1].rate < 35, `neuron: Izhikevich RS silent at I = 3, tonic at I = 10 (${fz[1].rate} Hz)`); }
-  { // rl: qUpdate is Rescorla–Wagner on the chosen arm only; choose samples its probabilities; Kalman = conjugate Gaussian update
+  {
     const Q = L.rl.qUpdate([0.2, 0.5, -1], 1, 1, 0.3); t.ok(Q[0] === 0.2 && Math.abs(Q[1] - (0.5 + 0.3 * (1 - 0.5))) < 1e-15 && Q[2] === -1, 'rl: qUpdate = Rescorla–Wagner on arm a, the others untouched');
     const pr = [0.2, 0.5, 0.3], cnt = [0, 0, 0], n = 20000; for (let i = 0; i < n; i++) cnt[L.rl.choose(pr, U)]++; t.ok(cnt.every((c, i) => Math.abs(c / n - pr[i]) < 0.015), `rl: choose draws arm i with probability p_i (${cnt.map(c => (c / n).toFixed(3)).join(', ')})`);
     const k = L.rl.kalman({ mu: 1, sigma: 0.8 }, 3, 0.25, 2), pv = 0.64 + 0.25, post = 1 / (1 / pv + 1 / 2);
     t.ok(Math.abs(k.sigma * k.sigma - post) < 1e-12 && Math.abs(k.mu - (1 + pv / (pv + 2) * 2)) < 1e-12, 'rl: kalman posterior 1/σ² = 1/(σ²+q) + 1/r, mean moves by the gain K = (σ²+q)/(σ²+q+r)'); }
-  { // efficient: decision-conditioned mean and the bias curve (repulsive: away from the prior peak, Wei & Stocker 2015)
+  {
     const xs = [-2, -1, 0, 1, 2], post = [0.1, 0.2, 0.4, 0.2, 0.1];
     t.ok(Math.abs(L.efficient.condMean(post, xs, 0, 1) - (0.4 * 0 + 0.2 * 1 + 0.1 * 2) / 0.7) < 1e-12 && Math.abs(L.efficient.condMean(post, xs, 0, -1) - (-0.1 * 2 - 0.2) / 0.3) < 1e-12, 'efficient: condMean = posterior mean truncated to the decided side');
     const gx = L.bayes.linspace(-4, 4, 81), pri = Array.from(gx, x => Math.exp(-x * x / 2)), F = L.efficient.cdf(gx, pri), br = SIM.makeRNG('ec-bias'), b = L.efficient.biasCurve(gx, 0.08, F, pri, 'BLS', 600, () => SIM.gaussian(br));
     t.ok(b[50] > 0.01 && b[30] < -0.01, `efficient: BLS bias is repulsive, away from the prior peak (θ=+1: ${b[50].toFixed(3)}, θ=−1: ${b[30].toFixed(3)})`); }
-  { // causal: reliability weights ∝ 1/σ²; segregated estimate; size principle; generalization of a one-hypothesis posterior
+  {
     const rw = L.causal.reliabilityWeights([1, 2]); t.ok(Math.abs(rw[0] - 0.8) < 1e-12 && Math.abs(rw[1] - 0.2) < 1e-12, 'causal: reliabilityWeights ∝ 1/σ², sum to 1');
     t.ok(Math.abs(L.causal.ciSegEstimate(6, 2, 4, 1) - (6 / 4 + 1 / 16) / (1 / 4 + 1 / 16)) < 1e-12, 'causal: segregated estimate = precision-weighted cue and prior mean');
     const h = { members: new Set([2, 4, 6, 8]), size: 4 }; t.ok(Math.abs(L.causal.sizePrincipleLikelihood(h, [2, 8]) - 1 / 16) < 1e-15 && L.causal.sizePrincipleLikelihood(h, [2, 3]) === 0, 'causal: size principle (1/|h|)^n, 0 if an example is outside h');
     const H = L.causal.numberGameHypotheses(100), iE = H.findIndex(x => x.name === 'even'), gc = L.causal.generalizationCurve(H, H.map((_, i) => i === iE ? 1 : 0), 100);
     t.ok(gc[64] === 1 && gc[63] === 0 && gc.reduce((a, v) => a + v, 0) === 50, 'causal: generalization of a posterior on "even" = indicator of the even numbers'); }
-  { // wm: I1 against the integral I_n(κ) = (1/π)∫₀^π e^{κ cos t} cos(nt) dt (series and asymptotic branches); Fisher information κ·I1/I0
+  {
     const In = (nn, x) => { const M = 2000; let s = 0; for (let k = 0; k < M; k++) { const tt = Math.PI * (k + 0.5) / M; s += Math.exp(x * Math.cos(tt)) * Math.cos(nn * tt); } return s / M; };
     let e1 = 0, ef = 0; for (const k of [0.5, 1, 5, 14.9, 15, 20, 40]) { e1 = Math.max(e1, t.rel(L.wm.besselI1(k), In(1, k))); ef = Math.max(ef, t.rel(L.wm.fisherInfo(k), k * In(1, k) / In(0, k))); }
     t.ok(e1 < 1e-5 && Math.abs(L.wm.besselI1(-1) + L.wm.besselI1(1)) < 1e-15, `wm: besselI1 matches the integral, odd in κ (max rel err ${e1.toExponential(1)})`);
     t.ok(ef < 1e-5, `wm: fisherInfo = κ·I1(κ)/I0(κ) (max rel err ${ef.toExponential(1)})`);
     t.ok(Math.abs(L.wm.precisionFromSetsize(4, { P1: 2, k: 0.5 }) - 1) < 1e-12, 'wm: precisionFromSetsize = P1·N^(−k)'); }
   { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
-  // Exports that the checks above reach only through another function (or not at all): each called directly.
   { const gp = L.bayes.gaussPosterior(1, 1, 0, 1); t.ok(Math.abs(gp.mu - 0.5) < 1e-12 && Math.abs(gp.sigma - Math.SQRT1_2) < 1e-12, 'bayes: gaussPosterior(m=1, σm=1, μ0=0, σ0=1) = N(0.5, 1/2)');
     const xs = L.bayes.linspace(-4, 4, 161), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) ** 2), post = L.bayes.gridPost(Array.from(xs, x => npd(x, 1, 1)), Array.from(xs, x => npd(x, 0, 1)));
     t.ok(Math.abs(post.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(L.bayes.gridMean(post, xs) - 0.5) < 1e-5 && Math.abs(L.bayes.gridMode(post, xs) - 0.5) < 1e-9, 'bayes: gridPost normalises like·prior; gridMean and gridMode of that Gaussian posterior = 0.5'); }
@@ -494,19 +423,12 @@ guarded('core', CORE_CHECKS);
 console.log(`\n--- analytic checks (tied to each model's science) — from ${CHECK_FILES.join(', ') || 'no checks file'} ---`);
 const asserted = new Set();
 for (const id of usable) { if (!MODEL_CHECKS[id]) continue; console.log(`  ${id}`); const n0 = nAsserts; checkScript = CHECK_SRC[id]; guarded(id, MODEL_CHECKS[id]); checkScript = null; if (nAsserts > n0) asserted.add(id); }
-// Soft enforcement: every model SHOULD carry an analytic check tied to its science (the generic passes
-// above only prove it ran and drew). A model without one is a counted warning, not a failure — a
-// vacuous check written to silence the gate would be worse than none (see gui-qc.md §1).
 { const missing = ORDER.filter(id => !asserted.has(id));
   if (missing.length) warn(`no analytic check for ${missing.length} model${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — write one in engine.checks.mjs (see gui-qc.md §1)`); }
 
-// ---- reusable library modules/mslib.js: each block is sane ----
 if (MSLIB) { console.log('\n=== mslib.js building blocks ===\n'); guarded('mslib', LIBRARY_CHECKS); }
 else console.log('\n(modules/mslib.js is not loaded by index.html — library checks skipped)');
 
-// ---------------------------------------------------------------------------------------------
-// Opt-in regression lock for YOUR models: digests of simulate() at defaults and every extreme.
-// ---------------------------------------------------------------------------------------------
 if (ARGV.includes('--snapshot') || ARGV.includes('--against')) {
   const snap = { format: 1, seed: 'seed-1', models: {} };
   for (const id of usable) { const m = SIM.MODELS[id], base = def(id), cases = { default: base };

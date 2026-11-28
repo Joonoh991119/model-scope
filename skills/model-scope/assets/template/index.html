@@ -4,11 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>model-scope — interactive model explorer</title>
-<!-- No external resources: fonts fall back to the system UI / monospace stack, so the app is fully self-contained and works offline from file://. -->
 <style>
 :root{ color-scheme:light;
   --bg:#f4f3ee; --surface:#fff; --surface-2:#f1efe8; --edge:#e4e1d7; --edge-2:#d6d2c5;
-  --ink:#33312c; --ink-dim:#6f6b61;            /* both pass 4.5:1 on every surface above; --edge* are for lines only, never text */
+  --ink:#33312c; --ink-dim:#6f6b61;
   --accent:#4a7a93; --accent-soft:rgba(74,122,147,.12);
   --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace; }
 *{box-sizing:border-box} html,body{height:100%} [hidden]{display:none !important}
@@ -17,7 +16,6 @@ body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); 
 .sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0}
 .app{display:grid; grid-template-rows:auto 1fr; grid-template-columns:minmax(0,1fr); height:100%}
 
-/* header: the title on one line, then the model tabs in a strip that scrolls inside itself */
 header.topbar{display:flex; align-items:center; gap:20px; padding:10px 20px; border-bottom:1px solid var(--edge); background:var(--surface)}
 .brand{flex:0 0 auto; min-width:0}
 .brand h1{margin:0; font-family:var(--mono); font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap}
@@ -56,7 +54,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .linkout{width:100%; font-family:var(--mono); font-size:11px; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:7px; padding:6px 8px}
 .valuenote{font-family:var(--mono); font-size:11px; color:var(--ink-dim)}
 
-/* the stage: toolbar (lens switch + transport), what this lens shows, then the views */
 .right{position:relative; display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--bg)}
 .tbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:9px 18px; border-bottom:1px solid var(--edge); background:var(--surface)}
 .tbar.hidden{display:none}
@@ -76,7 +73,6 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .views::-webkit-scrollbar{width:9px}.views::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
 .empty{grid-column:1/-1; align-self:start; max-width:560px; margin:24px auto; padding:18px 20px; border:1px dashed var(--edge-2); border-radius:10px; background:var(--surface); color:var(--ink-dim); font-size:13px; line-height:1.6} .empty b{color:var(--ink)} .empty code{font-family:var(--mono); font-size:12px; color:var(--ink)}
 .plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:258px} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
-/* pin and compare: each card holds the live view and, beside it, the same view of the pinned result */
 .views.pinned{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
 .plot.pinned{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .plot .pane{position:relative; min-width:0; min-height:0} .plot .pane.ref{border-left:1px dashed var(--edge-2)}
@@ -90,9 +86,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 #loading .bar{height:100%; width:0%; background:var(--accent); transition:width .12s}
 #loading .sub{font-family:var(--mono); font-size:11px; color:var(--ink-dim)}
 
-/* a narrower rail before the layout stacks */
 @media (max-width:1000px){ .layout{grid-template-columns:272px minmax(0,1fr)} aside.console{padding:14px} .brand p{display:none} }
-/* phone: one column, the page scrolls, the plots come BEFORE the controls, 16 px gutters */
 @media (max-width:700px){
   body{overflow:auto} html,body{height:auto} .app{display:block; height:auto}
   header.topbar{flex-direction:column; align-items:stretch; gap:8px; padding:10px 16px}
@@ -161,9 +155,9 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
   </div>
 </div>
 <script src="plot.js"></script>
-<script src="modules/mslib.js"></script>   <!-- reusable model library (window.MSLIB); examples.js needs it -->
-<script src="engine.js"></script>            <!-- the core + YOUR models -->
-<script src="examples.js"></script>          <!-- optional: the 21 worked examples. Delete this line (and examples.js, examples.checks.mjs) to ship only your own models -->
+<script src="modules/mslib.js"></script>
+<script src="engine.js"></script>
+<script src="examples.js"></script>
 <script>
 (function(){
 "use strict";
@@ -175,30 +169,22 @@ const DEFAULT_SEED='model-scope';
 const mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 let reduceMotion = !!(mqReduce && mqReduce.matches);
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:DEFAULT_SEED, data:null, simError:null, model:null,
-  mem:{}, lensMem:{},                       // per-model parameters and lens, remembered while the page is open
+  mem:{}, lensMem:{},
   views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
   stageMode:false, stageList:null, lens:null, lensKeys:null, loading:false,
-  pins:{}, ref:null, refCanvases:[], refDrawn:false };    // pins[modelId] = {params, seed, data}: a result kept as a reference (per model, while the page is open)
-// a model may declare lenses:{angleA,angleB,…} — several ANGLES over the SAME simulate() data.
-// activeSpec() is the object that supplies views/anim/stages right now: the active lens, or the model itself.
+  pins:{}, ref:null, refCanvases:[], refDrawn:false };
 function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
 const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const defaultsOf=m=>{ const p={}; (m.params||[]).forEach(s=>{ p[s.name]=s.default; }); return p; };
 
-/* ---- links ----
-   #<modelId> or #<modelId>-<lensKey>     the model and lens; read on load and whenever the hash changes, and
-                                          rewritten as you navigate (a plain #name is all a hosted page such as
-                                          a Claude Artifact passes through)
-   ?model=&lens=&head=&still=1&text=      the state to OPEN with (applied once): model, lens, playhead, frozen, text size
-   ?seed=&p.<name>=<value>                … plus the RNG seed and any parameter of that model                    */
 const Q=(()=>{ try{ const o={}; for(const [k,v] of new URLSearchParams(location.search)) o[k]=v; return o; }catch(e){ return {}; } })();
 function parseHash(){ let h=''; try{ h=decodeURIComponent(String(location.hash||'').replace(/^#/,'')); }catch(e){ return null; }
   if(!h) return null; if(isModel(h)) return {model:h, lens:null};
   for(let i=h.indexOf('-'); i>0; i=h.indexOf('-',i+1)){ const id=h.slice(0,i), k=h.slice(i+1); if(isModel(id) && has(SIM.MODELS[id].lenses,k)) return {model:id, lens:k}; }
   return null; }
-function writeHash(){ const h='#'+S.modelId+(S.lens?'-'+S.lens:'');      // the query described the opening state only, so it is dropped once you navigate
+function writeHash(){ const h='#'+S.modelId+(S.lens?'-'+S.lens:'');
   try{ history.replaceState(null,'',location.pathname+h); }catch(e){ try{ history.replaceState(null,'',h); }catch(_){} } }
-function coerce(spec,raw){        // a ?p.<name>= value → that control's value (undefined if it does not parse)
+function coerce(spec,raw){
   if(spec.type==='bool') return /^(1|true|on|yes)$/i.test(raw) ? true : /^(0|false|off|no)$/i.test(raw) ? false : undefined;
   if(spec.type==='enum'){ const opts=spec.options||[]; let i=opts.indexOf(raw); if(i<0 && /^\d+$/.test(raw)) i=+raw; return (i>=0 && i<opts.length) ? i : undefined; }
   const v=parseFloat(raw); return Number.isFinite(v) ? clamp(spec.int?Math.round(v):v, spec.min, spec.max) : undefined; }
@@ -206,14 +192,13 @@ function stateUrl(){ const q=new URLSearchParams(); q.set('model',S.modelId); if
   const seed=$('#seedInput').value||'seed'; if(seed!==DEFAULT_SEED) q.set('seed',seed);
   for(const s of (S.model.params||[])){ const v=S.params[s.name], d=s.type==='bool'?!!s.default:s.type==='enum'?(s.default||0):s.default; if(v!==d) q.set('p.'+s.name, s.type==='bool'?(v?1:0):v); }
   return location.href.split(/[?#]/)[0]+'?'+q.toString()+'#'+S.modelId+(S.lens?'-'+S.lens:''); }
-let boot=true;      // true until the first lens is bound: ?head= / ?still= apply to that first screen only
+let boot=true;
 
-/* ---- screen-reader announcements: on pause, step and end — never per frame ---- */
 function say(text){ const el=$('#live'); if(el) el.textContent=text; }
 function readoutText(){ if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k]; return `Step ${k+1} of ${S.length}${st&&st.name?': '+st.name:''}`; }
   return `${Math.min(S.length,Math.floor(S.head)).toLocaleString()} of ${S.length.toLocaleString()}`; }
 
-function revealTab(b){ const nav=b.parentNode; if(!nav) return;          // keep the active tab inside the strip (scrolls the strip only, never the page)
+function revealTab(b){ const nav=b.parentNode; if(!nav) return;
   if(b.offsetLeft<nav.scrollLeft || b.offsetLeft+b.offsetWidth>nav.scrollLeft+nav.clientWidth) nav.scrollLeft=Math.max(0, b.offsetLeft-(nav.clientWidth-b.offsetWidth)/2); }
 function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
   SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.type='button'; b.dataset.id=id; b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId);
@@ -224,25 +209,24 @@ function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.i
   const lab=document.createElement('span'); lab.className='ll'; lab.textContent='Lens'; lab.setAttribute('aria-hidden','true'); box.appendChild(lab);
   S.lensKeys.forEach(k=>{ const L=S.model.lenses[k], b=document.createElement('button'); b.type='button'; b.dataset.id=k; b.textContent=L.label||k;
     b.setAttribute('aria-pressed',k===S.lens); b.title=L.about||''; b.onclick=()=>{ if(k===S.lens) return; switchLens(k); writeHash(); }; box.appendChild(b); }); }
-// same data, different zoom level — no re-simulate, so a computation that is still filling in (runChunks) keeps going
 function switchLens(k){ if(k===S.lens || !has(S.model.lenses,k)) return; S.lens=k; S.lensMem[S.modelId]=k; stopPlayback(); staleLink();
   for(const b of $('#lensSwitch').querySelectorAll('button')) b.setAttribute('aria-pressed', b.dataset.id===k);
   bindLens(); }
 function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
-  if(spec.type==='bool'){ const wrap=document.createElement('div'); wrap.className='field';     // boolean → a toggle switch
+  if(spec.type==='bool'){ const wrap=document.createElement('div'); wrap.className='field';
     const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=name; lab.htmlFor='f_'+spec.name;
     const sw=document.createElement('input'); sw.type='checkbox'; sw.className='toggle'; sw.id='f_'+spec.name; sw.setAttribute('role','switch');
     sw.checked = obj[spec.name]!==undefined ? !!obj[spec.name] : !!spec.default; obj[spec.name]=sw.checked;
     sw.addEventListener('change',()=>{ obj[spec.name]=sw.checked; onChange&&onChange(); });
     row.appendChild(lab); row.appendChild(sw); wrap.appendChild(row); return wrap; }
-  if(spec.type==='enum'){ const wrap=document.createElement('div'); wrap.className='field';     // categorical / model choice → a segmented control (value is the option index)
+  if(spec.type==='enum'){ const wrap=document.createElement('div'); wrap.className='field';
     const lab=document.createElement('span'); lab.className='flabel'; lab.textContent=name; lab.setAttribute('aria-hidden','true'); wrap.appendChild(lab);
     const seg=document.createElement('div'); seg.className='seg'; seg.id='f_'+spec.name; seg.setAttribute('role','group'); seg.setAttribute('aria-label',name);
     let cur = obj[spec.name]!==undefined ? obj[spec.name] : (spec.default||0); obj[spec.name]=cur;
     (spec.options||[]).forEach((opt,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='segbtn'; b.textContent=opt; b.title=opt; b.setAttribute('aria-pressed', i===cur);
       b.addEventListener('click',()=>{ obj[spec.name]=i; [...seg.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i)); onChange&&onChange(); }); seg.appendChild(b); });
     wrap.appendChild(seg); return wrap; }
-  const wrap=document.createElement('div'); wrap.className='field';                              // number → a slider plus a typed field, both named
+  const wrap=document.createElement('div'); wrap.className='field';
   const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=name; lab.htmlFor='f_'+spec.name;
   const num=document.createElement('input'); num.className='num'; num.type='number'; num.min=spec.min; num.max=spec.max; num.step=spec.step; num.id='f_'+spec.name;
   if(spec.unit){ const u=document.createElement('span'); u.className='unit'; u.textContent=spec.unit; lab.appendChild(document.createTextNode(' ')); lab.appendChild(u); }
@@ -253,14 +237,14 @@ function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
   const apply=v=>{ v=clamp(spec.int?Math.round(v):v,spec.min,spec.max); obj[spec.name]=v; num.value=spec.int?v:+v.toFixed(4); range.value=v; fill(v); onChange&&onChange(); };
   range.addEventListener('input',()=>apply(parseFloat(range.value)));
   num.addEventListener('input',()=>{const v=parseFloat(num.value); if(!Number.isNaN(v)){obj[spec.name]=clamp(spec.int?Math.round(v):v,spec.min,spec.max); range.value=obj[spec.name]; fill(obj[spec.name]); onChange&&onChange();}});
-  num.addEventListener('blur',()=>{ const v=parseFloat(num.value); apply(Number.isNaN(v) ? obj[spec.name] : v); });    // an empty or unreadable field returns to the current value; a typed 0 stays 0
+  num.addEventListener('blur',()=>{ const v=parseFloat(num.value); apply(Number.isNaN(v) ? obj[spec.name] : v); });
   apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
 function setModel(id, lens){ S.suppress=true; S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
   for(const b of $('#modelTabs').children){ const on=b.dataset.id===id; b.setAttribute('aria-pressed',on); if(on) revealTab(b); }
   S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? (has(m.lenses,lens) ? lens : S.lensKeys[0]) : null;
   if(S.lens) S.lensMem[id]=S.lens; buildLensSwitch();
   $('#blurb').textContent=m.blurb||''; const note=$('#note'); note.textContent=m.note||''; note.hidden=!m.note;
-  S.params = S.mem[id] || (S.mem[id]=defaultsOf(m));                     // what you set on this model earlier is still there when you come back
+  S.params = S.mem[id] || (S.mem[id]=defaultsOf(m));
   const box=$('#paramFields'); box.innerHTML=''; (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
   S.suppress=false; recompute(); }
 function onChange(){ if(!S.suppress) schedule(); }
@@ -273,7 +257,6 @@ function buildCards(){ const vc=$('#views'); vc.innerHTML=''; const P=S.pins[S.m
       a.appendChild(cv); b.appendChild(rc); b.appendChild(t); d.appendChild(a); d.appendChild(b); S.refCanvases.push(rc); }
     else d.appendChild(cv);
     vc.appendChild(d); return cv; }); }
-// the pinned result's own playhead range under the active lens (its data may have a different length or stage list)
 function refFrame(spec,P){ let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(P.params, P.data) : spec.stages) : null; }catch(e){ console.error('[model-scope] stages() threw on the pinned result', {model:S.modelId, error:e}); st=null; }
   const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(P.params, P.data); }catch(e){ console.error('[model-scope] anim.length() threw on the pinned result', {model:S.modelId, error:e}); len=1; } }
   len = sm ? st.length : Math.max(1, (Number.isFinite(len)?Math.floor(len):1) || 1);
@@ -290,17 +273,15 @@ function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.vi
   const d=document.createElement('div'); d.className='empty'; d.setAttribute('role','alert'); const b=document.createElement('b'); b.textContent=title;
   d.appendChild(b); d.appendChild(document.createElement('br')); d.appendChild(document.createTextNode(detail)); vc.appendChild(d); }
 
-/* ---- simulate (shared by all lenses), then bind the active lens ---- */
 function recompute(){ clearTimeout(rt); supersede(); staleLink(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
-  const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null; S.dataParams={...S.params};   // the parameters S.data was made with (Pin keeps these, not a value typed since)
+  const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null; S.dataParams={...S.params};
   S.inSim=true; try{ S.data=S.model.simulate({...S.params}, env); }
   catch(e){ S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[model-scope] simulate() threw', {model:S.modelId, error:e}); }
   finally{ S.inSim=false; }
   if(!S.simError && (!S.data || typeof S.data!=='object')){ S.data=null; S.simError='simulate() returned no data object'; console.error('[model-scope] '+S.simError, {model:S.modelId}); }
   if(myGen!==S.gen) return; bindLens(); }
-// bind the active lens (or the model itself if it declares none): its views + transport + playhead, over the SAME data
 function bindLens(){ const spec=activeSpec(); pinUi();
-  if(S.simError){ S.stageList=null; S.stageMode=false; S.anim=null; S.length=1; S.maxHead=1; S.head=1; boot=false;       // say what failed where the plots would be
+  if(S.simError){ S.stageList=null; S.stageMode=false; S.anim=null; S.length=1; S.maxHead=1; S.head=1; boot=false;
     $('#tbar').classList.toggle('hidden', !S.lensKeys); $('#transport').style.display='none'; $('#tip').textContent='';
     showProblem('This model could not be simulated with these values.', S.simError+'. Change a control, or fix the model in engine.js; the views come back as soon as it runs.'); return; }
   S.views=spec.views||[]; buildCards();
@@ -309,14 +290,14 @@ function bindLens(){ const spec=activeSpec(); pinUi();
   catch(e){ console.error('[model-scope] stages() threw', {model:S.modelId, error:e}); S.stageList=null; }
   S.stageMode = !!(S.stageList && S.stageList.length); S.anim = spec.anim || null;
   let alen=1; if(S.anim){ try{ alen=S.anim.length(S.params, S.data); }catch(e){ console.error('[model-scope] anim.length() threw', {model:S.modelId, error:e}); alen=1; } }
-  S.length = S.stageMode ? S.stageList.length : Math.max(1, (Number.isFinite(alen)?Math.floor(alen):1) || 1);   // coerce a NaN/bad length to 1 so the playhead never silently dies
-  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;   // stages: head∈[0,len-1] (one unit/stage); continuous: [0,len]
+  S.length = S.stageMode ? S.stageList.length : Math.max(1, (Number.isFinite(alen)?Math.floor(alen):1) || 1);
+  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;
   const seq = S.stageMode || !!S.anim;
-  $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));    // keep the bar (for the lens switch) even if THIS lens is static
+  $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));
   $('#transport').style.display = seq ? 'flex' : 'none'; $('#lensSep').style.display = (S.lensKeys && seq) ? 'block' : 'none';
   $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
   const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; } speedUi();
-  const useQ = boot && (Q.still==='1' || Q.head!=null); if(!S.loading) boot=false;    // while runChunks fills the data in, the lens is bound again when it is done       // deep-link: freeze at a requested frame for a clean screenshot
+  const useQ = boot && (Q.still==='1' || Q.head!=null); if(!S.loading) boot=false;
   if(useQ){ S.head = Q.head!=null ? clamp(parseFloat(Q.head)||0, 0, S.maxHead) : S.maxHead; readout(); drawAll(); return; }
   S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
   readout(); if(seq && !reduceMotion && !S.loading){ play(); } else { drawAll(); } }
@@ -328,7 +309,6 @@ function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, M
     catch(e){ console.error('[model-scope] view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
       try{ Plot.make(S.canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } }
   if(S.ref && S.refCanvases.length && (!S.playing || !S.refDrawn)) drawRefs(); }
-// the pinned result, drawn by the same views: at the live stage (clamped), or at the same fraction of the run; at its end while the live one plays
 function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
   const h = S.playing ? R.max : R.stages ? Math.min(R.max, Math.max(0, Math.floor(S.head))) : (S.maxHead ? S.head/S.maxHead*R.max : R.max), stg = R.stages ? Math.floor(h) : null;
   const ui={ head:h, playing:false, params:P.params, frac:h-Math.floor(h), stage:stg, stageKey:(stg!=null && R.stages[stg]) ? R.stages[stg].key : null, stages:R.stages, nStages:R.stages?R.len:0 };
@@ -339,16 +319,13 @@ function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
 function redrawAll(){ S.refDrawn=false; drawAll(); }
 let rt; function schedule(){ clearTimeout(rt); staleLink(); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
 
-/* ---- playhead (for sequential models) ---- */
-function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;   // wall-clock → frame-rate independent
+function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;
   let ended=false;
-  if(S.playing){ S.head=Math.min(S.maxHead, S.head + S.speed*fdt); if(S.head>=S.maxHead){ S.playing=false; ended=true; } }    // stop BEFORE drawing the final frame (so views see frac→1, not 0)
+  if(S.playing){ S.head=Math.min(S.maxHead, S.head + S.speed*fdt); if(S.head>=S.maxHead){ S.playing=false; ended=true; } }
   drawAll(); readout();
   if(S.playing) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; pico(); if(ended) say('End. '+readoutText()); } }
 function play(){ if(S.head>=S.maxHead) S.head=0; S.playing=true; S.refDrawn=false; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
 function pause(){ if(!S.playing) return; S.playing=false; pico(); say('Paused. '+readoutText()); }
-// Two different things, kept apart: stopPlayback() halts the animation of what is on screen; supersede() also
-// starts a new generation, which makes an in-flight runChunks() of the OLD simulate() bail, and clears its overlay.
 function stopPlayback(){ S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; pico(); }
 function supersede(){ S.gen++; window.__simGen=S.gen; stopPlayback(); window.__setLoading(false); }
 function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%'); sc.setAttribute('aria-valuetext', readoutText());
@@ -362,12 +339,10 @@ const rangeFill=el=>el.style.setProperty('--fill', clamp((+el.value-+el.min)/((+
 function speedUi(){ const el=$('#spd'); rangeFill(el); el.setAttribute('aria-valuetext', (+el.value)+(S.stageMode?' steps':' frames')+' per second'); }
 function setFontScale(v){ const f=$('#fontScale'); v=clamp(v, +f.min, +f.max); f.value=v; window.__plotFontScale=v; const t=Math.round(v*100)+'%';
   $('#fontScaleVal').textContent=t; f.setAttribute('aria-valuetext', t); rangeFill(f); }
-function staleLink(){ const o=$('#linkOut'); if(o && !o.hidden){ o.hidden=true; o.value=''; } }    // a copied link describes the state it was made from: hide it once that changes
+function staleLink(){ const o=$('#linkOut'); if(o && !o.hidden){ o.hidden=true; o.value=''; } }
 
-/* loading overlay + async hooks — a heavy simulate() drives these via runChunks (see engine.js):
-   __simGen lets superseded runs bail, __setLoading shows progress, __redraw repaints when a chunk lands. */
 window.__simGen=S.gen;
-window.__redraw=()=>{ if(!S.inSim) bindLens(); };      // the last chunk landed: bind the lens again (length, stages and the pinned frame come from the finished data)
+window.__redraw=()=>{ if(!S.inSim) bindLens(); };
 window.__simFailed=e=>{ if(S.inSim) throw e; S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[model-scope] simulate() threw in a later chunk', {model:S.modelId, error:e}); stopPlayback(); bindLens(); };
 window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; on=!!on; el.classList.toggle('on',on);
   if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); pinUi(); const v=$('#views'); if(v) v.setAttribute('aria-busy', on); }
@@ -384,7 +359,7 @@ $('#pinBtn').onclick=()=>{ const id=S.modelId;
   pinUi(); if(!S.simError){ buildCards(); drawAll(); } };
 $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
-$('#linkBtn').onclick=()=>{ const url=stateUrl(), out=$('#linkOut'), btn=$('#linkBtn'); out.value=url; out.hidden=false; out.select();     // the link stays visible and selected, so it can be copied by hand where the clipboard is unavailable
+$('#linkBtn').onclick=()=>{ const url=stateUrl(), out=$('#linkOut'), btn=$('#linkBtn'); out.value=url; out.hidden=false; out.select();
   const done=ok=>{ say(ok?'Link copied.':'Link ready to copy.'); if(ok){ btn.textContent='Copied'; setTimeout(()=>{ btn.textContent='Copy link'; },1400); } };
   try{ navigator.clipboard.writeText(url).then(()=>done(true),()=>done(false)); }catch(e){ done(false); } };
 $('#playBtn').onclick=()=>{ if(S.playing)pause(); else play(); };
@@ -399,27 +374,26 @@ $('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; speedUi(); })
 $('#fontScale').addEventListener('input',()=>{ setFontScale(+$('#fontScale').value); redrawAll(); });
 let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,90); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
-if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };   // the setting can change while the page is open
+if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };
   if(mqReduce.addEventListener) mqReduce.addEventListener('change',onMotion); else if(mqReduce.addListener) mqReduce.addListener(onMotion); }
 addEventListener('hashchange',()=>{ const h=parseHash(); if(!h) return;
   if(h.model!==S.modelId) setModel(h.model, h.lens||S.lensMem[h.model]); else if(h.lens && h.lens!==S.lens) switchLens(h.lens); });
 
-/* ---- start ---- */
-{ let framed=false; try{ framed = window.self!==window.top; }catch(e){ framed=true; }      // inside a host page the frame's own address is not the link to share: the host's share link follows the #hash instead
+{ let framed=false; try{ framed = window.self!==window.top; }catch(e){ framed=true; }
   if(framed) $('#linkBtn').hidden=true; }
-const APP=SIM.APP||{};      // optional: SIM.APP = { title:'My paper', tagline:'…' } names the page
+const APP=SIM.APP||{};
 if(APP.title){ $('#appTitle').textContent=APP.title; document.title=APP.title; }
 if(APP.tagline!=null) $('#appTagline').textContent=APP.tagline;
 setFontScale(+$('#fontScale').value);
-if(Q.text){ const ts=parseFloat(Q.text); if(ts>0) setFontScale(ts); }     // clamped to the slider's range, so the label says what is drawn
-if(!SIM.MODEL_ORDER.length){   // nothing registered: say what to do instead of throwing
+if(Q.text){ const ts=parseFloat(Q.text); if(ts>0) setFontScale(ts); }
+if(!SIM.MODEL_ORDER.length){
   $('#views').innerHTML='<div class="empty"><b>No model is registered yet.</b><br>Add one to <code>MODELS</code> and <code>MODEL_ORDER</code> in <code>engine.js</code> (README.md shows the entry), or put the <code>examples.js</code> script line back in <code>index.html</code> to load the worked examples.</div>';
   $('#blurb').textContent='No model registered.'; $('#note').hidden=true;
   for(const b of ['runBtn','resetBtn','pinBtn','linkBtn','diceBtn','seedInput']) $('#'+b).disabled=true; return; }
 { const H=parseHash(), qm=(Q.model!=null && isModel(Q.model)) ? Q.model : null;
   const startModel = H ? H.model : (qm || S.modelId);
   const startLens = (H && H.lens) || ((!H || !qm || qm===H.model) ? Q.lens : null);
-  const target = qm || startModel, tm=SIM.MODELS[target], mem=defaultsOf(tm); let any=false;      // ?p.<name>= belongs to ?model= (or to the model that opens)
+  const target = qm || startModel, tm=SIM.MODELS[target], mem=defaultsOf(tm); let any=false;
   for(const s of (tm.params||[])){ const raw=Q['p.'+s.name]; if(raw==null) continue; const v=coerce(s,raw); if(v!==undefined){ mem[s.name]=v; any=true; } }
   if(any) S.mem[target]=mem;
   if(Q.seed!=null && Q.seed!=='') $('#seedInput').value=Q.seed;

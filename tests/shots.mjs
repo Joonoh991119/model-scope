@@ -1,15 +1,3 @@
-// Regenerate the README hero and the docs/GUIDE.md gallery from the CURRENT template (dev only). Real screenshots of the real page,
-// taken in headless Chrome from file:// — nothing here is drawn by hand.
-//
-//   node tests/shots.mjs --pw <dir with node_modules/playwright>      write docs/shots/*.png and docs/ddm-trial.gif
-//     --only png|gif          regenerate just one kind
-//     --all <dir>             also save every model x lens screen (60 for the shipped template) into <dir>,
-//                             plus <dir>/index.html, a contact sheet; with --before <dir2> the sheet pairs
-//                             each screen with the same file name from <dir2>
-//     --template <dir>        another copy of the template
-//     --ffmpeg <path>         ffmpeg binary for the GIF (default: ffmpeg on PATH, then /opt/homebrew/bin/ffmpeg)
-//
-// Run it in the same commit as any change that alters how a screen looks, and say so in the message.
 import { createRequire } from 'node:module';
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -25,7 +13,6 @@ const T = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE), DOCS = path.joi
 const url = q => pathToFileURL(path.join(T, 'index.html')).href + q;
 const ONLY = A.opt('--only');
 
-// The gallery in README.md: file name → the link that shows it. 1340 x 815 CSS px, device pixel ratio 1.
 const GALLERY = [
   ['ddm-step', '?model=ddm&lens=step&still=1'],
   ['ddm-sim', '?model=ddm&lens=sim&head=1200'],
@@ -52,7 +39,6 @@ if (!ONLY || ONLY === 'png') {
 }
 
 if (!ONLY || ONLY === 'gif') {
-  // one drift-diffusion trial walking to its bound: the stage (toolbar + views) of the Trial lens, 12 frames
   const ffmpeg = [A.opt('--ffmpeg'), 'ffmpeg', '/opt/homebrew/bin/ffmpeg'].filter(Boolean).find(f => spawnSync(f, ['-version']).status === 0);
   if (!ffmpeg) { console.error('ffmpeg not found — the GIF was NOT regenerated (pass --ffmpeg <path>)'); process.exitCode = 1; }
   else {
@@ -60,7 +46,7 @@ if (!ONLY || ONLY === 'gif') {
     await page.setViewportSize({ width: 1100, height: 560 }); await open('?model=ddm&lens=trial&head=0');
     const len = await page.evaluate(() => +document.getElementById('scrub').max);
     for (let i = 0; i < N; i++) {
-      const head = len * (i + 1) / N;                    // the Trial lens plays one trial: sweep it from its start to its bound
+      const head = len * (i + 1) / N;
       await page.evaluate(h => { const s = document.getElementById('scrub'); s.value = h; s.dispatchEvent(new Event('input', { bubbles: true })); }, head);
       await page.waitForTimeout(60); await page.locator('main').screenshot({ path: path.join(dir, `f${String(i).padStart(2, '0')}.png`) });
     }

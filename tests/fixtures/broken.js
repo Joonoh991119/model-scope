@@ -1,6 +1,3 @@
-/* Test fixture (dev only): a model whose simulate() throws when its toggle is on, and returns nothing
-   when its enum says so. The smoke test loads it next to a temp copy of the template to check that the
-   toolbox says what failed where the plots would be, and recovers when the control goes back. */
 (function (global) {
   'use strict';
   const SIM = global.SIM;

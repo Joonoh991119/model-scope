@@ -1,9 +1,3 @@
-// Run the whole developer test suite (dev only — a generated app needs none of this).
-//
-//   node tests/run.mjs                 everything that needs only Node (and the `claude` CLI if it is installed)
-//   node tests/run.mjs --browser       ... plus the headless-Chrome smoke test
-//     --pw <dir>                       where playwright + axe-core are installed (default: .scratch/pw, or $MODEL_SCOPE_PW)
-//     --skip <name,...>                skip steps by name
 import fs from 'node:fs'; import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

@@ -1,53 +1,34 @@
-/* =============================================================================
- * examples.js — the worked examples: twenty-one models across the scales (behaviour,
- * single neuron, sensory, network, macro) and every idiom the toolbox supports.
- *
- * OPTIONAL. The app does not need this file. To ship only your own model(s), delete
- * this file, examples.checks.mjs, and the examples.js script line in
- * index.html. Your models live in engine.js; these register after them, so yours
- * come first in the tab order.
- *
- * Read an entry here as a recipe for a model of the same class, then write yours in
- * engine.js. Classic script: needs window.SIM (engine.js), window.Plot (plot.js) and
- * window.MSLIB (modules/mslib.js); also eval-able in Node for validate.mjs.
- * ========================================================================== */
 (function (global) {
   'use strict';
   const SIM = global.SIM, { makeRNG, gaussian, trialRng, npdf } = SIM;
-  const TH = ()=> global.Plot.TH;                    // the one palette lives in plot.js
+  const TH = ()=> global.Plot.TH;
   const HIST = (v,b,lo,hi,q)=> global.Plot.histify(v,b,lo,hi,q);
 
-  // regenerate one drift-diffusion trial's path (for the animated "this trial" view)
   function ddmPath(pp, seed, k){ const rng=trialRng(seed,k); let x=0,t=0,st=0; const ms=Math.round(20/pp.dt), out=[[0,0]];
     while(st<ms){ x+=pp.A*pp.dt+pp.c*Math.sqrt(pp.dt)*gaussian(rng); t+=pp.dt; st++; out.push([t,x]); if(x>=pp.z){return {pts:out,outcome:1};} if(x<=-pp.z){return {pts:out,outcome:2};} }
     return {pts:out, outcome:0}; }
-  // ATOMIC decomposition of one trial: each step's update split into its drift (signal) and noise contributions.
-  // steps[i] = {i, t, x, drift, noise, dx, xNext, cross?} — the atom the step-lens animates and the trial-lens replays.
   function ddmSteps(pp, seed, k){ const rng=trialRng(seed,k), ms=Math.round(20/pp.dt), steps=[]; let x=0, t=0;
     for(let st=0; st<ms; st++){ const drift=pp.A*pp.dt, noise=pp.c*Math.sqrt(pp.dt)*gaussian(rng), xn=x+drift+noise;
       const s={ i:st, t, x, drift, noise, dx:drift+noise, xNext:xn }; t+=pp.dt;
       if(xn>=pp.z) s.cross=1; else if(xn<=-pp.z) s.cross=2; steps.push(s); x=xn; if(s.cross) break; }
     return steps; }
 
-  // ---- early-vision helpers (an IMAGE-input exemplar): grating → Gabor energy channels → readout ----
-  function visScene(N, ori, sf, contrast, noiseAmp, seed){   // a noisy oriented grating, N×N (signed intensities)
+  function visScene(N, ori, sf, contrast, noiseAmp, seed){
     const rng=makeRNG(seed+'#scene'), img=new Float64Array(N*N), th=ori*Math.PI/180, kx=Math.cos(th), ky=Math.sin(th), f=sf*2*Math.PI/N;
     for(let y=0;y<N;y++) for(let x=0;x<N;x++) img[y*N+x]=contrast*Math.sin(f*((x-N/2)*kx+(y-N/2)*ky)) + noiseAmp*gaussian(rng);
     return img; }
-  function gaborKernel(ori, sf, sigma, phase, N){           // zero-mean Gabor, radius from sigma
+  function gaborKernel(ori, sf, sigma, phase, N){
     const R=Math.max(3,Math.round(sigma*2.4)), sz=2*R+1, k=new Float64Array(sz*sz), th=ori*Math.PI/180, ct=Math.cos(th), st=Math.sin(th), f=sf*2*Math.PI/N;
     let s=0; for(let j=-R;j<=R;j++) for(let i=-R;i<=R;i++){ const xp=i*ct+j*st, yp=-i*st+j*ct, g=Math.exp(-(xp*xp+yp*yp)/(2*sigma*sigma))*Math.cos(f*xp+phase); k[(j+R)*sz+(i+R)]=g; s+=g; }
     const m=s/(sz*sz); for(let t=0;t<k.length;t++) k[t]-=m; return {k,R,sz}; }
   function conv2(img, N, ker){ const {k,R,sz}=ker, out=new Float64Array(N*N);
     for(let y=0;y<N;y++) for(let x=0;x<N;x++){ let a=0; for(let j=-R;j<=R;j++){ const yy=y+j; if(yy<0||yy>=N)continue; for(let i=-R;i<=R;i++){ const xx=x+i; if(xx<0||xx>=N)continue; a+=img[yy*N+xx]*k[(j+R)*sz+(i+R)]; } } out[y*N+x]=a; }
     return out; }
-  const VGRAY=(v,lim)=>{ const t=Math.max(0,Math.min(1,(v/(lim||1)+1)/2)), c=Math.round(20+225*t); return [c,c,c]; };       // signed → gray
-  const VHOT =(v,mx)=>{ const t=Math.max(0,Math.min(1,v/(mx||1))); return [Math.round(34+221*Math.sqrt(t)), Math.round(30+165*t), Math.round(92*(1-t))]; }; // energy → warm
+  const VGRAY=(v,lim)=>{ const t=Math.max(0,Math.min(1,(v/(lim||1)+1)/2)), c=Math.round(20+225*t); return [c,c,c]; };
+  const VHOT =(v,mx)=>{ const t=Math.max(0,Math.min(1,v/(mx||1))); return [Math.round(34+221*Math.sqrt(t)), Math.round(30+165*t), Math.round(92*(1-t))]; };
 
   const MODELS = {
 
-    /* ---- A Bayesian observer: estimate a stimulus θ from a noisy measurement m,
-            combining a prior with the likelihood (L2 loss → posterior mean). ---- */
     bayes: {
       id:'bayes', name:'Bayesian observer',
       blurb:'Estimate a stimulus θ from a noisy measurement m by combining a Gaussian prior with the likelihood; the L2-optimal estimate θ̂ is the posterior mean. Estimates regress toward the prior — the central-tendency effect.',
@@ -62,18 +43,15 @@
         {name:'nTrials', label:'Trials', min:20, max:1500, step:20, default:300, int:true},
       ],
       simulate:(p, env)=>{
-        const vm=p.sigma_m*p.sigma_m, v0=p.sigma0*p.sigma0, w=v0/(v0+vm);   // reliability weight on the measurement
+        const vm=p.sigma_m*p.sigma_m, v0=p.sigma0*p.sigma0, w=v0/(v0+vm);
         const sigPost=Math.sqrt(1/(1/vm+1/v0));
         const m=p.theta + p.sigma_m*gaussian(env.rng), muPost=w*m+(1-w)*p.mu0;
-        // frame from the actual support so θ, m, θ̂ are always on-plot (even at extreme settings)
         const span=3.2*Math.max(p.sigma0, p.sigma_m, 0.5);
         let lo=Math.min(p.mu0-span, p.theta-2*p.sigma_m, m-2*p.sigma_m, muPost),
             hi=Math.max(p.mu0+span, p.theta+2*p.sigma_m, m+2*p.sigma_m, muPost);
         const padd=(hi-lo)*0.04||0.1; lo-=padd; hi+=padd;
-        // trial-to-trial prior-mean update toward the stimulus environment
         const N=Math.round(p.nTrials), muSeq=new Float64Array(N+1); muSeq[0]=p.mu0; let mu=p.mu0;
         for(let t=0;t<N;t++){ const stim=p.stimMean+0.55*gaussian(env.rng), mm=stim+p.sigma_m*gaussian(env.rng); mu=(1-p.alpha)*mu+p.alpha*mm; muSeq[t+1]=mu; }
-        // the prior-update view needs its own y-range: μ can adapt past the inference support
         let sLo=Math.min(p.stimMean, lo), sHi=Math.max(p.stimMean, hi);
         for(let t=0;t<=N;t++){ if(muSeq[t]<sLo)sLo=muSeq[t]; if(muSeq[t]>sHi)sHi=muSeq[t]; }
         const sp=(sHi-sLo)*0.06||0.1;
@@ -93,12 +71,11 @@
         }},
         { title:'Estimate vs. true (central tendency)', draw:(g,d,ui)=>{ const p=ui.params, T=TH();
           g.frame({x:[d.lo,d.hi], y:[d.lo,d.hi], xlabel:'true θ', ylabel:'estimate θ̂', title:'estimate curve — regression toward the prior'});
-          g.line([[d.lo,d.lo],[d.hi,d.hi]],{color:T.faint,width:1,dash:[3,3]});                 // identity (unbiased)
+          g.line([[d.lo,d.lo],[d.hi,d.hi]],{color:T.faint,width:1,dash:[3,3]});
           const xs=[]; for(let i=0;i<=80;i++){ const th=d.lo+(d.hi-d.lo)*i/80; xs.push(th); }
           const est=xs.map(th=>[th, d.w*th+(1-d.w)*p.mu0]);
           const up=xs.map(th=>[th, d.w*th+(1-d.w)*p.mu0 + d.w*p.sigma_m]);
           const dn=xs.map((th,i)=>[th, d.w*th+(1-d.w)*p.mu0 - d.w*p.sigma_m]);
-          // ±SD ribbon
           g.ctx.fillStyle='rgba(46,139,122,.12)'; g.ctx.beginPath();
           up.forEach((pt,i)=>{const X=g.X(pt[0]),Y=g.Y(pt[1]); i?g.ctx.lineTo(X,Y):g.ctx.moveTo(X,Y);});
           for(let i=dn.length-1;i>=0;i--){const X=g.X(dn[i][0]),Y=g.Y(dn[i][1]); g.ctx.lineTo(X,Y);} g.ctx.closePath(); g.ctx.fill();
@@ -116,8 +93,6 @@
       anim:{ length:(p)=>Math.round(p.nTrials) },
     },
 
-    /* ---- Efficient-coding observer (Wei & Stocker): the prior reshapes the sensory code.
-            A PROCESS-mode model — step the playhead through the pipeline stages. ---- */
     efficient: {
       id:'efficient', name:'Efficient-coding observer',
       blurb:'An efficient sensory code spends resolution where the prior is dense: the encoding F(θ)=CDF(prior) warps stimulus space so noise is uniform in sensory space. Decoding back skews the likelihood and biases the percept — repelled from the prior peak (Wei & Stocker).',
@@ -131,11 +106,11 @@
       simulate:(p,env)=>{ const E=global.MSLIB.efficient, B=global.MSLIB.bayes, lo=-4, hi=4, NG=241;
         const grid=B.linspace(lo,hi,NG), prior=Array.from(grid,x=>npdf(x,0,p.priorSD)), F=E.cdf(grid,prior);
         const loss=p.lossMAP?'MAP':'BLS';
-        const mt=E.measure(p.theta,p.sigma,grid,F,()=>gaussian(env.rng));         // one measurement in F-space
+        const mt=E.measure(p.theta,p.sigma,grid,F,()=>gaussian(env.rng));
         const like=E.likelihood(mt,p.sigma,grid,F), post=B.gridPost(like,prior);
         const estBLS=B.gridMean(post,grid), estMAP=B.gridMode(post,grid), est=loss==='MAP'?estMAP:estBLS;
-        const mBack=E.inv(Math.max(0,Math.min(1,mt)),grid,F);                      // measurement mapped back to stimulus space
-        const cg=B.linspace(-1.4,1.4,43), bias=[], disc=[], dAll=E.discrim(grid,prior);   // central region (avoid finite-grid edge artifact that dwarfs the lobes)
+        const mBack=E.inv(Math.max(0,Math.min(1,mt)),grid,F);
+        const cg=B.linspace(-1.4,1.4,43), bias=[], disc=[], dAll=E.discrim(grid,prior);
         for(const th of cg){ let s=0,n=220; for(let k=0;k<n;k++) s+=E.decode(E.encode(th,grid,F)+p.sigma*gaussian(env.rng),p.sigma,grid,F,prior,loss);
           bias.push([th, s/n-th]); disc.push([th, E.interp(th,grid,dAll)]); }
         return { grid, prior, F, mt, mBack, like, post, est, estBLS, estMAP, lo, hi, bias, disc }; },
@@ -182,8 +157,6 @@
       ],
     },
 
-    /* ---- Bayesian causal inference (Körding et al. 2007): infer whether two senses share
-            a cause, then fuse or segregate. PROCESS mode. ---- */
     causal: {
       id:'causal', name:'Causal inference',
       blurb:'Two senses report a location. The observer infers whether they share one cause (C=1) or two (C=2), then estimates — fusing when a common cause is likely, segregating when not (Körding et al. 2007).',
@@ -244,8 +217,6 @@
       ],
     },
 
-    /* ---- Working-memory recall (Bays & Husain; Zhang & Luck): a limited resource sets
-            precision; reports mix target / swap / guess. PROCESS mode + trial accumulation. ---- */
     wm: {
       id:'wm', name:'Working-memory recall',
       blurb:'Remember N items on a feature circle, then report one. A limited resource sets recall precision; reports are a mixture of accurate memory, swaps to a non-target, and uniform guesses (Bays & Husain; Zhang & Luck).',
@@ -258,10 +229,9 @@
         {name:'nTrials',label:'Trials', min:100, max:6000, step:100, default:1500, int:true},
       ],
       simulate:(p,env)=>{ const W=global.MSLIB.wm, TWO=2*Math.PI, N=Math.round(p.N);
-        // effective, self-consistent weights (sum to 1): no swaps without non-targets; renormalise if β+γ>1
         let pSwap = N<2 ? 0 : p.pSwap, pGuess = p.pGuess, pT = 1 - pSwap - pGuess;
         if(pT < 0){ const s=pSwap+pGuess; pSwap/=s; pGuess/=s; pT=0; }
-        const offs=[]; for(let i=1;i<N;i++) offs.push(W.wrap(TWO*i/N));                       // fixed non-target offsets (clean demo)
+        const offs=[]; for(let i=1;i<N;i++) offs.push(W.wrap(TWO*i/N));
         const tBase=W.wrap(-1.3+0.5*gaussian(env.rng)), items=[tBase].concat(offs.map(o=>W.wrap(tBase+o)));
         const cfg=k=>({target:k===undefined?0:k, nontargets: k===undefined?offs:items.slice(1), kappa:p.kappa, pT, pSwap, pGuess});
         const sample=W.mixtureRecall(cfg(tBase), ()=>env.rng());
@@ -313,7 +283,6 @@
       ],
     },
 
-    /* ---- A drift-diffusion decision: animate one trial's evidence, accumulate RTs. ---- */
     ddm: {
       id:'ddm', name:'Drift-diffusion decision',
       blurb:'A pure evidence accumulator — the atom of decision models. Each timestep adds a fixed DRIFT (the signal) plus a random NOISE kick; repeat the atom and evidence random-walks to a bound (+z correct / −z error). Use the lens switch (top) to zoom: one update → one trial → the whole distribution.',
@@ -331,13 +300,12 @@
         const rtMax=dec.length?Math.min(20,dec[Math.floor(0.99*(dec.length-1))]*1.08):1;
         const pp={A:p.A,c:p.c,z:p.z,dt:p.dt}, steps0=ddmSteps(pp, env.seed, 0), stepCap=Math.min(steps0.length, 48);
         return { n, out, rt, rtMax, pp, seed:env.seed, steps0, stepCap }; },
-      // THREE LENSES over the same data — step (one atomic update), trial (one decision), simulation (the statistics)
       lenses:{
         step:{ label:'Step', about:'one atomic update: evidence ← evidence + drift (signal) + noise',
           anim:{ length:(p,d)=>d.stepCap },
           views:[
             { title:'one update: x′ = x + drift + noise', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), s=d.steps0[k];
-              const inc=Math.max(Math.abs(s.drift), Math.abs(s.noise), 0.01), pad=inc*2.6+0.015, lo=Math.min(s.x,s.xNext)-pad, hi=Math.max(s.x,s.xNext)+pad;   // zoom to the ATOM so drift vs noise are comparable
+              const inc=Math.max(Math.abs(s.drift), Math.abs(s.noise), 0.01), pad=inc*2.6+0.015, lo=Math.min(s.x,s.xNext)-pad, hi=Math.max(s.x,s.xNext)+pad;
               g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'evidence x (zoomed to this step)', title:`one update — step ${k+1}: signal vs noise`});
               if(z<=hi&&z>=lo) g.vline(z,{color:T.pos,dash:[5,4],label:'+z'}); if(-z>=lo&&-z<=hi) g.vline(-z,{color:T.neg,dash:[5,4],label:'−z'}); if(0>=lo&&0<=hi) g.vline(0,{color:'rgba(80,75,65,.16)',dash:[2,3]});
               const gl=(xv,y0,y1)=>g.line([[xv,y0],[xv,y1]],{color:'rgba(80,75,65,.16)',dash:[2,3],width:1});
@@ -392,9 +360,6 @@
       },
     },
 
-    /* ---- COMPARISON exemplar: two decision strategies sharing the same signal/noise, switched by a
-       TOGGLE — drift-diffusion (integrate to a bound) vs a single-sample observer. Showcases comparing
-       a model CHOICE + PARAMETERS via sliders/toggles, a 2-D metric HEATMAP, and several METRICS. Analytic. */
     compare: {
       id:'compare', name:'Decision: integrate vs one sample',
       blurb:'Two 2-alternative strategies with the SAME signal (drift A) and noise c — toggle between them: a drift-diffusion model INTEGRATES evidence to a bound ±z (variable time), or a single-sample observer takes ONE noisy reading over a fixed time T and reports its sign. Panel 1 overlays their speed-accuracy frontiers, panel 2 maps the chosen metric over the (drift, noise) plane, panel 3 compares accuracy, speed, and reward at the operating point, panel 4 shows the mechanism.',
@@ -460,9 +425,6 @@
       ],
     },
 
-    /* ---- An IMAGE-input exemplar (a different model class): early-vision orientation readout.
-       STRUCTURE FIRST (the filter-bank architecture + receptive fields), then the input image,
-       the channel transform, and the readout. Shows the harness generalises to image/CNN models. */
     vision: {
       id:'vision', name:'Early vision — orientation',
       blurb:'A SENSORY model with IMAGE input. A noisy oriented grating is filtered by a bank of oriented Gabor energy channels; pooling them reads out the orientation. Use the lens switch for the angles — structure first: the filter-bank architecture (the channels and their receptive fields), the input image, how each channel re-represents it, the orientation readout. Move the sliders and watch them update.',
@@ -479,7 +441,7 @@
         const maps=[], pooled=[]; let emax=1e-9;
         for(let k=0;k<K;k++){ const ev=conv2(img,N,gaborKernel(oris[k],p.sf,sigma,0,N)), od=conv2(img,N,gaborKernel(oris[k],p.sf,sigma,Math.PI/2,N)), en=new Float64Array(N*N);
           let s=0; for(let t=0;t<N*N;t++){ const e=ev[t]*ev[t]+od[t]*od[t]; en[t]=e; if(e>emax)emax=e; s+=e; } maps.push(en); pooled.push(s/(N*N)); }
-        let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=pooled[k]*Math.cos(a); sy+=pooled[k]*Math.sin(a); }   // orientation is π-periodic → decode on 2θ
+        let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=pooled[k]*Math.cos(a); sy+=pooled[k]*Math.sin(a); }
         let dec=Math.atan2(sy,sx)*90/Math.PI; dec=((dec%180)+180)%180;
         return { N, K, oris, img, imgLim, maps, pooled, dec, emax, pmax:Math.max(...pooled,1e-9), ori:p.ori, sf:p.sf };
       },
@@ -525,7 +487,6 @@
       },
     },
 
-    /* ---- single-neuron biophysics: leaky integrate-and-fire (composed from MSLIB.neuron) ---- */
     lif: {
       id:'lif', name:'Spiking neuron (LIF)',
       blurb:'A leaky integrate-and-fire neuron: input current charges the membrane until it hits threshold, fires a spike, and resets. Use the lens switch for the angles: one V(t) trace, a spike raster over repeats, the f-I transfer curve. Move the current, noise, and membrane sliders.',
@@ -568,7 +529,6 @@
       },
     },
 
-    /* ---- learning: Rescorla–Wagner value updating (composed from MSLIB.rl) ---- */
     rl: {
       id:'rl', name:'Reinforcement learning (RW)',
       blurb:'A Rescorla–Wagner learner: a cue predicts value V; a reward arrives (prob p); the prediction error δ = r − V nudges V by α·δ. Use the lens switch for the angles: one update decomposed, the learning curve, and how the learning rate α changes it.',
@@ -611,9 +571,6 @@
       },
     },
 
-    /* ---- NETWORK-level exemplar: a 2-population attractor decision circuit (Wong–Wang reduced,
-       MSLIB.decision). STRUCTURE FIRST (the wiring + E/I), then the network's angles:
-       Structure (the circuit) - Step (one pool's recurrent input) - Dynamics (the pools race) - Landscape. */
     attractor: {
       id:'attractor', name:'Attractor network — decision',
       blurb:'A recurrent 2-population decision circuit (Wong & Wang reduced). Two pools excite themselves and inhibit each other; a small coherence bias plus noise tips the network into one of two attractors. Use the lens switch for the angles — structure first: Structure (the circuit wiring and E/I), Step (one pool’s recurrent input), Dynamics (the pools race to a winner), Landscape (the state-space the network rolls down).',
@@ -693,9 +650,6 @@
       },
     },
 
-    /* ---- MACRO-level exemplar: a spatial SIR epidemic on a 1-D line of sites (reaction–diffusion).
-       A different scale entirely (no neurons, no trials) — angles fit a population/field model:
-       Spread (space-time kymograph), Curve (totals over the line), Threshold (peak vs R0). */
     sir: {
       id:'sir', name:'Epidemic (spatial SIR)',
       blurb:'A population model at the MACRO scale: Susceptible, Infected, Recovered on a line of coupled sites. Infection spreads locally (diffusion) and recovers at rate γ. Use the lens switch for the angles: Spread (the epidemic as a space-time map), Curve (the classic S/I/R totals), Threshold (how the peak depends on R0). Move R0, γ, and spread.',
@@ -720,7 +674,7 @@
       lenses:{
         spread:{ label:'Spread', about:'the epidemic as a space×time map — a travelling wave above threshold',
           views:[ { title:'infected fraction over space (x) and time', draw:(g,d)=>{ const T=TH();
-            const cmap=v=>Plot.RAMPS.red(v/(d.iMax||1)); // cream→deep red
+            const cmap=v=>Plot.RAMPS.red(v/(d.iMax||1));
             g.frame({cbar:true, x:[0,d.N], y:[0,d.T], xlabel:'site (space)', ylabel:'time (days)', title:'where & when infection peaks (R₀='+d.R0.toFixed(2)+')'});
             g.heat(d.N, d.nF, (i,j)=> d.kymo[j][i], cmap, {smooth:false});
             g.colorbar(0, d.iMax, cmap, {ticks:[{v:0,label:'0'},{v:d.iMax,label:d.iMax.toFixed(2)}], label:'infected'}); }} ] },
@@ -737,9 +691,6 @@
       },
     },
 
-    /* ---- NETWORK with PLASTICITY: a Hopfield associative memory (Hebbian). STRUCTURE FIRST —
-       the weight matrix IS the stored memory. Angles: Structure (W), Store (the memories + the
-       Hebbian rule), Recall (a noisy cue settles into an attractor), Capacity (load sweep). */
     hopfield: {
       id:'hopfield', name:'Hopfield memory (Hebbian)',
       blurb:'An associative memory: ±1 patterns are stored by Hebbian plasticity into a symmetric weight matrix W = Σ ξξᵀ; a noisy cue then settles, by repeated sign updates, into the nearest stored pattern (an attractor). Use the lens switch for the angles — structure first: Structure (the weight matrix), Store (the stored memories and the rule that wrote them), Recall (the cue settling in), Capacity (how recall fails as you store more).',
@@ -802,8 +753,6 @@
       },
     },
 
-    /* ---- OSCILLATION: Kuramoto coupled phase oscillators. STRUCTURE FIRST — the natural-frequency
-       spread + all-to-all coupling. Angles: Structure, Dynamics (phases on a circle), Sync (r vs K). */
     kuramoto: {
       id:'kuramoto', name:'Kuramoto oscillators (sync)',
       blurb:'N phase oscillators, each with its own natural frequency, all-to-all coupled with strength K. Below a critical coupling they drift incoherently; above it they spontaneously synchronise. Use the lens switch for the angles — structure first: Structure (the frequency spread and the coupling), Dynamics (the phases racing around a circle), Sync (the order parameter r as a function of K — the synchronization transition).',
@@ -856,9 +805,6 @@
       },
     },
 
-    /* ---- PARTIAL OBSERVABILITY: belief tracking with a discrete Bayes filter (HMM forward).
-       A hidden location diffuses on a ring; each step gives a noisy reading; the filter keeps a
-       BELIEF over where it is. STRUCTURE FIRST. Angles: Structure, Belief, Compare(noise). */
     belief: {
       id:'belief', name:'Belief tracking (Bayes filter)',
       blurb:'A hidden location moves on a ring and is never seen directly — each step gives only a noisy reading. A Bayes filter keeps a BELIEF (a probability distribution) over where it is: predict (diffuse the belief through the transition), then correct (multiply by the observation likelihood). Use the lens switch for the angles — structure first: Structure (the hidden states, the transition, the observation model), Belief (the belief distribution evolving as observations arrive), Compare (how observation noise blurs tracking).',
@@ -871,12 +817,12 @@
         const wrap=i=>((i%S)+S)%S, ringD=(a,b)=>{ const d=Math.abs(a-b); return Math.min(d,S-d); }, volK=Math.max(0.4,p.vol);
         const T=[]; for(let i=0;i<S;i++){ const row=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ const dd=ringD(i,j), w=Math.exp(-0.5*(dd/volK)*(dd/volK)); row[j]=w; z+=w; } for(let j=0;j<S;j++) row[j]/=z; T.push(Array.from(row)); }
         const onS=Math.max(0.4,p.obsNoise);
-        const cat=(pmf,u)=>{ let c=0; for(let j=0;j<S;j++){ c+=pmf[j]; if(u<c) return j; } return S-1; };   // categorical sample
+        const cat=(pmf,u)=>{ let c=0; for(let j=0;j<S;j++){ c+=pmf[j]; if(u<c) return j; } return S-1; };
         const obsPmf=(center,sd)=>{ const a=new Float64Array(S); let z=0; for(let j=0;j<S;j++){ const dd=ringD(j,center); a[j]=Math.exp(-0.5*(dd/sd)*(dd/sd)); z+=a[j]; } for(let j=0;j<S;j++) a[j]/=z; return a; };
         let x=Math.floor(S/2), b=new Float64Array(S).fill(1/S);
         const beliefs=[Array.from(b)], trueX=[x], obs=[null], entropy=[BF.entropy(b)];
-        for(let t=0;t<Tn;t++){ x=cat(T[x], rng()); const y=cat(obsPmf(x,onS), rng());   // generate from the SAME discrete transition + observation model the filter assumes
-          b=BF.predict(b, T); b=BF.update(b, Array.from(obsPmf(y,onS)));                 // likelihood P(obs=y|state j) ∝ obs pmf centred at y (symmetric)
+        for(let t=0;t<Tn;t++){ x=cat(T[x], rng()); const y=cat(obsPmf(x,onS), rng());
+          b=BF.predict(b, T); b=BF.update(b, Array.from(obsPmf(y,onS)));
           beliefs.push(Array.from(b)); trueX.push(x); obs.push(y); entropy.push(BF.entropy(b)); }
         const bmean=(bb)=>{ let cx=0,cy=0; for(let j=0;j<S;j++){ const a=2*Math.PI*j/S; cx+=bb[j]*Math.cos(a); cy+=bb[j]*Math.sin(a); } return wrap(Math.round(Math.atan2(cy,cx)/(2*Math.PI)*S)); };
         const sweep=[]; for(let n=0;n<=20;n++){ const on=Math.max(0.4,0.3+n*(6/20)); let bb=new Float64Array(S).fill(1/S), xx=Math.floor(S/2), rr=makeRNG(env.seed+'#bsw'+n), errAcc=0,cnt=0;
@@ -919,9 +865,6 @@
       },
     },
 
-    /* ---- NETWORK with CONTINUOUS REPRESENTATION: a ring attractor (Mexican-hat connectivity).
-       STRUCTURE FIRST. A localized activity bump codes a continuous variable and PERSISTS after the
-       cue is gone (working memory). Angles: Structure, Dynamics, Representation, Compare (E/I). */
     ring: {
       id:'ring', name:'Ring attractor (working memory)',
       blurb:'A ring of units with Mexican-hat connectivity (local excitation, broad inhibition). A brief cue starts a localized activity bump that the recurrence sustains — and the bump PERSISTS after the cue is gone, holding the remembered location (a working-memory mechanism). The population-vector peak decodes the held value. Use the lens switch for the angles — structure first: Structure (the connectivity), Dynamics (the bump), Representation (the decoded heading over time), Compare (how the E/I balance sets the bump).',
@@ -981,9 +924,6 @@
       },
     },
 
-    /* ---- VISION / CNN, DEEP STACK: retina → V1. STRUCTURE (architecture) FIRST, then the image
-       transformed layer by layer. Center-surround (bipolar/horizontal) → ganglion → V1 simple
-       (oriented) → V1 complex (energy). Angles: Architecture, Layers, RF, Compare(surround). */
     retina: {
       id:'retina', name:'Retina → V1 (layered vision)',
       blurb:'A layered early-vision model on an image: photoreceptors → a center-surround stage (bipolar + horizontal cells, a difference-of-Gaussians receptive field) → ganglion edge signals → V1 simple cells (oriented Gabor) → V1 complex cells (orientation energy). Use the lens switch for the angles — architecture first: Architecture (the layer stack and its receptive fields), Layers (the image transformed stage by stage), RF (the receptive-field profiles and V1 tuning), Compare (how the horizontal-cell surround changes the output).',
@@ -1001,7 +941,7 @@
         const simple=ev, complex=new Float64Array(N*N); for(let t=0;t<N*N;t++) complex[t]=ev[t]*ev[t]+od[t]*od[t];
         const lim=a=>{ let m=1e-6; for(const v of a) m=Math.max(m,Math.abs(v)); return m; };
         const K=12, oris=[], tuning=[]; for(let k=0;k<K;k++){ const o=k*180/K; oris.push(o); const e=conv2(dog,N,gaborKernel(o,p.sf,sigma,0,N)), d2=conv2(dog,N,gaborKernel(o,p.sf,sigma,Math.PI/2,N)); let s=0; for(let t=0;t<N*N;t++) s+=e[t]*e[t]+d2[t]*d2[t]; tuning.push([o, s/(N*N)]); }
-        const prof=[]; for(let i=-dk.R;i<=dk.R;i++) prof.push([i, dk.k[dk.R*dk.sz+(i+dk.R)]]);   // DoG center-surround 1-D cross-section
+        const prof=[]; for(let i=-dk.R;i<=dk.R;i++) prof.push([i, dk.k[dk.R*dk.sz+(i+dk.R)]]);
         const sweep=[]; for(let s2=0;s2<=16;s2++){ const wS=s2/16*1.4, dg=conv2(img,N,V.dogKernel(sC,sS,wS)); let mean=0; for(const v of dg) mean+=v; mean/=dg.length; let varr=0; for(const v of dg) varr+=(v-mean)*(v-mean); sweep.push([wS, Math.sqrt(varr/dg.length)]); }
         const gk=gaborKernel(p.ori, p.sf, sigma, 0, N);
         return { N, img, dog, simple, complex, imgLim:lim(img), dogLim:lim(dog), simpleLim:lim(simple), complexMax:lim(complex), oris, tuning, tmax:Math.max(...tuning.map(q=>q[1]),1e-9), prof, dk, gk, sweep, surround:p.surround, ori:p.ori, dec:(function(){ let sx=0,sy=0; for(let k=0;k<K;k++){ const a=2*oris[k]*Math.PI/180; sx+=tuning[k][1]*Math.cos(a); sy+=tuning[k][1]*Math.sin(a); } let dd=Math.atan2(sy,sx)*90/Math.PI; return ((dd%180)+180)%180; })() };
@@ -1016,7 +956,6 @@
               const rr=8*F; ctx.beginPath(); ctx.moveTo(x+rr,y0); ctx.arcTo(x+bw,y0,x+bw,y0+bh,rr); ctx.arcTo(x+bw,y0+bh,x,y0+bh,rr); ctx.arcTo(x,y0+bh,x,y0,rr); ctx.arcTo(x,y0,x+bw,y0,rr); ctx.closePath(); ctx.fill(); ctx.stroke();
               ctx.fillStyle=T.ink; ctx.font=(11.5*F)+'px sans-serif'; const lines=stages[i].split('\n'); lines.forEach((ln,li)=>ctx.fillText(ln, x+bw/2, cy-4*F+li*13*F+(lines.length===1?4*F:0)));
               if(i<n-1){ const ax=x+bw, ay=cy; ctx.strokeStyle=T.dim; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+gap,ay); ctx.stroke(); ctx.fillStyle=T.dim; ctx.beginPath(); ctx.moveTo(ax+gap,ay); ctx.lineTo(ax+gap-5*F,ay-4*F); ctx.lineTo(ax+gap-5*F,ay+4*F); ctx.closePath(); ctx.fill(); } }
-            // RF thumbnails under the center-surround and V1-simple stages
             const thumb=(stageIdx, ker, label)=>{ const x=x0+stageIdx*(bw+gap), pwh=Math.min(72*F,bw), tx=x+(bw-pwh)/2, ty=y0+bh+26*F, sz=ker.sz; let kl=1e-6; for(const v of ker.k) kl=Math.max(kl,Math.abs(v));
               g.image(sz, sz, (i,j)=>ker.k[j*sz+i], v=>VGRAY(v,kl), {x:tx, y:ty, w:pwh, h:pwh}); ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(tx,ty,pwh,pwh); ctx.fillStyle=T.dim; ctx.font=(10.5*F)+'px monospace'; ctx.textAlign='center'; ctx.fillText(label, x+bw/2, ty+pwh+14*F); };
             thumb(1, d.dk, 'center-surround RF'); thumb(3, d.gk, 'oriented RF');
@@ -1035,7 +974,7 @@
               g.frame({x:[d.prof[0][0],d.prof[d.prof.length-1][0]], y:[ymin-Math.abs(ymin)*0.2-1e-3, ymax*1.2], xlabel:'distance from RF centre (pixels)', ylabel:'sensitivity', title:'excitatory centre, inhibitory surround (the horizontal-cell antagonism)'});
               g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.prof,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.prof,{color:T.accent,width:2.4}); }},
             { title:'V1 orientation tuning (complex-cell energy)', draw:(g,d)=>{ const T=TH(); g.frame({x:[-10,180], y:[0,d.tmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`tuning peaks at the stimulus orientation (decoded ${d.dec.toFixed(0)}° vs ${d.ori}°)`});
-              const tun=d.tuning.concat([[180, d.tuning[0][1]]]);   // axial: close the curve at 180°=0°
+              const tun=d.tuning.concat([[180, d.tuning[0][1]]]);
               g.line(tun,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
           ] },
         compare:{ label:'Compare', about:'how the horizontal-cell surround changes the output',
@@ -1046,9 +985,6 @@
       },
     },
 
-    /* ---- CAUSAL GRAPH (Pearl-style structural causal model). STRUCTURE FIRST — the DAG.
-       A confounder U biases the OBSERVED X–Y association; an intervention do(X) cuts the backdoor and
-       reveals the true causal effect. Angles: Structure (the graph), Observe, Intervene, Compare. */
     causalg: {
       id:'causalg', name:'Causal graph — intervention (do)',
       blurb:'A structural causal model (a linear-Gaussian DAG): a confounder U drives both the treatment X and the outcome Y, while X affects Y through a mediator M (X→M→Y). The OBSERVED X–Y association mixes the real causal path with the confounding backdoor X←U→Y; an INTERVENTION do(X) cuts that backdoor and reveals the true effect. Use the lens switch for the angles — structure first: Structure (the graph), Observe (the confounded association), Intervene (do(X) vs what you see), Compare (how confounding inflates the observed effect).',
@@ -1061,9 +997,9 @@
       simulate:(p, env)=>{ const rng=makeRNG(env.seed+'#cg'), g=()=>gaussian(rng), n=400, wUX=p.conf, wUY=p.conf, wXM=p.causal, wMY=1, sig=p.noise;
         const fit=(pts)=>{ let mx=0,my=0; for(const[a,b]of pts){mx+=a;my+=b;} mx/=pts.length;my/=pts.length; let sxy=0,sxx=0; for(const[a,b]of pts){sxy+=(a-mx)*(b-my);sxx+=(a-mx)*(a-mx);} return {slope:sxx>1e-9?sxy/sxx:0, mx, my}; };
         const obs=[]; for(let i=0;i<n;i++){ const U=g(), X=wUX*U+sig*g(), M=wXM*X+sig*g(), Y=wMY*M+wUY*U+sig*g(); obs.push([X,Y]); }
-        const doPts=[]; for(let i=0;i<n;i++){ const x=-3+6*rng(), U=g(), M=wXM*x+sig*g(), Y=wMY*M+wUY*U+sig*g(); doPts.push([x,Y]); }   // do(X=x): X is SET, U independent of X
+        const doPts=[]; for(let i=0;i<n;i++){ const x=-3+6*rng(), U=g(), M=wXM*x+sig*g(), Y=wMY*M+wUY*U+sig*g(); doPts.push([x,Y]); }
         const fo=fit(obs), fd=fit(doPts), causal=wXM*wMY;
-        const sweep=[]; for(let s=0;s<=20;s++){ const c=s*1.5/20; sweep.push([c, (c*c)/(c*c + sig*sig)]); }   // analytic backdoor bias = conf²/(conf²+noise²): observed slope − causal effect (exact, monotone, 0 at conf=0)
+        const sweep=[]; for(let s=0;s<=20;s++){ const c=s*1.5/20; sweep.push([c, (c*c)/(c*c + sig*sig)]); }
         let xlo=0,xhi=0,ylo=0,yhi=0; for(const[a,b]of obs.concat(doPts)){ if(a<xlo)xlo=a; if(a>xhi)xhi=a; if(b<ylo)ylo=b; if(b>yhi)yhi=b; }
         return { obs, doPts, obsSlope:fo.slope, doSlope:fd.slope, obsMx:fo.mx, obsMy:fo.my, doMx:fd.mx, doMy:fd.my, causal, conf:p.conf, wXM, sweep, xlo, xhi, ylo, yhi };
       },
@@ -1099,8 +1035,6 @@
       },
     },
 
-    /* ---- TRANSFORMER self-attention: content-based routing as soft, learned connectivity.
-       STRUCTURE FIRST — the attention matrix (who attends to whom). Angles: Structure, Mix, Compare(temp). */
     attention: {
       id:'attention', name:'Self-attention (transformer)',
       blurb:'A row of tokens, each with a type and a value. Self-attention lets every token attend to others by CONTENT (same type) and POSITION (nearby), via a softmax — then each token’s output is the attention-weighted mix of the others’ values. Attention is soft, content-based connectivity. Use the lens switch for the angles — structure first: Structure (the attention matrix — who attends to whom), Mix (how the values get routed and combined), Compare (how temperature sharpens or blurs attention).',
@@ -1124,7 +1058,7 @@
         structure:{ label:'Structure', about:'the attention matrix — which token (row) attends to which (col)',
           views:[ { title:'attention matrix: query i (row) attends to key j (column)', draw:(g,d)=>{ const T=TH(), N=d.N, amax=Math.max(...d.attn.flat());
             g.frame({cbar:true, x:[0,N], y:[0,N], xticks:1, yticks:1, xlabel:'key token j', ylabel:'query token i', title:'dark cells = strong attention; same-type / nearby tokens form blocks'});
-            g.heat(N, N, (i,j)=>d.attn[j][i], v=>Plot.RAMPS.blue(v/amax), {smooth:false});   // row j of the map = query j, matching the y ticks (heat puts j=0 at the bottom)
+            g.heat(N, N, (i,j)=>d.attn[j][i], v=>Plot.RAMPS.blue(v/amax), {smooth:false});
             g.colorbar(0, amax, v=>Plot.RAMPS.blue(v/amax), {label:'attention'});
           }} ] },
         mix:{ label:'Mix', about:'how one token’s output is the attention-weighted mix of the values',
@@ -1145,9 +1079,6 @@
       },
     },
 
-    /* ---- POMDP CONTROL: the classic Tiger problem, solved by value iteration over the BELIEF.
-       Beyond belief tracking — the agent chooses actions (listen vs open) to maximise reward.
-       STRUCTURE FIRST. Angles: Structure, Policy (value function + regions), Episode, Compare. */
     pomdp: {
       id:'pomdp', name:'POMDP — the tiger (value iteration)',
       blurb:'The classic Tiger POMDP. A tiger is behind one of two doors; you cannot see which. You may LISTEN (a noisy roar, small cost) to sharpen your belief, or OPEN a door — the safe one for a reward, the tiger one for a big penalty. Solving it is value iteration over the BELIEF (the probability the tiger is on the left): the optimal policy listens while uncertain and opens once confident. Use the lens switch for the angles — structure first: Structure (the problem), Policy (the value function and when to listen vs open), Episode (belief updating until you act), Compare (how the tiger penalty reshapes the strategy).',
@@ -1170,7 +1101,7 @@
         for(let step=0; step<14; step++){ const act=policyAt(b); acts.push(act);
           if(act!==0){ reward = act===1 ? (trueTL?rTiger:rSafe) : (trueTL?rSafe:rTiger); break; }
           const hearTL = rng() < (trueTL?a:1-a), pHL=b*a+(1-b)*(1-a); b = hearTL ? b*a/pHL : b*(1-a)/(1-pHL); traj.push(b); }
-        const sweep=[]; for(let s=0;s<=15;s++){ const pen=20+s*(200-20)/15, rT=-pen;   // sweep the tiger penalty (accuracy fixed): a bigger penalty → demand more confidence → listen more
+        const sweep=[]; for(let s=0;s<=15;s++){ const pen=20+s*(200-20)/15, rT=-pen;
           let Vs=new Float64Array(N); const bk=(V,bb)=>{ const pHL=bb*a+(1-bb)*(1-a),pHR=1-pHL,bHL=pHL>1e-9?bb*a/pHL:bb,bHR=pHR>1e-9?bb*(1-a)/pHR:bb; return Math.max(c+gamma*(pHL*Vat(V,bHL)+pHR*Vat(V,bHR)),(1-bb)*rSafe+bb*rT+gamma*Vat(V,0.5),bb*rSafe+(1-bb)*rT+gamma*Vat(V,0.5)); };
           for(let it=0;it<90;it++){ const nV=new Float64Array(N); for(let k=0;k<N;k++) nV[k]=bk(Vs,gb(k)); Vs=nV; }
           let lf=0; for(let k=0;k<N;k++){ const bb=gb(k),pHL=bb*a+(1-bb)*(1-a),pHR=1-pHL,bHL=pHL>1e-9?bb*a/pHL:bb,bHR=pHR>1e-9?bb*(1-a)/pHR:bb; const QL=c+gamma*(pHL*Vat(Vs,bHL)+pHR*Vat(Vs,bHR)),QOL=(1-bb)*rSafe+bb*rT+gamma*Vat(Vs,0.5),QOR=bb*rSafe+(1-bb)*rT+gamma*Vat(Vs,0.5); if(QL>=QOL&&QL>=QOR) lf++; } sweep.push([pen, lf/N]); }
@@ -1212,8 +1143,6 @@
       },
     },
 
-    /* ---- OSCILLATION (E/I): Wilson–Cowan excitatory/inhibitory rate model. STRUCTURE FIRST.
-       A limit cycle appears past a Hopf bifurcation as the drive grows. Angles: Structure, Dynamics, Compare. */
     wilson: {
       id:'wilson', name:'Wilson–Cowan E/I (oscillation)',
       blurb:'Two coupled populations — excitatory E and inhibitory I — with a sigmoid input–output. E excites itself and I; I inhibits E (and itself). With enough drive the pair stops settling and starts to oscillate: a limit cycle born at a Hopf bifurcation (the basis of many cortical rhythms). Use the lens switch for the angles — structure first: Structure (the E/I circuit), Dynamics (the E and I rates and the phase-plane loop), Compare (oscillation amplitude vs drive — the bifurcation).',
@@ -1237,14 +1166,10 @@
             ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('excitation drives, slower inhibition catches up → a rhythm', W/2, 22*F);
             const pool=(x,col,lab)=>{ ctx.beginPath(); ctx.arc(x,cy,r,0,7); ctx.globalAlpha=0.16; ctx.fillStyle=col; ctx.fill(); ctx.globalAlpha=1; ctx.lineWidth=2.4; ctx.strokeStyle=col; ctx.stroke(); ctx.fillStyle=T.ink; ctx.font=(15*F)+'px sans-serif'; ctx.fillText(lab,x,cy+5*F); };
             pool(xE,T.pos,'E'); pool(xI,T.neg,'I');
-            // self-excitation loop on E
             ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(xE,cy-r-11*F,12*F,0.7,Math.PI*2-0.2); ctx.stroke(); ctx.fillStyle=T.pos; ctx.beginPath(); ctx.arc(xE+12*F*Math.cos(0.7),cy-r-11*F+12*F*Math.sin(0.7),2.8*F,0,7); ctx.fill();
             ctx.font=(11*F)+'px monospace'; ctx.fillStyle=T.dim; ctx.fillText('+w_EE', xE, cy-r-30*F);
-            // E→I excite (top arc)
             ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xE+r*0.8, cy-r*0.5); ctx.lineTo(xI-r*0.8, cy-r*0.5); ctx.stroke(); ctx.fillStyle=T.pos; ctx.beginPath(); ctx.moveTo(xI-r*0.8,cy-r*0.5); ctx.lineTo(xI-r*0.8-7*F,cy-r*0.5-4*F); ctx.lineTo(xI-r*0.8-7*F,cy-r*0.5+4*F); ctx.closePath(); ctx.fill(); ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText('+w_IE', (xE+xI)/2, cy-r*0.5-7*F);
-            // I→E inhibit (bottom, T-bar)
             ctx.strokeStyle=T.neg; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xI-r*0.8, cy+r*0.5); ctx.lineTo(xE+r*0.8, cy+r*0.5); ctx.stroke(); ctx.beginPath(); ctx.moveTo(xE+r*0.8, cy+r*0.5-6*F); ctx.lineTo(xE+r*0.8, cy+r*0.5+6*F); ctx.stroke(); ctx.fillStyle=T.neg; ctx.fillText('−w_EI', (xE+xI)/2, cy+r*0.5+16*F);
-            // drive into E
             ctx.strokeStyle=T.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(xE, cy+r+34*F); ctx.lineTo(xE, cy+r+6*F); ctx.stroke(); ctx.fillStyle=T.accent; ctx.beginPath(); ctx.moveTo(xE,cy+r+2*F); ctx.lineTo(xE-4.5*F,cy+r+12*F); ctx.lineTo(xE+4.5*F,cy+r+12*F); ctx.closePath(); ctx.fill(); ctx.fillStyle=T.dim; ctx.font=(11*F)+'px monospace'; ctx.fillText('drive P', xE, cy+r+48*F);
             ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('Below a critical drive the rates settle; above it they cycle (Hopf).', W/2, H-12*F);
           }} ] },
@@ -1267,8 +1192,6 @@
       },
     },
 
-    /* ---- MULTI-HEAD / MULTI-LAYER attention. Several heads with different inductive biases run in
-       parallel; stacking layers mixes the representation further. STRUCTURE FIRST (the heads). */
     mha: {
       id:'mha', name:'Multi-head attention (heads + layers)',
       blurb:'Multi-head self-attention: several attention heads run in parallel, each with a different inductive bias — one routes by content (same type), one to the previous token, one to nearby tokens — and their outputs are combined. Stacking layers mixes the representation further. Use the lens switch for the angles — structure first: Heads (each head’s attention pattern), Layers (how depth transforms the sequence), Compare (sharpness vs temperature).',
@@ -1313,6 +1236,6 @@
   };
   const MODEL_ORDER = ['bayes','efficient','causal','wm','ddm','compare','vision','lif','rl','attractor','sir','hopfield','kuramoto','belief','ring','retina','causalg','attention','pomdp','wilson','mha'];
 
-  SIM.ddmPath = ddmPath; SIM.ddmSteps = ddmSteps;   // exported as before: the drift-diffusion views and checks replay single trials through them
+  SIM.ddmPath = ddmPath; SIM.ddmSteps = ddmSteps;
   SIM.register(MODELS, MODEL_ORDER);
 })(typeof window !== 'undefined' ? window : globalThis);

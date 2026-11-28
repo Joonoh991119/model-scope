@@ -1,25 +1,15 @@
-// Mutation probe for the gate: copy the template, apply ONE wrong-math or broken-app edit, run the checks.
-// A mutation that every layer lets through is a hole.
-//
-//   node tests/mutations.mjs [--template <dir>] [--pw <dir with node_modules/playwright>] [--only <id,...>] [--jobs N]
-//
-// Layers, in order: (1) the shipped gate `node validate.mjs`, (2) the golden baseline `tests/baseline.mjs --check`,
-// (3) with --pw, the browser smoke `tests/smoke.mjs --quick` for whatever survived 1 and 2.
-// The run fails if a find-string no longer matches (a stale mutation) or a threshold below is missed.
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
-// Thresholds. Raise them when the gate gets stronger; never lower them to make a run pass.
 export const THRESHOLDS = {
-  total: 54,            // mutations in the table
-  gateMin: 51,          // killed by validate.mjs alone (7 before the gate was rebuilt in v1.22.0)
-  gateBaselineMin: 53,  // killed by validate.mjs or the baseline
-  allWithSmoke: 54,     // with --pw: killed by any layer
+  total: 54,
+  gateMin: 51,
+  gateBaselineMin: 53,
+  allWithSmoke: 54,
 };
 
-// [id, file, find, replace, what is now wrong]
 export const MUTATIONS = [
   ['bayes-weight-swapped', 'examples.js', 'w=v0/(v0+vm);', 'w=vm/(v0+vm);', 'reliability weight inverted (trusts the noisier source)'],
   ['bayes-sigPost', 'examples.js', 'const sigPost=Math.sqrt(1/(1/vm+1/v0));', 'const sigPost=Math.sqrt(vm+v0);', 'posterior SD = sqrt(sum of variances)'],
@@ -69,7 +59,7 @@ export const MUTATIONS = [
   ['gaussian-var', 'engine.js', 'return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*rng()); }', 'return Math.sqrt(-1.6*Math.log(u))*Math.cos(2*Math.PI*rng()); }', 'gaussian() has variance 0.8 (every noise source 10% too quiet)'],
   ['rng-const-default', 'examples.js', "{name:'sigma_m', label:'Sensory noise σ_m', min:0.1, max:2.5, step:0.01, default:0.9},", "{name:'sigma_m', label:'Sensory noise σ_m', min:0.1, max:2.5, step:0.01, default:1.9},", 'a shipped default silently changed'],
   ['param-renamed', 'examples.js', "{name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.5, step:0.01, default:0.18},", "{name:'cueFlip', label:'Cue corruption (fraction flipped)', min:0, max:0.9, step:0.01, default:0.18},", 'a slider range silently changed'],
-  ['plotjs-histify-offbyone', 'plot.js', 'const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop', 'const k=Math.floor((v-lo)/bw)+1; if(k>=0&&k<n) counts[k]++; } // drop', 'the real histogram helper bins one bin to the right'],
+  ['plotjs-histify-offbyone', 'plot.js', 'const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; }', 'const k=Math.floor((v-lo)/bw)+1; if(k>=0&&k<n) counts[k]++; }', 'the real histogram helper bins one bin to the right'],
   ['plotjs-syntax-error', 'plot.js', "global.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS };", "global.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS ;", 'plot.js does not even parse'],
   ['indexhtml-broken', 'index.html', "buildModelTabs(); setModel(startModel, startLens); }", "buildModelTabs(); setModel(startModell.x, startLens); }", 'the toolbox throws on load'],
   ['bundle-no-escape', 'bundle.mjs', "js.replace(/<\\/(script)/gi, '<\\\\/$1')", "js", 'the bundler no longer escapes a closing script tag inside a script (the page would be cut short)'],

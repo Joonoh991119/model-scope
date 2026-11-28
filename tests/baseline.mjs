@@ -1,15 +1,3 @@
-// Golden baseline of the 21 shipped example models: the regression lock that proves a refactor left
-// their behaviour alone (same parameter ids, ranges and defaults; numerically equivalent simulate();
-// the same drawing).
-//
-//   node tests/baseline.mjs --check                 compare the working tree with tests/baseline/v1.21.1.json
-//   node tests/baseline.mjs --check --no-draw       ... schema and simulate() only (use while a view is being changed)
-//   node tests/baseline.mjs --write-draw            re-record ONLY the draw section, and only if schema + simulate still match
-//   node tests/baseline.mjs --list                  print the default-case digests stored in the reference
-//   --template <dir>                                check another copy of the template (default: the shipped one)
-//   --ref <file>                                    another reference file
-//   --capture <file>                                write a complete new reference (refuses to overwrite). The shipped
-//                                                   reference was captured ONCE, from `git archive 4517c70`, never from a working tree.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,7 +39,6 @@ if (A.flag('--write-draw')) {
   process.exit(0);
 }
 
-// default: --check
 const diffs = compare(ref, out, { draw: !A.flag('--no-draw') });
 if (diffs.length) {
   console.log(`BASELINE MISMATCH (${diffs.length})\n  ` + diffs.slice(0, 20).join('\n  ') + (diffs.length > 20 ? `\n  ... and ${diffs.length - 20} more` : ''));

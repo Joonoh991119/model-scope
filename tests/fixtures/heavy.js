@@ -1,14 +1,10 @@
-/* Test fixture (dev only): a two-lens model whose simulate() fills in through SIM.runChunks.
-   No shipped example uses runChunks, so the smoke test loads this next to a temp copy of the template
-   to exercise the async path: loading overlay, progressive repaint, and a lens switch mid-compute.
-   Works with either engine layout (SIM.register, or the plain MODELS / MODEL_ORDER objects). */
 (function (global) {
   'use strict';
   const SIM = global.SIM, TOTAL = 240;
   const heavy = {
     id: 'heavy', name: 'Heavy (fixture)', blurb: 'fills in through runChunks', note: 'test fixture',
     params: [{ name: 'n', label: 'Work per item', min: 1, max: 9, step: 1, default: 3, int: true },
-      { name: 'fail', label: 'Throw at item 100', type: 'bool', default: false }],   // a throw in a LATER chunk (after simulate() has returned)
+      { name: 'fail', label: 'Throw at item 100', type: 'bool', default: false }],
     simulate: (p, env) => {
       const d = { acc: 0, done: 0, total: TOTAL, loading: true };
       if (typeof window !== 'undefined') window.__heavy = d;

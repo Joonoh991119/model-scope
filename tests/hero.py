@@ -1,5 +1,3 @@
-# Build docs/hero.png (the README opening figure) from docs/shots/*.png. Run by tests/shots.mjs after the PNGs.
-# usage: python3 tests/hero.py docs/shots docs/hero.png   (needs Pillow; uses the macOS SF font)
 import sys
 from PIL import Image, ImageDraw, ImageFont
 shots, out = sys.argv[1], sys.argv[2]

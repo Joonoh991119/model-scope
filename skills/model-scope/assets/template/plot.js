@@ -1,14 +1,3 @@
-/* =============================================================================
- * plot.js — a tiny canvas charting helper so each model defines its OWN axes &
- * graphics. No fixed layout: a view's draw(g, data, ui) calls g.frame({x,y,…})
- * to set up whatever axes it wants, then draws primitives in data coordinates.
- *
- * Classic script → window.Plot = { make, setup, TH, histify, nearestY, ramp, RAMPS }.
- * Text size scales with window.__plotFontScale (the app's "Text size" control):
- * fonts, frame margins and label offsets all grow together so larger text keeps
- * its own space (at the largest sizes in a narrow or pinned pane, long titles and
- * strip names can still truncate). Theme is light; DPR-correct.
- * ========================================================================== */
 (function (global) {
   'use strict';
   const TH = {
@@ -27,10 +16,10 @@
 
   function make(cv){
     const {ctx,w,h}=setup(cv); let sx=v=>v, sy=v=>v, fr=null;
-    const FS=Math.max(0.75, Math.min(1.9, (global.__plotFontScale||1)));         // global text-size scale (bounded so labels never crowd out the data area)
+    const FS=Math.max(0.75, Math.min(1.9, (global.__plotFontScale||1)));
     const MONO=px=>`${(px*FS).toFixed(1)}px "IBM Plex Mono",monospace`;
     const SANS=(px,wt)=>`${wt?wt+' ':''}${(px*FS).toFixed(1)}px "IBM Plex Sans",system-ui,sans-serif`;
-    function wrap2(str,maxw){ const words=String(str).split(/\s+/), lines=[]; let cur='';   // greedy wrap to ≤2 lines
+    function wrap2(str,maxw){ const words=String(str).split(/\s+/), lines=[]; let cur='';
       for(let k=0;k<words.length;k++){ const wd=words[k], t=cur?cur+' '+wd:wd;
         if(ctx.measureText(t).width<=maxw||!cur){ cur=t; } else { lines.push(cur); cur=wd; if(lines.length===2){ cur=''; break; } } }
       if(cur&&lines.length<2) lines.push(cur);
@@ -43,25 +32,25 @@
         sx=v=>px+(v-o.x[0])/((o.x[1]-o.x[0])||1)*pw; sy=v=>py+ph*(1-(v-o.y[0])/((o.y[1]-o.y[0])||1));
         ctx.strokeStyle=TH.grid; ctx.lineWidth=1; ctx.font=MONO(11); ctx.fillStyle=TH.dim;
         const nx=o.xticks||5, ny=o.yticks||4;
-        if(o.xticklabels){ ctx.textAlign='center'; for(let i=0;i<o.xticklabels.length;i++){ const X=sx(i);     // categorical ticks at integer positions
+        if(o.xticklabels){ ctx.textAlign='center'; for(let i=0;i<o.xticklabels.length;i++){ const X=sx(i);
             ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke(); ctx.fillText(o.xticklabels[i],X,py+ph+13*FS); } }
         else for(let i=0;i<=nx;i++){ const t=o.x[0]+(o.x[1]-o.x[0])*i/nx, X=sx(t);
           ctx.beginPath(); ctx.moveTo(X,py); ctx.lineTo(X,py+ph); ctx.stroke();
-          ctx.textAlign='center'; if(!(i===nx && (px+pw) > w-26*FS)) ctx.fillText(fmtTick(t),X,py+ph+13*FS); }  // skip last tick only if it would clip the edge
+          ctx.textAlign='center'; if(!(i===nx && (px+pw) > w-26*FS)) ctx.fillText(fmtTick(t),X,py+ph+13*FS); }
         for(let j=0;j<=ny;j++){ const t=o.y[0]+(o.y[1]-o.y[0])*j/ny, Y=sy(t);
           ctx.beginPath(); ctx.moveTo(px,Y); ctx.lineTo(px+pw,Y); ctx.stroke();
           ctx.textAlign='right'; ctx.fillText(fmtTick(t),px-6*FS,Y+3.2*FS); }
         ctx.fillStyle=TH.dim;
-        if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31*FS); }            // own line below the ticks (no overlap)
+        if(o.xlabel){ ctx.textAlign='center'; ctx.fillText(o.xlabel, px+pw/2, py+ph+31*FS); }
         if(o.ylabel){ ctx.save(); ctx.translate(px-37*FS,py+ph/2); ctx.rotate(-Math.PI/2); ctx.textAlign='center'; ctx.fillText(o.ylabel,0,0); ctx.restore(); }
-        if(o.title){ ctx.textAlign='left'; ctx.font=SANS(11,'600'); let tt=String(o.title); const tmax=w-px-6*FS;   // single-line title, ellipsised so it never clips the canvas edge
+        if(o.title){ ctx.textAlign='left'; ctx.font=SANS(11,'600'); let tt=String(o.title); const tmax=w-px-6*FS;
           if(ctx.measureText(tt).width>tmax){ while(tt.length>1&&ctx.measureText(tt+'…').width>tmax) tt=tt.slice(0,-1); tt+='…'; } ctx.fillText(tt,px,py-10*FS); }
         return g; },
       X:v=>sx(v), Y:v=>sy(v), frameRect:()=>fr,
       clip(){ ctx.save(); ctx.beginPath(); ctx.rect(fr.px,fr.py,fr.pw,fr.ph); ctx.clip(); return g; },
       unclip(){ ctx.restore(); return g; },
       line(pts,o={}){ if(!pts||pts.length<2)return g; ctx.strokeStyle=o.color||TH.accent; ctx.lineWidth=o.width||1.8;
-        if(o.dash)ctx.setLineDash(o.dash); ctx.beginPath(); let pen=false;       // non-finite points break the path into segments (a NaN never blanks the whole curve)
+        if(o.dash)ctx.setLineDash(o.dash); ctx.beginPath(); let pen=false;
         for(let i=0;i<pts.length;i++){ const a=pts[i][0],b=pts[i][1]; if(!isFinite(a)||!isFinite(b)){ pen=false; continue; } const X=sx(a),Y=sy(b); if(pen)ctx.lineTo(X,Y); else { ctx.moveTo(X,Y); pen=true; } }
         ctx.stroke(); ctx.setLineDash([]); return g; },
       band(pts,o={}){ pts=pts&&pts.filter(p=>isFinite(p[0])&&isFinite(p[1])); if(!pts||pts.length<2)return g; const base=o.base!==undefined?o.base:fr.y[0];
@@ -71,7 +60,6 @@
       marker(x,y,o={}){ const X=sx(x),Y=sy(y); ctx.fillStyle=o.color||TH.ink; ctx.strokeStyle=o.stroke||'#fff'; ctx.lineWidth=1.4;
         ctx.beginPath(); ctx.arc(X,Y,o.r||4,0,7); ctx.fill(); if(o.stroke)ctx.stroke();
         if(o.label){ ctx.fillStyle=o.color||TH.ink; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(o.label,X,Y-7*FS); } return g; },
-      // arrow in DATA coords (x0,y0)→(x1,y1) with a head + optional centred label — for step-decomposition / waterfall views
       arrow(x0,y0,x1,y1,o={}){ const X0=sx(x0),Y0=sy(y0),X1=sx(x1),Y1=sy(y1); ctx.strokeStyle=o.color||TH.ink; ctx.fillStyle=o.color||TH.ink; ctx.lineWidth=o.width||2;
         ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X1,Y1); ctx.stroke();
         const a=Math.atan2(Y1-Y0,X1-X0), hd=(o.head||6)*FS, dist=Math.hypot(X1-X0,Y1-Y0);
@@ -88,18 +76,16 @@
         if(hpx<=0)continue; const wpx=Math.max(1,x1-x0-0.7); if(dir==='up') ctx.fillRect(x0+0.35,yb-hpx,wpx,hpx); else ctx.fillRect(x0+0.35,yb,wpx,hpx); } return g; },
       heat(nx,ny,val,cmap,opt={}){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), img=oc.createImageData(nx,ny);
         for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), o=((ny-1-j)*nx+i)*4; img.data[o]=c[0];img.data[o+1]=c[1];img.data[o+2]=c[2];img.data[o+3]=255; }
-        oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=opt.smooth!==false; ctx.drawImage(off,fr.px,fr.py,fr.pw,fr.ph); ctx.imageSmoothingEnabled=true; return g; },   // smooth:false for discrete/tiled maps (no cell bleed)
-      // like heat() but into an arbitrary PIXEL sub-rect {x,y,w,h} (defaults to the frame) — for layer/channel/RF maps, small multiples, architecture views
+        oc.putImageData(img,0,0); ctx.imageSmoothingEnabled=opt.smooth!==false; ctx.drawImage(off,fr.px,fr.py,fr.pw,fr.ph); ctx.imageSmoothingEnabled=true; return g; },
       image(nx,ny,val,cmap,o={}){ const off=document.createElement('canvas'); off.width=nx; off.height=ny; const oc=off.getContext('2d'), im=oc.createImageData(nx,ny);
         for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){ const c=cmap(val(i,j)), q=((ny-1-j)*nx+i)*4; im.data[q]=c[0];im.data[q+1]=c[1];im.data[q+2]=c[2];im.data[q+3]=255; }
         oc.putImageData(im,0,0); ctx.imageSmoothingEnabled=o.smooth!==false; ctx.drawImage(off, o.x!=null?o.x:fr.px, o.y!=null?o.y:fr.py, o.w!=null?o.w:fr.pw, o.h!=null?o.h:fr.ph); ctx.imageSmoothingEnabled=true; return g; },
-      // node-link diagram for graphs / DAGs / connectomes. nodes:[{x,y in 0..1 of the canvas, label, color?, fill?}], edges:[{from,to (indices), label?, color?, dash?, inhib?}]
       graph(nodes, edges, o={}){ const nr=o.r||16*FS, P=nd=>[nd.x*w, nd.y*h], okN=nd=>nd&&isFinite(nd.x)&&isFinite(nd.y); nodes=nodes||[];
-        for(const e of (edges||[])){ const na=nodes[e.from], nb=nodes[e.to]; if(!okN(na)||!okN(nb)||e.from===e.to) continue;   // skip dangling edges, non-finite coords, self-loops
+        for(const e of (edges||[])){ const na=nodes[e.from], nb=nodes[e.to]; if(!okN(na)||!okN(nb)||e.from===e.to) continue;
           const [x0,y0]=P(na), [x1,y1]=P(nb), a=Math.atan2(y1-y0,x1-x0), c=Math.cos(a), s=Math.sin(a);
           const X0=x0+nr*c, Y0=y0+nr*s, X1=x1-nr*c, Y1=y1-nr*s; ctx.strokeStyle=e.color||TH.dim; ctx.fillStyle=e.color||TH.dim; ctx.lineWidth=e.width||2;
           if(e.dash) ctx.setLineDash(e.dash); ctx.beginPath(); ctx.moveTo(X0,Y0); ctx.lineTo(X1,Y1); ctx.stroke(); ctx.setLineDash([]); const hd=8*FS;
-          if(e.inhib){ ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(X1-hd*0.5*s, Y1+hd*0.5*c); ctx.lineTo(X1+hd*0.5*s, Y1-hd*0.5*c); ctx.stroke(); }   // T-bar = inhibitory
+          if(e.inhib){ ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(X1-hd*0.5*s, Y1+hd*0.5*c); ctx.lineTo(X1+hd*0.5*s, Y1-hd*0.5*c); ctx.stroke(); }
           else { ctx.beginPath(); ctx.moveTo(X1,Y1); ctx.lineTo(X1-hd*Math.cos(a-0.42),Y1-hd*Math.sin(a-0.42)); ctx.lineTo(X1-hd*Math.cos(a+0.42),Y1-hd*Math.sin(a+0.42)); ctx.closePath(); ctx.fill(); }
           if(e.label!=null){ ctx.fillStyle=e.color||TH.dim; ctx.font=MONO(10); ctx.textAlign='center'; ctx.fillText(String(e.label), (X0+X1)/2, (Y0+Y1)/2 - 5*FS); } }
         for(const nd of nodes){ if(!okN(nd)) continue; const [x,y]=P(nd); ctx.fillStyle=nd.fill||'#fff'; ctx.strokeStyle=nd.color||TH.accent; ctx.lineWidth=2.2; ctx.beginPath(); ctx.arc(x,y,nr,0,7); ctx.fill(); ctx.stroke();
@@ -108,12 +94,11 @@
       raster(rows,o={}){ const col=o.color||TH.ink, n=rows.length, lane=fr.ph/Math.max(1,n);
         ctx.strokeStyle=col; ctx.lineWidth=o.width||1; for(let r=0;r<n;r++){ const y0=fr.py+r*lane+lane*0.15, y1=fr.py+(r+1)*lane-lane*0.15; for(const x of rows[r]){ const X=sx(x); ctx.beginPath(); ctx.moveTo(X,y0); ctx.lineTo(X,y1); ctx.stroke(); } } return g; },
       text(x,y,str,o={}){ ctx.fillStyle=o.color||TH.dim; ctx.font=o.font||MONO(o.size||10); ctx.textAlign=o.align||'left'; ctx.fillText(str,sx(x),sy(y)); return g; },
-      // legend with a translucent panel behind it, so it stays readable over the data
       legend(items,o={}){ ctx.font=MONO(10); const sw=8*FS, pad=6*FS;
-        let lh=14*FS; const maxH=(fr?fr.ph:h)*0.94; if(items.length*lh+pad>maxH) lh=Math.max(9, (maxH-pad)/items.length);  // clamp so a big-font legend can't exceed the frame
+        let lh=14*FS; const maxH=(fr?fr.ph:h)*0.94; if(items.length*lh+pad>maxH) lh=Math.max(9, (maxH-pad)/items.length);
         let maxw=0; for(const it of items) maxw=Math.max(maxw, ctx.measureText(it.label).width);
         const boxW=maxw+sw+pad*2+6*FS, boxH=items.length*lh+pad;
-        let x0, y0; const mrg=6*FS;            // o.corner:'tl'|'tr'|'bl'|'br' anchors the box to a frame corner (place it away from the data)
+        let x0, y0; const mrg=6*FS;
         if(o.corner){ x0 = o.corner[1]==='l' ? fr.px+mrg : fr.px+fr.pw-boxW-mrg; y0 = o.corner[0]==='b' ? fr.py+fr.ph-boxH-mrg : fr.py+mrg; }
         else { const xR=(o.x!==undefined?o.x:fr.px+fr.pw-6*FS); x0=xR-boxW; y0=(o.y!==undefined?o.y:fr.py+6*FS); }
         ctx.fillStyle='rgba(255,255,255,.82)'; roundRect(ctx,x0,y0,boxW,boxH,6*FS); ctx.fill();
@@ -122,21 +107,19 @@
         for(const it of items){ ctx.fillStyle=it.color; ctx.fillRect(x0+pad, yy-sw/2, sw, sw); ctx.fillStyle=TH.dim; ctx.textAlign='left'; ctx.fillText(it.label, x0+pad+sw+5*FS, yy); yy+=lh; }
         ctx.textBaseline='alphabetic'; return g; },
       note(str){ ctx.fillStyle=TH.faint; ctx.font=MONO(11); ctx.textAlign='center'; ctx.fillText(str, w/2, h/2); return g; },
-      // vertical colour scale for a heatmap. cmap(value)→[r,g,b] (same fn the heat() used).
-      // o:{x,y,w,h} pixel rect (defaults to a strip just right of the current frame), label, ticks:[{v,label}].
       colorbar(vmin,vmax,cmap,o={}){ const bw=o.w||10*FS, gap=8*FS, lgap=4*FS;
         ctx.font=MONO(9); const ticks=o.ticks||[{v:vmin},{v:vmax}]; let maxW=0;
         for(const tk of ticks) maxW=Math.max(maxW, ctx.measureText((tk.label!=null?tk.label:Math.round(tk.v)).toString()).width);
         let x=o.x!==undefined?o.x:(fr?fr.px+fr.pw+gap:w-bw-30*FS);
-        x=Math.min(x, w-2-bw-lgap-maxW);   // clamp so the bar AND its right-side labels stay inside the canvas (no clipping, no overlap onto the heatmap)
+        x=Math.min(x, w-2-bw-lgap-maxW);
         const y=o.y!==undefined?o.y:(fr?fr.py:10), bh=o.h!==undefined?o.h:(fr?fr.ph:h-20), steps=o.steps||64;
         for(let s=0;s<steps;s++){ const v=vmin+(vmax-vmin)*(s/(steps-1)), c=cmap(v);
           ctx.fillStyle=`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`; ctx.fillRect(x, y+bh*(1-(s+1)/steps), bw, bh/steps+1); }
         ctx.strokeStyle=TH.edge; ctx.lineWidth=1; ctx.strokeRect(x,y,bw,bh);
-        ctx.fillStyle=TH.dim; ctx.font=MONO(9); ctx.textBaseline='middle'; ctx.textAlign='left';   // labels always to the RIGHT of the bar
+        ctx.fillStyle=TH.dim; ctx.font=MONO(9); ctx.textBaseline='middle'; ctx.textAlign='left';
         for(const tk of ticks){ const yy=y+bh*(1-(tk.v-vmin)/((vmax-vmin)||1));
           ctx.fillText((tk.label!=null?tk.label:Math.round(tk.v)).toString(), x+bw+lgap, yy); }
-        ctx.textBaseline='alphabetic'; if(o.label){ ctx.textAlign='right'; ctx.fillText(o.label, w-2, y-5*FS); }   // top axis label right-aligned to the canvas edge
+        ctx.textBaseline='alphabetic'; if(o.label){ ctx.textAlign='right'; ctx.fillText(o.label, w-2, y-5*FS); }
         return g; },
       flow(stages,active,o={}){ if(!stages||!stages.length) return g; const n=stages.length;
         const pad=o.pad||12, gap=o.gap||9, bh=o.h||46, hasCap=o.caption!==false;
@@ -161,29 +144,24 @@
     };
     return g;
   }
-  // bin values into `bins` over [lo,hi]; snap bin width to a multiple of `quant` (e.g. dt) if given
   function histify(values, bins, lo, hi, quant){
-    bins=Math.max(1,Math.floor(bins||1)); if(!(hi>lo)) hi=lo+(quant>0?quant:1);     // guard degenerate range
+    bins=Math.max(1,Math.floor(bins||1)); if(!(hi>lo)) hi=lo+(quant>0?quant:1);
     let bw=(hi-lo)/bins; if(quant>0) bw=Math.max(quant, Math.round(bw/quant)*quant); if(!(bw>0)) bw=(hi-lo)||1;
     const n=Math.max(1,Math.ceil((hi-lo)/bw)), counts=new Array(n).fill(0), edges=new Array(n);
     for(let i=0;i<n;i++) edges[i]=lo+i*bw;
-    for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; } // drop out-of-range (no fake edge mass)
+    for(const v of values){ if(!(v>=lo && v<hi)) continue; const k=Math.floor((v-lo)/bw); if(k>=0&&k<n) counts[k]++; }
     return { edges, counts, binW:bw, max:Math.max(1,...counts) };
   }
-  // y of the point in `points` ([[x,y],…]) whose x is nearest to `x`; the first one wins a tie.
-  // Use it to put a "now" marker on a sweep curve at the current parameter value.
   function nearestY(points, x){ let b=points[0]; for(const q of points) if(Math.abs(q[0]-x)<Math.abs(b[0]-x)) b=q; return b[1]; }
-  // ramp(from, to): a colour map t → [r,g,b] that runs linearly from rgb `from` (t=0) to `to` (t=1); t is clamped to [0,1].
-  // Hand it to g.heat / g.image / g.colorbar as v => ramp((v-lo)/(hi-lo)).
   function ramp(a, b){ return t=>{ t=Math.max(0,Math.min(1,t));
     return [Math.round(a[0]-(a[0]-b[0])*t), Math.round(a[1]-(a[1]-b[1])*t), Math.round(a[2]-(a[2]-b[2])*t)]; }; }
   const PAPER=[247,245,240];
   const RAMPS = {
-    blue:  ramp(PAPER, [74,122,147]),            // paper → accent blue (attention, belief, weights ≥ 0)
-    green: ramp([246,241,228], [96,163,136]),    // cream → teal green
-    red:   ramp([245,245,232], [225,40,82]),     // cream → deep red
-    night: ramp([40,38,72], [245,236,237]),      // dark (slow) → light (fast)
-    signed(t){ t=Math.max(-1,Math.min(1,t));     // diverging, t in [-1,1]: blue below 0, cream at 0, rust above 0
+    blue:  ramp(PAPER, [74,122,147]),
+    green: ramp([246,241,228], [96,163,136]),
+    red:   ramp([245,245,232], [225,40,82]),
+    night: ramp([40,38,72], [245,236,237]),
+    signed(t){ t=Math.max(-1,Math.min(1,t));
       return t>=0 ? SIGNED_POS(t) : SIGNED_NEG(-t); },
   };
   const SIGNED_POS=ramp([245,243,238],[194,91,66]), SIGNED_NEG=ramp([245,243,238],[74,122,147]);
