@@ -24,12 +24,12 @@ const GALLERY = [
   ['sir-spread', '?model=sir&lens=spread&still=1'],
   ['attractor-landscape', '?model=attractor&lens=landscape&still=1'],
 ];
+const PAIR = { view: { width: 1180, height: 640 }, scale: 2, text: 1.35, frameMs: 160, stepMs: 1300, holdMs: 1800, kappa1: 30, powerLaw: 0.74 };
 const PAIRS = [
   { name: 'ddm', q: '?model=ddm&lens=sim', paper: 'ratcliff2008-fig1.png', paperLabel: 'Ratcliff & McKoon (2008), Fig. 1', guiLabel: 'drift-diffusion · Simulation lens', frames: 18 },
-  { name: 'attractor', q: '?model=attractor&lens=landscape&p.coh=0', paper: 'wongwang2006-fig4b.png', paperLabel: 'Wong & Wang (2006), Fig. 4B', guiLabel: "attractor network · Landscape lens, c' = 0 · one trial per seed", seeds: ['s1', 's2', 's8', 's3', 's9', 's4'] },
-  { name: 'causal', q: '?model=causal', paper: 'kording2007-fig1.png', paperLabel: 'Körding et al. (2007), Fig. 1: C=1 (left), C=2 (right)', guiLabel: 'causal inference · step by step', view: { width: 1400, height: 860 } },
+  { name: 'attractor', q: '?model=attractor&lens=landscape&p.coh=0', paper: 'wongwang2006-fig4b.png', paperLabel: 'Wong & Wang (2006), Fig. 4B', guiLabel: "attractor network, c' = 0", variants: ['s1', 's2', 's8', 's3', 's9', 's4'].map(s => ({ q: `&seed=${s}`, label: `trial seed ${s}` })) },
+  { name: 'wm', q: '?model=wm', paper: 'bays2009-fig2a.png', paperLabel: 'Bays, Catalao & Husain (2009), Fig. 2a', guiLabel: `working memory, κ = ${PAIR.kappa1} · N^−${PAIR.powerLaw}`, variants: [1, 2, 4, 6].map(n => { const k = Math.round(PAIR.kappa1 * n ** -PAIR.powerLaw); return { q: `&p.N=${n}&p.kappa=${k}`, label: `N = ${n} · κ = ${k}` }; }), cards: [2, 3], view: { width: 1280, height: 900 } },
 ];
-const PAIR = { view: { width: 1180, height: 640 }, scale: 2, text: 1.35, frameMs: 160, stepMs: 1100, holdMs: 1800 };
 const VIEW = { width: 1340, height: 815 };
 
 const browser = await launch(chromium, A);
@@ -68,10 +68,15 @@ if (!ONLY || ONLY === 'pairs') {
   const colors = await (async () => { await pp.goto(url('')); return pp.evaluate(() => { const T = Plot.TH; return { bg: T.bg, surface: T.surface, edge: T.line2, accent: T.accent, dim: T.dim }; }); })();
   for (const P of PAIRS) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccn-pair-')), frames = [];
-    const shot = async () => { const f = path.join(dir, `f${String(frames.length).padStart(3, '0')}.png`); await pp.locator('#views').screenshot({ path: f }); frames.push(f); };
+    const shot = async () => {
+      const f = path.join(dir, `f${String(frames.length).padStart(3, '0')}.png`);
+      if (!P.cards) await pp.locator('#views').screenshot({ path: f });
+      else { const clip = await pp.evaluate(ix => { const r = ix.map(i => document.querySelectorAll('#views .plot')[i].getBoundingClientRect()); const x = Math.min(...r.map(b => b.left)), y = Math.min(...r.map(b => b.top)); return { x, y, width: Math.max(...r.map(b => b.right)) - x, height: Math.max(...r.map(b => b.bottom)) - y }; }, P.cards); await pp.screenshot({ path: f, clip }); }
+      frames.push(f);
+    };
     await pp.setViewportSize(P.view || PAIR.view);
-    let stepped = !!P.seeds;
-    if (P.seeds) for (const seed of P.seeds) { await pp.goto('about:blank'); await pp.goto(url(`${P.q}&seed=${seed}&still=1&text=${PAIR.text}`)); await pp.waitForTimeout(350); await shot(); }
+    let stepped = !!P.variants; const labels = [];
+    if (P.variants) for (const v of P.variants) { await pp.goto('about:blank'); await pp.goto(url(`${P.q}${v.q}&still=1&text=${PAIR.text}`)); await pp.waitForTimeout(450); await shot(); labels.push(v.label); }
     else {
       await pp.goto('about:blank'); await pp.goto(url(`${P.q}&head=0&text=${PAIR.text}`)); await pp.waitForTimeout(350);
       const max = await pp.evaluate(() => +document.getElementById('scrub').max);
@@ -80,7 +85,7 @@ if (!ONLY || ONLY === 'pairs') {
       for (const h of heads) { await pp.evaluate(v => { const s = document.getElementById('scrub'); s.value = v; s.dispatchEvent(new Event('input', { bubbles: true })); }, h); await pp.waitForTimeout(60); await shot(); }
     }
     const out = path.join(DOCS, `pair-${P.name}.gif`), spec = path.join(dir, 'spec.json');
-    fs.writeFileSync(spec, JSON.stringify({ paper: path.join(DOCS, 'papers', P.paper), paperLabel: P.paperLabel, guiLabel: P.guiLabel, frames, out, colors, font: A.opt('--font'), frameMs: stepped ? PAIR.stepMs : PAIR.frameMs, holdMs: PAIR.holdMs }));
+    fs.writeFileSync(spec, JSON.stringify({ paper: path.join(DOCS, 'papers', P.paper), paperLabel: P.paperLabel, guiLabel: P.guiLabel, frames, frameLabels: labels, out, colors, font: A.opt('--font'), frameMs: stepped ? PAIR.stepMs : PAIR.frameMs, holdMs: PAIR.holdMs }));
     const r = spawnSync(A.opt('--python') || 'python3', ['-I', path.join(HERE, 'pairs.py'), spec], { stdio: 'inherit' });
     fs.rmSync(dir, { recursive: true, force: true });
     if (r.status !== 0) { console.error(`docs/pair-${P.name}.gif was NOT built (needs python3 with Pillow; pass --python <bin>)`); process.exitCode = 1; }

@@ -33,11 +33,17 @@ def fit(im, h):
     return im.resize((round(im.width * h / im.height), h), Image.LANCZOS)
 
 
-def panel(d, box, title, sub, colors, fonts):
+def panel(d, box, title, sub, colors, fonts, tag=None):
     x0, y0, x1, y1 = box
     d.rounded_rectangle(box, radius=RADIUS, fill=colors["surface"], outline=colors["edge"], width=2)
     d.text((x0 + PAD, y0 + HEAD_H / 2), title, font=fonts[0], fill=colors["accent"], anchor="lm")
-    d.text((x0 + PAD * 1.6 + d.textlength(title, font=fonts[0]), y0 + HEAD_H / 2), sub, font=fonts[1], fill=colors["dim"], anchor="lm")
+    x = x0 + PAD * 1.6 + d.textlength(title, font=fonts[0])
+    d.text((x, y0 + HEAD_H / 2), sub, font=fonts[1], fill=colors["dim"], anchor="lm")
+    if tag:
+        tx = x + d.textlength(sub, font=fonts[1]) + PAD
+        w = d.textlength(tag, font=fonts[0]) + PAD
+        d.rounded_rectangle((tx, y0 + 12, tx + w, y0 + HEAD_H - 12), radius=RADIUS, fill=colors["accent"])
+        d.text((tx + w / 2, y0 + HEAD_H / 2), tag, font=fonts[0], fill=colors["surface"], anchor="mm")
 
 
 def main(spec_path):
@@ -54,11 +60,12 @@ def main(spec_path):
     d = ImageDraw.Draw(base)
     left, right = (GAP, GAP, GAP + lw, H - GAP), (2 * GAP + lw, GAP, W - GAP, H - GAP)
     panel(d, left, "Paper", spec["paperLabel"], colors, fonts)
-    panel(d, right, "ccn-sim", spec["guiLabel"], colors, fonts)
     base.paste(paper, (left[0] + PAD, GAP + HEAD_H + (BODY_H - 2 * PAD - paper.height) // 2 + PAD // 2))
+    tags = spec.get("frameLabels") or [None] * len(frames)
     out = []
-    for f in frames:
+    for f, tag in zip(frames, tags):
         im = base.copy()
+        panel(ImageDraw.Draw(im), right, "ccn-sim", spec["guiLabel"], colors, fonts, tag)
         im.paste(f, (right[0] + PAD + (rw - 2 * PAD - f.width) // 2, GAP + HEAD_H + PAD // 2))
         out.append(im.quantize(colors=COLORS, method=Image.Quantize.MEDIANCUT))
     durations = [spec["frameMs"]] * (len(out) - 1) + [spec["holdMs"]]
