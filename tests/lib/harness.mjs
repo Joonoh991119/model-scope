@@ -1,9 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pageScripts } from '../../skills/model-scope/assets/template/page.mjs';
+import { pageScripts } from '../../skills/ccn-sim/assets/template/page.mjs';
 
-export const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../skills/model-scope/assets/template/', import.meta.url));
+export const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../skills/ccn-sim/assets/template/', import.meta.url));
 export const SEED = 'seed-1';
 export const CANVAS = [560, 320];
 export const DEFAULT_CHANNEL = 'chrome';
@@ -43,7 +43,7 @@ export function loadTemplate(dir = DEFAULT_TEMPLATE) {
   globalThis.document = { createElement: () => mkCanvas(1, 1) };
   const scripts = scriptList(dir);
   for (const s of scripts) (0, eval)(fs.readFileSync(path.join(dir, s), 'utf8'));
-  return { SIM: globalThis.SIM, Plot: globalThis.Plot, MSLIB: globalThis.MSLIB, scripts, dir };
+  return { SIM: globalThis.SIM, Plot: globalThis.Plot, CCNLIB: globalThis.CCNLIB, scripts, dir };
 }
 
 function walk(v, st, depth) {

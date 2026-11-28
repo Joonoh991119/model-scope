@@ -1,10 +1,10 @@
 {
-  "name": "model-scope",
-  "version": "1.23.0",
-  "description": "Turn a paper or any parameterised model into a no-build interactive simulator: sliders re-run the model live, in views the model defines, checked by a Node gate. Ships 21 worked examples, a modelbook of 14 families, a reusable model library and a GUI QC pipeline.",
+  "name": "ccn-sim",
+  "version": "2.0.0",
+  "description": "Interactive simulators for cognitive computational neuroscience models. Turn a paper or your equations into a no-build app: live sliders, model-defined views, a Node gate. 21 worked examples, a modelbook of 14 families, a model library and a GUI QC pipeline.",
   "author": { "name": "Joonoh Park", "url": "https://github.com/Joonoh991119" },
   "license": "MIT",
-  "homepage": "https://github.com/Joonoh991119/model-scope",
-  "repository": "https://github.com/Joonoh991119/model-scope",
-  "keywords": ["simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "drift-diffusion", "bayesian-observer", "efficient-coding", "causal-inference", "working-memory", "psychophysics"]
+  "homepage": "https://github.com/Joonoh991119/ccn-sim",
+  "repository": "https://github.com/Joonoh991119/ccn-sim",
+  "keywords": ["cognitive-computational-neuroscience", "computational-neuroscience", "cognitive-modeling", "interactive-simulator", "simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "drift-diffusion", "bayesian-observer", "efficient-coding", "causal-inference", "working-memory", "psychophysics"]
 }

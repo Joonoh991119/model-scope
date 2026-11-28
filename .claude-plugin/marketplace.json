@@ -7,11 +7,11 @@
   },
   "plugins": [
     {
-      "name": "model-scope",
+      "name": "ccn-sim",
       "source": "./",
-      "description": "Turn a paper or any parameterised model into an interactive simulator that runs from a file: live sliders, model-defined views, a validation gate, 21 worked examples and a modelbook.",
+      "description": "Interactive simulators for cognitive computational neuroscience models, from a paper or your equations, running from a file: live sliders, model-defined views, a validation gate, 21 worked examples and a modelbook.",
       "author": { "name": "Joonoh Park" },
-      "keywords": ["simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "psychophysics", "drift-diffusion", "bayesian-observer", "working-memory", "causal-inference"],
+      "keywords": ["cognitive-computational-neuroscience", "computational-neuroscience", "interactive-simulator", "simulation", "modeling", "monte-carlo", "visualization", "gui", "dynamical-systems", "psychophysics", "drift-diffusion", "bayesian-observer", "working-memory", "causal-inference"],
       "category": "data-and-visualization"
     }
   ]

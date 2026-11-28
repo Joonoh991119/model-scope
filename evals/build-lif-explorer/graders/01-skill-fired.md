@@ -1,6 +1,6 @@
 ---
 type: tool_used
 tool: Skill
-input_match: '"skill"\s*:\s*"(?:[\w-]+:)?model-scope"'
+input_match: '"skill"\s*:\s*"(?:[\w-]+:)?ccn-sim"'
 min: 1
 ---

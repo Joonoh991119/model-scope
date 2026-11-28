@@ -9,22 +9,22 @@ description: >-
   me and build a simulator from these equations", "make a web simulator from this methods
   section", even when the user only drops a PDF and says "make this explorable". Do NOT use when
   the user already specifies the model and the controls or views they want: use the
-  `model-scope` skill for those. Drives `model-scope` for the actual build.
+  `ccn-sim` skill for those. Drives `ccn-sim` for the actual build.
 ---
 
 # paper-to-sim — reference → interview → web simulator
 
-The autonomous front door to **model-scope**. The user provides *only* reference material; you
+The autonomous front door to **ccn-sim**. The user provides *only* reference material; you
 extract the model, **interview** them about what the visualisation is for and what they want, then
 build and deliver the interactive GUI. Four phases: **Ingest → Interview → Build → Deliver.** Read
-the `model-scope` skill (the build mechanics) and `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/levels.md`,
-`${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/gui-qc.md` and `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/modelbook/INDEX.md`
+the `ccn-sim` skill (the build mechanics) and `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/levels.md`,
+`${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/gui-qc.md` and `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/modelbook/INDEX.md`
 before phase 3.
 
-Guiding philosophy (from model-scope): **don't reproduce the paper's figures — replicate the model
+Guiding philosophy (from ccn-sim): **don't reproduce the paper's figures — replicate the model
 faithfully, illuminate it from the angles that fit its class (structure first where there is
 structure), and let the user compare what changes across parameter sweeps and model choices.** The
-interview decides scope; the philosophy decides shape. See `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/levels.md`.
+interview decides scope; the philosophy decides shape. See `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/levels.md`.
 
 ---
 
@@ -39,7 +39,7 @@ equations & defaults aren't recoverable, **stop and ask** for pasted equations o
 before interviewing. Extract a short **model brief**, internal:
 
 - **Model(s)** present and the class (decision circuit, Bayesian/ideal observer, neuron,
-  dynamical system, RL, …) — cross-check `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/modelbook/INDEX.md` for a canonical family.
+  dynamical system, RL, …) — cross-check `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/modelbook/INDEX.md` for a canonical family.
 - **Governing equations** *exactly as written* (transcribe; never re-derive from memory).
 - **Parameters** with ranges / defaults / units, and which are **experimental conditions** (set
   by the experimenter) vs **model parameters** (the mechanism).
@@ -69,7 +69,7 @@ reference already settles:
    simulation; decision: one trial + the histograms by condition; network: structure / activity /
    representation / landscape; vision: architecture / layer transforms), and what to **compare**
    (which parameter sweep or model toggle) — phrased as concrete options from the brief (see
-   `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/levels.md` for the per-class catalogue).
+   `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/levels.md` for the per-class catalogue).
 4. **Constraints & delivery** — any must-have panel/aesthetic; acceptable reduction & performance
    (are heavy many-trial screens OK behind a loading screen?); the target app dir/name; and the
    delivery wanted (the local page only, or also a link to share: an Artifact when that tool is
@@ -87,11 +87,11 @@ ambiguity, ask one targeted follow-up rather than guessing.
 2. **Scaffold by performing the steps directly** (do not invoke a slash command from inside this
    workflow — it would become narration, not action). Resolve the target dir from the interview
    (default a slug from the paper title, e.g. `./<paper-slug>-sim`); refuse to overwrite a
-   non-empty dir without confirmation; copy `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/assets/template/.` into the
+   non-empty dir without confirmation; copy `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/assets/template/.` into the
    target; run `node validate.mjs` there to confirm the template passes before editing. If the app
    should hold only the paper's models, delete `examples.js`, `examples.checks.mjs` and the
    `examples.js` script line in `index.html` once your first model is in.
-3. **Build** following the `model-scope` skill. If you delegate to the `model-gui-builder` agent,
+3. **Build** following the `ccn-sim` skill. If you delegate to the `ccn-sim-builder` agent,
    **pass it the full confirmed contract**: reference path(s) + exact equations with page/section
    anchors, the parameter table (defaults/ranges/units), the condition-vs-parameter split, the
    reduction and its limits, the screens/angles, the interview decisions, the target dir, and the
@@ -106,7 +106,7 @@ ambiguity, ask one targeted follow-up rather than guessing.
 ## Phase 4 — QC, then deliver
 
 1. **Validate & QC**: `node validate.mjs` (add an analytic check tied to the paper in
-   `engine.checks.mjs`), then walk `${CLAUDE_PLUGIN_ROOT}/skills/model-scope/references/gui-qc.md`: the visual
+   `engine.checks.mjs`), then walk `${CLAUDE_PLUGIN_ROOT}/skills/ccn-sim/references/gui-qc.md`: the visual
    checklist (no clipped or overlapping text, ceiling/chance lines and the accuracy clamp, units,
    legends off the data, colorbar, loading overlay, numbered panels) and an independent two-axis
    review (plot readability and concept clarity). Fix and re-verify.
@@ -138,5 +138,5 @@ kind and how to re-serve it. One self-contained summary, not chatter.
   rather than silently guess.
 - **Interview lightly.** Defaults from the brief should make a one-round confirm enough for a
   simple paper; reserve a second round for genuinely ambiguous scope.
-- **Reuse, don't reinvent.** Pull canonical equations + an `MSLIB` module from the modelbook when
+- **Reuse, don't reinvent.** Pull canonical equations + an `CCNLIB` module from the modelbook when
   a family fits; compose rather than copying a whole repo.

@@ -1,6 +1,6 @@
 ---
 description: An end-to-end build in an empty folder, graded by the files produced.
-expected_outcome: A model-scope app in ./lif-sim with a LIF model added to engine.js, and the gate run.
+expected_outcome: A ccn-sim app in ./lif-sim with a LIF model added to engine.js, and the gate run.
 tags: [build]
 max_turns: 60
 timeout_seconds: 1800

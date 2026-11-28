@@ -15,7 +15,7 @@ const must = (cond, msg) => { if (!cond) { console.error('bare-app: the template
 const tmp = [];
 function copy() { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-bare-')); tmp.push(dir); fs.cpSync(SRC, dir, { recursive: true }); return dir; }
 const edit = (dir, file, fn) => { const fp = path.join(dir, file); fs.writeFileSync(fp, fn(fs.readFileSync(fp, 'utf8'))); };
-const LOAD = `globalThis.window=globalThis;globalThis.document={createElement:()=>({getContext:()=>({})})};for(const f of ['plot.js','modules/mslib.js','engine.js','examples.js'])(0,eval)(require('fs').readFileSync(f,'utf8'));`;
+const LOAD = `globalThis.window=globalThis;globalThis.document={createElement:()=>({getContext:()=>({})})};for(const f of ['plot.js','modules/ccnlib.js','engine.js','examples.js'])(0,eval)(require('fs').readFileSync(f,'utf8'));`;
 const registry = dir => JSON.parse(spawnSync('node', ['-e', LOAD + 'console.log(JSON.stringify(SIM.MODEL_ORDER))'], { cwd: dir, encoding: 'utf8' }).stdout);
 const ORDER = registry(SRC), N = ORDER.length, LAST = ORDER[N - 1];
 const gate = dir => { const r = spawnSync('node', ['validate.mjs'], { cwd: dir, encoding: 'utf8' }); return { status: r.status, out: strip((r.stdout || '') + (r.stderr || '')) }; };

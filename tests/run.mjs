@@ -5,7 +5,7 @@ import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
 
 const A = args();
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '..');
-const PW = path.resolve(A.opt('--pw') || process.env.MODEL_SCOPE_PW || path.join(ROOT, '.scratch', 'pw'));
+const PW = path.resolve(A.opt('--pw') || process.env.CCN_SIM_PW || path.join(ROOT, '.scratch', 'pw'));
 const skip = new Set((A.opt('--skip') || '').split(',').filter(Boolean));
 const node = (file, ...rest) => ['node', [path.join(HERE, file), ...rest], { cwd: ROOT }];
 
