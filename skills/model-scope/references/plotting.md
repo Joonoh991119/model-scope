@@ -47,7 +47,10 @@ must depend only on its arguments.
 - `Plot.RAMPS` — shared maps: `blue` (paper to accent blue), `green`, `red` (cream to teal / deep
   red), `night` (dark = slow to light = fast) take `t ∈ [0,1]`; `signed` takes `t ∈ [-1,1]` (blue
   below 0, cream at 0, rust above). Use these before writing a new inline ramp.
-- `Plot.TH` — the one palette: `ink, dim, faint, grid, edge, accent, pos, neg, warn, series[]`.
+- `Plot.TH` — the one palette, shared by the canvas and the page (plot.js writes the page's CSS variables from it):
+  colours `ink, dim, faint, accent, pos, neg, warn, violet, forest, surface, bg, …` as hex, `grid, edge`,
+  `series[]`, `TH.rgb.<name>` as `[r,g,b]` (for colour maps), and `TH.rgba(name, alpha)`. Use these instead of
+  colour literals so a palette change is one edit. `Plot.FONT_SCALE` holds the text-size range.
 
 Theme is light/eye-friendly and DPR-correct already. Extend `plot.js` (a violin, a
 contour, a vector field) rather than working around it.
@@ -82,9 +85,9 @@ largest sizes.
 ### Distributions & inference (Bayesian / ideal observer)
 ```js
 g.frame({x:[lo,hi], y:[0,ymax], xlabel:'stimulus', title:'prior · likelihood · posterior'});
-g.band(prior,{color:'rgba(74,122,147,.12)'}).line(prior,{color:TH.accent,dash:[4,3]});
+g.band(prior,{color:TH.rgba('accent',.12)}).line(prior,{color:TH.accent,dash:[4,3]});
 g.line(likelihood,{color:TH.faint});
-g.band(posterior,{color:'rgba(46,139,122,.16)'}).line(posterior,{color:TH.pos,width:2});
+g.band(posterior,{color:TH.rgba('pos',.16)}).line(posterior,{color:TH.pos,width:2});
 g.vline(theta,{label:'θ'}); g.vline(m,{label:'m'}); g.vline(thetaHat,{color:TH.pos,label:'θ̂'});
 ```
 Build curve arrays with `npdf(x,mu,sd)` over a grid in `simulate` or the view.

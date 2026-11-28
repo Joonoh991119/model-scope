@@ -74,6 +74,8 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   **Unpin** removes it.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
   efficient, causal, wm, network, osc, belief, vision, attn`) of canonical building blocks you compose inside `simulate()`.
+- `page.mjs` — reads the script tags of `index.html` the way the browser does; shared by the gate and
+  the bundler.
 - `validate.mjs` — the gate. `node validate.mjs` loads what `index.html` loads and checks every model:
   schema, a deterministic `simulate()`, every view drawn through the real `plot.js` at defaults and at
   every control's min and max, an analytic check tied to the science, and the `mslib` blocks.

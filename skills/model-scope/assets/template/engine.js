@@ -8,9 +8,11 @@
   const trialRng = (seed,k)=>makeRNG(seed+'#'+k);
   const npdf = (x,mu,s)=>Math.exp(-0.5*((x-mu)/s)*((x-mu)/s))/(s*Math.sqrt(2*Math.PI));
 
+  const CHUNK_FRAMES = 60;
+
   function runChunks(total, doItem, label){
     if(typeof window==='undefined' || !window.requestAnimationFrame){ for(let k=0;k<total;k++) doItem(k); return; }
-    const myGen=window.__simGen, chunk=Math.max(1, Math.round(total/60)); let k=0, first=true;
+    const myGen=window.__simGen, chunk=Math.max(1, Math.round(total/CHUNK_FRAMES)); let k=0, first=true;
     const step=()=>{ if(window.__simGen!==myGen) return;
       try{ const end=Math.min(total, k+chunk); for(; k<end; k++) doItem(k); }
       catch(e){ if(first) throw e;
@@ -27,7 +29,7 @@
   const MODEL_ORDER = [];
 
   function register(models, order){
-    for(const id of (order || Object.keys(models))){ if(MODELS[id] || !models[id]) continue; MODELS[id]=models[id]; MODEL_ORDER.push(id); }
+    for(const id of (order || Object.keys(models))){ if(Object.hasOwn(MODELS,id) || !models || !Object.hasOwn(models,id)) continue; MODELS[id]=models[id]; MODEL_ORDER.push(id); }
   }
 
   global.SIM = { makeRNG, gaussian, hashSeed, trialRng, npdf, runChunks, MODELS, MODEL_ORDER, register };

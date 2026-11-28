@@ -37,13 +37,24 @@ for (const f of DOCS) {
   for (const m of s.matchAll(new RegExp(`\\b${NUM}(?:\\*\\*)?\\s+(?:(?:canonical|model)\\s+)*families\\b`, 'gi')))
     ok(val(m[1]) === nFamilies, `${f}:${lineOf(s, m.index)} says "${m[0]}", INDEX.md lists ${nFamilies}`);
 }
-const guide = read('docs/GUIDE.md');
-const gallery = guide.slice(guide.indexOf('| Model | Domain'), guide.indexOf('Copy one, swap in'));
-const galleryRows = gallery.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(galleryRows === nModels, `docs/GUIDE.md example table has ${galleryRows} rows, the registry holds ${nModels}`);
-const familyTable = guide.slice(guide.indexOf('| Family | Use it for'), guide.indexOf('These are **recipes'));
-const familyTableRows = familyTable.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(familyTableRows === nFamilies, `docs/GUIDE.md family table has ${familyTableRows} rows, INDEX.md lists ${nFamilies}`);
+const section = (doc, name, from, to) => { const s = read(doc), i = s.indexOf(from), j = i < 0 ? -1 : s.indexOf(to, i);
+  ok(i >= 0 && j > i, `${doc}: cannot find the ${name} (between "${from}" and "${to}")`); return i >= 0 && j > i ? s.slice(i, j) : ''; };
+const boldRows = t => t.split('\n').filter(l => /^\| \*\*/.test(l)).map(l => l.split('|')[1].trim());
+{ const rows = boldRows(section('docs/GUIDE.md', 'example table', '| Model | Domain', 'Copy one, swap in'));
+  ok(rows.length === nModels, `docs/GUIDE.md example table has ${rows.length} rows, the registry holds ${nModels}`);
+  ok(new Set(rows).size === rows.length, 'docs/GUIDE.md example table names a model twice'); }
+{ const rows = boldRows(section('docs/GUIDE.md', 'family table', '| Family | Use it for', 'These are **recipes'));
+  ok(rows.length === nFamilies, `docs/GUIDE.md family table has ${rows.length} rows, INDEX.md lists ${nFamilies}`); }
+{ const items = section('README.md', 'example keyword table', '| Domain | Models |', '\n\n').split('\n').slice(2).flatMap(l => l.split('|')[2].split('·').map(x => x.trim()).filter(Boolean));
+  ok(items.length === nModels, `README.md example keyword table names ${items.length} models, the registry holds ${nModels}`); }
+for (const doc of ['README.md', 'docs/GUIDE.md', 'MIGRATION.md', 'tests/README.md', 'skills/model-scope/assets/template/README.md', 'skills/model-scope/references/modelbook/INDEX.md']) {
+  const s = read(doc), base = path.dirname(path.join(ROOT, doc));
+  for (const m of s.matchAll(/!?\[[^\]]*\]\(([^)\s]+)\)|<img\s+src="([^"]+)"/g)) {
+    const target = (m[1] || m[2]).split('#')[0];
+    if (!target || /^[a-z]+:/i.test(target)) continue;
+    ok(fs.existsSync(path.join(base, target)), `${doc}:${lineOf(s, m.index)} links to ${target}, which does not exist`);
+  }
+}
 const tReadme = read('skills/model-scope/assets/template/README.md');
 const tList = tReadme.slice(0, tReadme.indexOf('## Files')).split('\n').filter(l => /^- \*\*/.test(l)).length;
 ok(tList === nModels, `template README.md lists ${tList} examples, the registry holds ${nModels}`);

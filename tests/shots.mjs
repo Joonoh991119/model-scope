@@ -2,10 +2,10 @@ import { createRequire } from 'node:module';
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
+import { args, DEFAULT_TEMPLATE, launch } from './lib/harness.mjs';
 
 const A = args();
-if (!A.opt('--pw')) { console.error('usage: node tests/shots.mjs --pw <dir with node_modules/playwright> [--only png|gif] [--all <dir> [--before <dir>]]'); process.exit(2); }
+if (!A.opt('--pw')) { console.error('usage: node tests/shots.mjs --pw <dir with node_modules/playwright> [--template <dir>] [--channel <chrome|chromium>] [--only png|gif] [--python <bin>] [--font <ttf>] [--ffmpeg <bin>] [--all <dir> [--before <dir>]]'); process.exit(2); }
 const require = createRequire(path.resolve(A.opt('--pw')) + '/');
 const { chromium } = require('playwright');
 const HERE = path.dirname(fileURLToPath(import.meta.url)), ROOT = path.resolve(HERE, '..');
@@ -15,27 +15,36 @@ const ONLY = A.opt('--only');
 
 const GALLERY = [
   ['ddm-step', '?model=ddm&lens=step&still=1'],
-  ['ddm-sim', '?model=ddm&lens=sim&head=1200'],
-  ['vision-transform', '?model=vision&lens=transform&still=1'],
+  ['ddm-sim', '?model=ddm&lens=sim&head=1200', ['Decision', 'drift-diffusion']],
+  ['vision-transform', '?model=vision&lens=transform&still=1', ['Vision', 'oriented filters']],
   ['lif-fI', '?model=lif&lens=fI&still=1'],
-  ['lif-raster', '?model=lif&lens=raster&still=1'],
+  ['lif-raster', '?model=lif&lens=raster&still=1', ['Neuron', 'LIF spikes']],
   ['rl-rate', '?model=rl&lens=rate&still=1'],
-  ['compare', '?model=compare&still=1'],
-  ['sir-spread', '?model=sir&lens=spread&still=1'],
-  ['attractor-landscape', '?model=attractor&lens=landscape&still=1'],
+  ['compare', '?model=compare&still=1', ['Compare', 'two models']],
+  ['sir-spread', '?model=sir&lens=spread&still=1', ['Population', 'SIR wave']],
+  ['attractor-landscape', '?model=attractor&lens=landscape&still=1', ['Network', 'attractor']],
 ];
+const HERO_ORDER = ['ddm-sim', 'lif-raster', 'vision-transform', 'attractor-landscape', 'sir-spread', 'compare'];
 const VIEW = { width: 1340, height: 815 };
 
-const browser = await chromium.launch({ channel: A.opt('--channel') || 'chrome', headless: true });
+const browser = await launch(chromium, A);
 const page = await browser.newPage({ viewport: VIEW, deviceScaleFactor: 1 });
 const errs = []; page.on('pageerror', e => errs.push(String(e.message))); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
 const open = async q => { await page.goto('about:blank'); await page.goto(url(q)); await page.waitForTimeout(350); };
 
 if (!ONLY || ONLY === 'png') {
   fs.mkdirSync(path.join(DOCS, 'shots'), { recursive: true });
-  for (const [name, q] of GALLERY) { await open(q); await page.screenshot({ path: path.join(DOCS, 'shots', name + '.png') }); console.log(`docs/shots/${name}.png  <-  index.html${q}`); }
-  const hero = spawnSync('python3', ['-I', path.join(path.dirname(fileURLToPath(import.meta.url)), 'hero.py'), path.join(DOCS, 'shots'), path.join(DOCS, 'hero.png')], { stdio: 'inherit' });
-  if (hero.status !== 0) { console.error('docs/hero.png was NOT rebuilt (python3 + Pillow needed)'); process.exitCode = 1; } else console.log('docs/hero.png  <-  docs/shots/*.png');
+  const tiles = {};
+  for (const [name, q, label] of GALLERY) {
+    await open(q); const png = path.join(DOCS, 'shots', name + '.png'); await page.screenshot({ path: png }); console.log(`docs/shots/${name}.png  <-  index.html${q}`);
+    if (label) tiles[name] = { png, title: label[0], sub: label[1], crop: await page.evaluate(() => { const r = document.getElementById('views').getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); }) };
+  }
+  const colors = await page.evaluate(() => { const T = Plot.TH; return { bg: T.bg, surface: T.surface, edge: T.line2, accent: T.accent, dim: T.dim }; });
+  const spec = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ms-hero-')), 'hero.json');
+  fs.writeFileSync(spec, JSON.stringify({ tiles: HERO_ORDER.map(n => tiles[n]), colors, font: A.opt('--font') }));
+  const hero = spawnSync(A.opt('--python') || 'python3', ['-I', path.join(HERE, 'hero.py'), spec, path.join(DOCS, 'hero.png')], { stdio: 'inherit' });
+  fs.rmSync(path.dirname(spec), { recursive: true, force: true });
+  if (hero.status !== 0) { console.error('docs/hero.png was NOT rebuilt (needs python3 with Pillow; pass --python <bin>)'); process.exitCode = 1; } else console.log(`docs/hero.png  <-  ${HERO_ORDER.join(', ')}`);
 }
 
 if (!ONLY || ONLY === 'gif') {
@@ -61,12 +70,13 @@ if (!ONLY || ONLY === 'gif') {
 if (A.opt('--all')) {
   const dir = path.resolve(A.opt('--all')), before = A.opt('--before') ? path.resolve(A.opt('--before')) : null; fs.mkdirSync(dir, { recursive: true });
   await open('');
+  const C = await page.evaluate(() => Plot.TH);
   const screens = await page.evaluate(() => SIM.MODEL_ORDER.flatMap(id => { const L = SIM.MODELS[id].lenses; return L ? Object.keys(L).map(k => [id, k]) : [[id, '']]; }));
   await page.setViewportSize({ width: 1200, height: 720 });
   const names = [];
   for (const [id, k] of screens) { const name = id + (k ? '-' + k : '') + '.png'; await open(`?model=${id}${k ? '&lens=' + k : ''}&still=1`); await page.screenshot({ path: path.join(dir, name) }); names.push(name); }
   const cell = (d, n) => `<figure><img loading="lazy" src="${path.relative(dir, path.join(d, n))}" alt="${n}"><figcaption>${n}</figcaption></figure>`;
-  fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>model-scope screens</title><style>body{font:13px system-ui;margin:16px;background:#f4f3ee;color:#33312c}.row{display:grid;grid-template-columns:${before ? '1fr 1fr' : '1fr'};gap:10px;margin-bottom:14px}figure{margin:0}img{width:100%;border:1px solid #d6d2c5;display:block}figcaption{color:#6f6b61}</style>`
+  fs.writeFileSync(path.join(dir, 'index.html'), `<!doctype html><meta charset="utf-8"><title>model-scope screens</title><style>body{font:13px system-ui;margin:16px;background:${C.bg};color:${C.ink}}.row{display:grid;grid-template-columns:${before ? '1fr 1fr' : '1fr'};gap:10px;margin-bottom:14px}figure{margin:0}img{width:100%;border:1px solid ${C.line2};display:block}figcaption{color:${C.dim}}</style>`
     + `<h1>${names.length} screens${before ? ' — before (left) and after (right)' : ''}</h1>` + names.map(n => `<div class="row">${before ? cell(before, n) : ''}${cell(dir, n)}</div>`).join('\n'));
   console.log(`${names.length} screens -> ${dir} (open index.html)`);
 }

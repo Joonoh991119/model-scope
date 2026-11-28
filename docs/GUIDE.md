@@ -137,11 +137,12 @@ code.
 
 There are two layers: the **plugin** you install (two skills, an agent, two commands, a
 template, and a modelbook) and the **explorer** it produces — a no-build app of four core
-files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`) plus optional ones: the
+files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`, with `page.mjs` for the gate) plus optional ones: the
 worked examples (`examples.js`), the reusable-model library they use (`mslib.js`), and a
 bundler (`bundle.mjs`) that writes the whole app as one self-contained page.
 
-![How model-scope is built and how it runs](flow.drawio.png)
+The colours and fonts live in one place, `Plot.TH` in `plot.js`: the canvas draws with it and the page
+takes its CSS variables from it.
 
 **The loop.** On any slider change the toolbox (debounced) calls `simulate(params, env)`
 once, caches the returned `data`, then calls each view's `draw(g, data, ui)` to redraw. For
@@ -403,7 +404,7 @@ Node ones; add `--browser` for the smoke test. See [`tests/README.md`](../tests/
 model-scope/
 ├── .claude-plugin/              plugin.json (holds the version) + marketplace.json (the repo root is both)
 ├── CHANGELOG.md, MIGRATION.md   release notes; a handoff for whoever maintains the plugin next
-├── docs/                        README images and their .drawio sources
+├── docs/                        this guide; README figures (hero.png from tests/hero.py, flow.drawio.png editable in draw.io), shots/
 ├── evals/                       eval cases for `claude plugin eval` (authored, not yet run)
 ├── tests/                       developer checks (never shipped in a generated app)
 ├── agents/
@@ -430,6 +431,7 @@ model-scope/
         ├── examples.checks.mjs  their analytic checks
         ├── plot.js              the canvas charting helper g
         ├── modules/mslib.js     optional reusable model library (MSLIB)
+        ├── page.mjs             reads index.html's script tags (shared by the gate and the bundler)
         ├── validate.mjs         the Node correctness gate
         └── bundle.mjs           optional: the app as one self-contained page
 ```

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { SCRIPT_TAG, srcOf, withoutHtmlComments, isRemote, stripJsComments } from './page.mjs';
 
 const words = s => String(s).trim().split(/\s+/).filter(Boolean);
 export const titleProblem = t => { const n = words(t).length;
@@ -14,19 +15,17 @@ export function bundle(dir, { title, standalone = false } = {}) {
   const bodyM = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(page);
   if (!bodyM) throw new Error('index.html has no <body>');
   const scripts = [];
-  let body = bodyM[1].replace(/(<script\b[^>]*>[\s\S]*?<\/script>)|<!--[\s\S]*?-->/gi, (all, script) => script || '');
-  body = body.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (all, attrs, inline) => {
-    const sm = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attrs), src = sm ? (sm[1] ?? sm[2] ?? sm[3]) : undefined;
+  let body = withoutHtmlComments(bodyM[1]).replace(SCRIPT_TAG, (all, attrs, inline) => {
+    const src = srcOf(attrs);
     if (!src) return `<script>${escScript(inline)}</script>`;
-    if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) throw new Error(`index.html loads ${src} from another host; a bundle must be self-contained`);
+    if (isRemote(src)) throw new Error(`index.html loads ${src} from another host; a bundle must be self-contained`);
     const file = path.join(dir, src);
     if (!fs.existsSync(file)) throw new Error(`index.html loads ${src} but that file is missing`);
     scripts.push(src);
-    return `<script>/* ${src} */\n${escScript(fs.readFileSync(file, 'utf8'))}\n</script>`;
+    return `<script>\n${escScript(fs.readFileSync(file, 'utf8'))}\n</script>`;
   });
   body = body.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
-  const noComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');
-  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(noComments(fs.readFileSync(path.join(dir, s), 'utf8'))); if (m) return m[2]; } return null; })();
+  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(stripJsComments(fs.readFileSync(path.join(dir, s), 'utf8'))); if (m) return m[2]; } return null; })();
   const name = title || (appTitle && !titleProblem(appTitle) ? appTitle : 'Model Scope Explorer');
   const bad = titleProblem(name); if (bad) throw new Error(bad);
   const head = `<title>${escText(name)}</title>\n<style>\n${style}\n</style>`;

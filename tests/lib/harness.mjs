@@ -1,10 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pageScripts } from '../../skills/model-scope/assets/template/page.mjs';
 
 export const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../skills/model-scope/assets/template/', import.meta.url));
 export const SEED = 'seed-1';
 export const CANVAS = [560, 320];
+export const DEFAULT_CHANNEL = 'chrome';
+export const launch = (chromium, A) => chromium.launch({ channel: A.opt('--channel') || DEFAULT_CHANNEL, headless: true });
 
 export const fnv = (s, h) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
 const FNV0 = 0x811c9dc5;
@@ -32,7 +35,7 @@ export const mkCanvas = (w = CANVAS[0], h = CANVAS[1]) => { const ctx = mkCtx();
 
 export function scriptList(dir) {
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
-  return [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(m => m[1]);
+  return pageScripts(html).map(t => t.src).filter(Boolean);
 }
 
 export function loadTemplate(dir = DEFAULT_TEMPLATE) {

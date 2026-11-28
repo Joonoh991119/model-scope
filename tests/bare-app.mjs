@@ -2,7 +2,7 @@ import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os'
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
-import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
+import { args, DEFAULT_TEMPLATE, launch } from './lib/harness.mjs';
 
 const A = args();
 const SRC = path.resolve(A.opt('--template') || DEFAULT_TEMPLATE);
@@ -15,6 +15,9 @@ const must = (cond, msg) => { if (!cond) { console.error('bare-app: the template
 const tmp = [];
 function copy() { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ms-bare-')); tmp.push(dir); fs.cpSync(SRC, dir, { recursive: true }); return dir; }
 const edit = (dir, file, fn) => { const fp = path.join(dir, file); fs.writeFileSync(fp, fn(fs.readFileSync(fp, 'utf8'))); };
+const LOAD = `globalThis.window=globalThis;globalThis.document={createElement:()=>({getContext:()=>({})})};for(const f of ['plot.js','modules/mslib.js','engine.js','examples.js'])(0,eval)(require('fs').readFileSync(f,'utf8'));`;
+const registry = dir => JSON.parse(spawnSync('node', ['-e', LOAD + 'console.log(JSON.stringify(SIM.MODEL_ORDER))'], { cwd: dir, encoding: 'utf8' }).stdout);
+const ORDER = registry(SRC), N = ORDER.length, LAST = ORDER[N - 1];
 const gate = dir => { const r = spawnSync('node', ['validate.mjs'], { cwd: dir, encoding: 'utf8' }); return { status: r.status, out: strip((r.stdout || '') + (r.stderr || '')) }; };
 
 function makeBare(dir) {
@@ -47,15 +50,15 @@ const d3 = copy(); makeBare(d3); addSkeleton(d3, { withCheck: false });
 { const g = gate(d3); check(g.status === 0 && /\(1 warning\)/.test(g.out) && /no analytic check for 1 model: mymodel/.test(g.out), `a model without an analytic check: gate exit ${g.status} with one counted warning`); }
 
 const d4 = copy();
-edit(d4, 'examples.js', s => { const a = s.indexOf('\n    mha: {\n'), b = s.indexOf('\n    },\n', a); must(a > 0 && b > a, 'cannot find the mha entry in examples.js');
-  const t = s.slice(0, a) + s.slice(b + '\n    },'.length); must(t.includes(",'mha']"), "MODEL_ORDER no longer ends in 'mha'"); return t.replace(",'mha']", ']'); });
-{ const g = gate(d4); check(g.status === 0 && /models: 20 registered/.test(g.out) && !/warning/.test(g.out), `examples.js with the mha example deleted (its check still in examples.checks.mjs): gate exit ${g.status}, 20 models`);
+edit(d4, 'examples.js', s => { const a = s.indexOf(`\n    ${LAST}: {\n`), b = s.indexOf('\n    },\n', a); must(a > 0 && b > a, `cannot find the ${LAST} entry in examples.js`);
+  const t = s.slice(0, a) + s.slice(b + '\n    },'.length); must(t.includes(`,'${LAST}']`), `MODEL_ORDER no longer ends in '${LAST}'`); return t.replace(`,'${LAST}']`, ']'); });
+{ const g = gate(d4); check(g.status === 0 && new RegExp(`models: ${N - 1} registered`).test(g.out) && !/warning/.test(g.out), `examples.js with the ${LAST} example deleted (its check still in examples.checks.mjs): gate exit ${g.status}, ${N - 1} models`);
   if (g.status !== 0) console.log(g.out.split('\n').filter(l => /FAIL|threw|Error/.test(l)).slice(0, 6).join('\n')); }
 
 const d5 = copy(); addSkeleton(d5, { withCheck: true });
 edit(d5, 'engine.js', s => s.replace(/mymodel/g, 'ddm')); edit(d5, 'engine.checks.mjs', s => s.replace(/mymodel/g, 'ddm'));
-{ const r = spawnSync('node', ['-e', `globalThis.window=globalThis;globalThis.document={createElement:()=>({getContext:()=>({})})};for(const f of ['plot.js','modules/mslib.js','engine.js','examples.js'])(0,eval)(require('fs').readFileSync(f,'utf8'));console.log(SIM.MODEL_ORDER[0],SIM.MODELS.ddm.name,SIM.MODEL_ORDER.length)`], { cwd: d5, encoding: 'utf8' });
-  check((r.stdout || '').trim() === 'ddm My model 21', `a model of yours with an example's id keeps the id and comes first (${(r.stdout || r.stderr || '').trim().slice(0, 80)})`); }
+{ const r = spawnSync('node', ['-e', LOAD + 'console.log(SIM.MODEL_ORDER[0],SIM.MODELS.ddm.name,SIM.MODEL_ORDER.length)'], { cwd: d5, encoding: 'utf8' });
+  check((r.stdout || '').trim() === `ddm My model ${N}`, `a model of yours with an example's id keeps the id and comes first (${(r.stdout || r.stderr || '').trim().slice(0, 80)})`); }
 { const g = gate(d5); check(g.status === 0 && /model 'ddm' from engine\.js hides the examples\.js model/.test(g.out) && !/already defined/.test(g.out), `the gate names the hidden example and skips its check: exit ${g.status}`); }
 
 const d6 = copy(); addSkeleton(d6, { withCheck: false }); edit(d6, 'engine.js', s => s.replace(/mymodel/g, 'lif'));
@@ -85,7 +88,7 @@ const d10 = copy(); edit(d10, 'index.html', h => { must(h.includes('<script src=
 
 if (PW) {
   const require = createRequire(PW + '/'); const { chromium } = require('playwright');
-  const browser = await chromium.launch({ channel: A.opt('--channel') || 'chrome', headless: true });
+  const browser = await launch(chromium, A);
   const open = async dir => { const p = await browser.newPage({ viewport: { width: 1200, height: 760 } }), errs = [], reqs = [];
     p.on('console', m => { if (m.type() === 'error') errs.push(m.text().slice(0, 160)); }); p.on('pageerror', e => errs.push('PAGEERROR ' + String(e.message).slice(0, 160)));
     p.on('request', r => { if (!r.url().startsWith('file:')) reqs.push(r.url()); });

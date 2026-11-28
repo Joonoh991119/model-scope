@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { pathToFileURL, fileURLToPath } from 'node:url';
-import { args, DEFAULT_TEMPLATE } from './lib/harness.mjs';
+import { args, DEFAULT_TEMPLATE, launch } from './lib/harness.mjs';
 
 const A = args();
 if (!A.opt('--pw')) { console.error('usage: node tests/smoke.mjs --pw <dir with node_modules/playwright> [--template <dir>] [--a11y] [--phone] [--sliders] [--quick]'); process.exit(2); }
@@ -25,10 +25,11 @@ function check(id, ok, detail, { enforce = true } = {}) {
 const skipped = [];
 function skip(ids, why) { for (const id of ids) { skipped.push(id); console.log(`SKIP  ${id.padEnd(26)} ${why}`); } }
 
-const browser = await chromium.launch({ channel: A.opt('--channel') || 'chrome', headless: true });
+const browser = await launch(chromium, A);
+const VIEWPORT = { width: 1320, height: 760 };
 const errs = [], warns = [], reqs = []; let tag = '';
 async function newPage(opts = {}) {
-  const ctx = await browser.newContext({ viewport: { width: 1320, height: 760 }, ...opts });
+  const ctx = await browser.newContext({ viewport: VIEWPORT, ...opts });
   const p = await ctx.newPage();
   p.on('console', m => { if (m.type() === 'error') errs.push(`[${tag}] ${m.text().slice(0, 200)}`); else if (m.type() === 'warning') warns.push(`[${tag}] ${m.text().slice(0, 200)}`); });
   p.on('pageerror', e => errs.push(`[${tag}] PAGEERROR ${String(e.message).slice(0, 200)}`));
@@ -141,7 +142,7 @@ if (keep) { tag = 'rapid'; const before = errs.length; await p.goto(pageUrl(T, `
   check('slider-supersedes-compute', !sup.same && sup.first === frozenAt && sup.first < 240, `runChunks fixture: moving a slider mid-compute starts a new run; the old one stopped at ${sup.first}/240 and stayed there`);
   await q.context().close(); }
 {
-  tag = 'heavy-throw'; const dir = withFixture('heavy.js'); const q = await browser.newContext({ viewport: { width: 1320, height: 760 } }).then(c => c.newPage()); const perr = []; q.on('pageerror', e => perr.push(String(e.message)));
+  tag = 'heavy-throw'; const dir = withFixture('heavy.js'); const q = await browser.newContext({ viewport: VIEWPORT }).then(c => c.newPage()); const perr = []; q.on('pageerror', e => perr.push(String(e.message)));
   await q.goto(pageUrl(dir, '?model=heavy&p.fail=1')); const t0 = Date.now(); let o;
   do { await q.waitForTimeout(250); o = await q.evaluate(() => ({ overlay: document.getElementById('loading').classList.contains('on'), msg: (document.querySelector('#views [role="alert"]') || {}).textContent || '', busy: document.getElementById('views').getAttribute('aria-busy') })); } while (o.overlay && Date.now() - t0 < 20000);
   check('chunk-error-shown', !o.overlay && /chunk boom from the fixture/.test(o.msg) && o.busy !== 'true' && perr.length === 0, `runChunks fixture throwing at item 100 of 240: overlay ${o.overlay ? 'still on' : 'cleared'}, view area says "${o.msg.slice(52, 100)}", ${perr.length} page errors`);
@@ -171,7 +172,7 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
   const away = order.find(m => m.id !== 'ddm'); await (await tabOf(p, away)).click(); await p.waitForTimeout(160); await (await tabOf(p, byId.ddm)).click(); await p.waitForTimeout(220);
   const z2 = await p.locator('#f_z').inputValue(); check('query-params-remembered', parseFloat(z2) === 2, `z=2 from the link, after leaving for ${away.id} and returning: ${z2}`);
   await p.locator('#linkBtn').click(); await p.waitForTimeout(150); const link = await p.locator('#linkOut').inputValue();
-  const q2 = await newPage(); await q2.goto(link + (link.includes('?') ? '' : '')); await q2.waitForTimeout(260); const b = await state(q2), zb = await q2.locator('#f_z').inputValue(); await q2.context().close();
+  const q2 = await newPage(); await q2.goto(link); await q2.waitForTimeout(260); const b = await state(q2), zb = await q2.locator('#f_z').inputValue(); await q2.context().close();
   check('copy-link-round-trip', /[?&]p\.z=2\b/.test(link) && /seed=abc/.test(link) && /#ddm/.test(link) && b.model === 'ddm' && parseFloat(zb) === 2 && b.seed === 'abc', `"Copy link" gives ${link.replace(/^.*index\.html/, 'index.html')}; opening it restores z=${zb}, seed "${b.seed}"`);
   await p.locator('#seedInput').fill('changed'); await p.waitForTimeout(60); const stale = await p.locator('#linkOut').isVisible();
   check('copied-link-hidden-when-stale', !stale, `after Copy link, editing the seed ${stale ? 'leaves the old link visible' : 'hides the copied link'}`); }
@@ -189,7 +190,7 @@ if (byId.ddm) { tag = 'query-params'; await p.goto(pageUrl(T, '?model=ddm&p.z=2&
     const before = await p.locator('#playBtn').getAttribute('aria-label'); await p.emulateMedia({ reducedMotion: 'reduce' }); await p.waitForTimeout(200); const after = await p.locator('#playBtn').getAttribute('aria-label'); await p.emulateMedia({ reducedMotion: 'no-preference' });
     check('reduced-motion-change', before === 'Pause' && after === 'Play', `${seqm.id}: playing ("${before}"), then the system setting switches to reduced motion: "${after}"`); } }
 {
-  tag = 'broken'; const dir = withFixture('broken.js'); const q = await browser.newContext({ viewport: { width: 1320, height: 760 } }).then(c => c.newPage()); const perr = []; q.on('pageerror', e => perr.push(String(e.message)));
+  tag = 'broken'; const dir = withFixture('broken.js'); const q = await browser.newContext({ viewport: VIEWPORT }).then(c => c.newPage()); const perr = []; q.on('pageerror', e => perr.push(String(e.message)));
   await q.goto(pageUrl(dir, '?model=broken')); await q.waitForTimeout(250); const ok0 = !blank(await painted(q));
   await q.locator('#f_boom').click(); await q.waitForTimeout(400); const msg = await q.evaluate(() => (document.querySelector('#views [role="alert"]') || {}).textContent || ''), n1 = await q.locator('#views canvas').count();
   await q.locator('#f_boom').click(); await q.waitForTimeout(400); const ok2 = !blank(await painted(q));

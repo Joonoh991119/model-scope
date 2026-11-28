@@ -5,11 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>model-scope — interactive model explorer</title>
 <style>
-:root{ color-scheme:light;
-  --bg:#f4f3ee; --surface:#fff; --surface-2:#f1efe8; --edge:#e4e1d7; --edge-2:#d6d2c5;
-  --ink:#33312c; --ink-dim:#6f6b61;
-  --accent:#4a7a93; --accent-soft:rgba(74,122,147,.12);
-  --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace; }
+:root{ color-scheme:light; --plot-min:258px; }
 *{box-sizing:border-box} html,body{height:100%} [hidden]{display:none !important}
 body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; overflow:hidden}
 :focus-visible{outline:2px solid var(--ink); outline-offset:2px}
@@ -23,7 +19,7 @@ header.topbar{display:flex; align-items:center; gap:20px; padding:10px 20px; bor
 .models{position:relative; flex:1 1 auto; display:flex; gap:4px; padding:4px; border:1px solid var(--edge); border-radius:12px; background:var(--surface-2); min-width:0; overflow-x:auto; scrollbar-width:thin}
 .models::-webkit-scrollbar{height:6px} .models::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
 .models button{font-family:var(--sans); font-size:12.5px; font-weight:500; color:var(--ink-dim); background:transparent; border:0; padding:7px 13px; border-radius:8px; cursor:pointer; white-space:nowrap}
-.models button:hover{color:var(--ink); background:rgba(0,0,0,.04)} .models button[aria-pressed="true"]{color:#fff; background:var(--accent); font-weight:600}
+.models button:hover{color:var(--ink); background:var(--hover)} .models button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); font-weight:600}
 
 .layout{display:grid; grid-template-columns:330px minmax(0,1fr); min-height:0}
 aside.console{border-right:1px solid var(--edge); overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:18px; background:var(--surface)}
@@ -32,25 +28,25 @@ aside.console{border-right:1px solid var(--edge); overflow-y:auto; padding:18px;
 .block h2{margin:0; font-size:12px; font-weight:600; color:var(--ink-dim); display:flex; align-items:center; gap:8px}
 .block h2::after{content:""; flex:1; height:1px; background:var(--edge)}
 .blurb{margin:0; font-size:12.5px; color:var(--ink-dim); line-height:1.5}
-.note{margin:0; font-size:11.5px; color:var(--ink); line-height:1.5; padding:9px 11px; border-radius:8px; background:var(--accent-soft); border:1px solid rgba(74,122,147,.2); border-left:2px solid var(--accent)}
+.note{margin:0; font-size:11.5px; color:var(--ink); line-height:1.5; padding:9px 11px; border-radius:8px; background:var(--accent-soft); border:1px solid var(--accent-line); border-left:2px solid var(--accent)}
 .fields{display:flex; flex-direction:column; gap:14px}
 .field{display:flex; flex-direction:column; gap:6px} .field .row{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
 .field label,.field .flabel{font-size:12.5px; font-weight:500} .field .unit{color:var(--ink-dim); font-size:11px; font-weight:400; font-family:var(--mono)}
 .field .num{width:82px; font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:6px; padding:3px 7px}
 .field .num:focus-visible,.seed input:focus-visible,.linkout:focus-visible{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
 .field .toggle{appearance:none;-webkit-appearance:none;width:38px;height:21px;border-radius:11px;background:var(--edge-2);position:relative;cursor:pointer;transition:.15s;flex:0 0 auto;margin:0}
-.field .toggle:checked{background:var(--accent)} .field .toggle::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.15s} .field .toggle:checked::after{left:19px}
+.field .toggle:checked{background:var(--accent)} .field .toggle::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px var(--shadow);transition:.15s} .field .toggle:checked::after{left:19px}
 .field .seg{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
-.field .segbtn{flex:1 1 0;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--surface-2);border:1px solid var(--edge-2);border-radius:6px;padding:4px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .field .segbtn[aria-pressed="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.field .segbtn{flex:1 1 0;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--surface-2);border:1px solid var(--edge-2);border-radius:6px;padding:4px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .field .segbtn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;cursor:pointer;margin:6px 0 2px;background:linear-gradient(90deg,var(--accent) 0 var(--fill,50%),var(--edge-2) var(--fill,50%) 100%)}
 input[type=range]:focus-visible{outline-offset:6px}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.12);cursor:pointer}
-input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid var(--accent);cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);box-shadow:0 1px 3px var(--shadow-soft);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:pointer}
 .seed{display:flex; gap:8px} .seed input{flex:1; min-width:0; font-family:var(--mono); font-size:12.5px; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:7px; padding:7px 10px}
 .seed .dice{width:38px;border-radius:7px;border:1px solid var(--edge-2);background:var(--surface-2);color:var(--ink-dim);cursor:pointer;font-size:16px}
 .actions{display:grid; grid-template-columns:1fr 1fr; gap:9px}
 .btn{font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer; border-radius:9px; padding:10px 12px; border:1px solid var(--edge-2); background:var(--surface); color:var(--ink); transition:background .15s,border-color .15s; display:flex; align-items:center; justify-content:center; gap:7px}
-.btn:hover{border-color:var(--ink-dim); background:var(--surface-2)} .btn.primary{grid-column:1/-1; background:var(--accent); color:#fff; border:0; padding:13px}
+.btn:hover{border-color:var(--ink-dim); background:var(--surface-2)} .btn.primary{grid-column:1/-1; background:var(--accent); color:var(--on-accent); border:0; padding:13px}
 .linkout{width:100%; font-family:var(--mono); font-size:11px; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:7px; padding:6px 8px}
 .valuenote{font-family:var(--mono); font-size:11px; color:var(--ink-dim)}
 
@@ -60,7 +56,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .lenses{display:flex; flex-wrap:wrap; gap:5px; align-items:center}
 .lenses .ll{font-size:12px; font-weight:600; color:var(--ink-dim); margin-right:3px}
 .lenses button{font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge-2); padding:6px 12px; border-radius:7px; cursor:pointer; white-space:nowrap}
-.lenses button:hover{color:var(--ink); border-color:var(--ink-dim)} .lenses button[aria-pressed="true"]{color:#fff; background:var(--accent); border-color:var(--accent); font-weight:600}
+.lenses button:hover{color:var(--ink); border-color:var(--ink-dim)} .lenses button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); border-color:var(--accent); font-weight:600}
 .tbar .sep{width:1px; align-self:stretch; background:var(--edge); margin:2px 2px}
 .tbar .transport{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; flex:1 1 340px; min-width:0}
 .tctrl{display:flex; gap:5px} .tctrl button{width:32px;height:30px;border-radius:7px;border:1px solid var(--edge-2);background:var(--surface);color:var(--ink-dim);cursor:pointer;display:grid;place-items:center} .tctrl button:hover{color:var(--accent);border-color:var(--accent)} .tctrl button svg{width:13px;height:13px;fill:currentColor}
@@ -69,17 +65,17 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
 .spd{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-dim)} .spd input{width:90px}
 .tip{margin:0; padding:9px 18px 0; font-size:12px; color:var(--ink-dim); line-height:1.4}
 .tip:empty{display:none}
-.views{flex:1 1 auto; min-height:0; padding:12px; overflow:auto; display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr)); grid-auto-rows:minmax(258px,1fr); align-content:start}
+.views{flex:1 1 auto; min-height:0; padding:12px; overflow:auto; display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr)); grid-auto-rows:minmax(var(--plot-min),1fr); align-content:start}
 .views::-webkit-scrollbar{width:9px}.views::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
 .empty{grid-column:1/-1; align-self:start; max-width:560px; margin:24px auto; padding:18px 20px; border:1px dashed var(--edge-2); border-radius:10px; background:var(--surface); color:var(--ink-dim); font-size:13px; line-height:1.6} .empty b{color:var(--ink)} .empty code{font-family:var(--mono); font-size:12px; color:var(--ink)}
-.plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:258px} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:var(--plot-min)} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
 .views.pinned{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
 .plot.pinned{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
 .plot .pane{position:relative; min-width:0; min-height:0} .plot .pane.ref{border-left:1px dashed var(--edge-2)}
 .reftag{position:absolute; top:6px; right:8px; z-index:1; font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge); border-radius:4px; padding:0 5px; pointer-events:none}
 .pinline{margin:0; padding:9px 18px 0; font-family:var(--mono); font-size:11.5px; color:var(--ink); line-height:1.45; overflow-wrap:anywhere}
 .btn:disabled{opacity:.55; cursor:default}
-#loading{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:13px; background:rgba(244,243,238,.86); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); z-index:20}
+#loading{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:13px; background:var(--veil); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); z-index:20}
 #loading.on{display:flex}
 #loading .ttl{font-family:var(--mono); font-size:12px; color:var(--ink-dim)}
 #loading .barwrap{width:min(320px,55%); height:6px; border-radius:6px; background:var(--edge-2); overflow:hidden}
@@ -113,7 +109,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
       <section class="block"><h2>Model</h2><p class="blurb" id="blurb"></p><p class="note" id="note"></p></section>
       <section class="block"><h2>Parameters</h2><div id="paramFields" class="fields"></div></section>
       <section class="block"><h2>Run</h2>
-        <div class="field"><div class="row"><label for="seedInput">RNG seed</label></div><div class="seed"><input id="seedInput" type="text" value="model-scope" spellcheck="false" autocomplete="off"/><button class="dice" id="diceBtn" type="button" title="Random seed" aria-label="Random seed"><span aria-hidden="true">⚂</span></button></div></div>
+        <div class="field"><div class="row"><label for="seedInput">RNG seed</label></div><div class="seed"><input id="seedInput" type="text" spellcheck="false" autocomplete="off"/><button class="dice" id="diceBtn" type="button" title="Random seed" aria-label="Random seed"><span aria-hidden="true">⚂</span></button></div></div>
         <div class="actions">
           <button class="btn primary" id="runBtn" type="button"><span aria-hidden="true">↻</span> Re-simulate</button>
           <button class="btn" id="resetBtn" type="button">Reset</button>
@@ -123,7 +119,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
         <input class="linkout" id="linkOut" type="text" readonly hidden aria-label="Link to this model, lens, seed and parameters"/>
         <div class="field">
           <div class="row"><label for="fontScale">Text size</label><span id="fontScaleVal" class="valuenote">100%</span></div>
-          <input id="fontScale" type="range" min="0.8" max="1.8" step="0.05" value="1"/>
+          <input id="fontScale" type="range"/>
         </div>
       </section>
     </aside>
@@ -143,7 +139,7 @@ input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;bac
           </div>
           <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Playhead"/>
           <span class="tread" id="tread">0 / 0</span>
-          <label class="spd">Speed<input type="range" id="spd" min="1" max="800" step="1" value="12"/></label>
+          <label class="spd">Speed<input type="range" id="spd"/></label>
         </div>
       </div>
       <p class="tip" id="tip"></p>
@@ -166,11 +162,14 @@ const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const has=(o,k)=>!!o && Object.prototype.hasOwnProperty.call(o,k);
 const isModel=id=>SIM.MODEL_ORDER.includes(id);
 const DEFAULT_SEED='model-scope';
+const SPEED={ anim:{min:1, max:800, step:1, value:12, unit:'frames'}, stage:{min:0.2, max:8, step:0.1, value:1.4, unit:'steps'} };
+const WAIT={ simulate:220, resize:90, copied:1400 };
+const seedValue=()=>$('#seedInput').value||DEFAULT_SEED;
 const mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 let reduceMotion = !!(mqReduce && mqReduce.matches);
 const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:DEFAULT_SEED, data:null, simError:null, model:null,
   mem:{}, lensMem:{},
-  views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:12, lastT:null, rafId:0, gen:0, suppress:false,
+  views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:SPEED.anim.value, speedMode:null, lastT:null, rafId:0, gen:0, suppress:false,
   stageMode:false, stageList:null, lens:null, lensKeys:null, loading:false,
   pins:{}, ref:null, refCanvases:[], refDrawn:false };
 function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
@@ -189,7 +188,7 @@ function coerce(spec,raw){
   if(spec.type==='enum'){ const opts=spec.options||[]; let i=opts.indexOf(raw); if(i<0 && /^\d+$/.test(raw)) i=+raw; return (i>=0 && i<opts.length) ? i : undefined; }
   const v=parseFloat(raw); return Number.isFinite(v) ? clamp(spec.int?Math.round(v):v, spec.min, spec.max) : undefined; }
 function stateUrl(){ const q=new URLSearchParams(); q.set('model',S.modelId); if(S.lens) q.set('lens',S.lens);
-  const seed=$('#seedInput').value||'seed'; if(seed!==DEFAULT_SEED) q.set('seed',seed);
+  const seed=seedValue(); if(seed!==DEFAULT_SEED) q.set('seed',seed);
   for(const s of (S.model.params||[])){ const v=S.params[s.name], d=s.type==='bool'?!!s.default:s.type==='enum'?(s.default||0):s.default; if(v!==d) q.set('p.'+s.name, s.type==='bool'?(v?1:0):v); }
   return location.href.split(/[?#]/)[0]+'?'+q.toString()+'#'+S.modelId+(S.lens?'-'+S.lens:''); }
 let boot=true;
@@ -234,11 +233,12 @@ function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
   range.setAttribute('aria-label', name+(spec.unit?' ('+spec.unit+')':''));
   wrap.appendChild(row); wrap.appendChild(range);
   const fill=v=>range.style.setProperty('--fill',clamp((v-spec.min)/(spec.max-spec.min)*100,0,100)+'%');
-  const apply=v=>{ v=clamp(spec.int?Math.round(v):v,spec.min,spec.max); obj[spec.name]=v; num.value=spec.int?v:+v.toFixed(4); range.value=v; fill(v); onChange&&onChange(); };
+  const show=v=>{ num.value=spec.int?v:+v.toFixed(4); range.value=v; fill(v); };
+  const apply=v=>{ v=clamp(spec.int?Math.round(v):v,spec.min,spec.max); const changed=v!==obj[spec.name]; obj[spec.name]=v; show(v); if(changed) onChange&&onChange(); };
   range.addEventListener('input',()=>apply(parseFloat(range.value)));
   num.addEventListener('input',()=>{const v=parseFloat(num.value); if(!Number.isNaN(v)){obj[spec.name]=clamp(spec.int?Math.round(v):v,spec.min,spec.max); range.value=obj[spec.name]; fill(obj[spec.name]); onChange&&onChange();}});
   num.addEventListener('blur',()=>{ const v=parseFloat(num.value); apply(Number.isNaN(v) ? obj[spec.name] : v); });
-  apply(obj[spec.name]!==undefined?obj[spec.name]:spec.default); return wrap; }
+  const v0=clamp(obj[spec.name]!==undefined?obj[spec.name]:spec.default,spec.min,spec.max); obj[spec.name]=v0; show(v0); return wrap; }
 function setModel(id, lens){ S.suppress=true; S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
   for(const b of $('#modelTabs').children){ const on=b.dataset.id===id; b.setAttribute('aria-pressed',on); if(on) revealTab(b); }
   S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? (has(m.lenses,lens) ? lens : S.lensKeys[0]) : null;
@@ -257,67 +257,63 @@ function buildCards(){ const vc=$('#views'); vc.innerHTML=''; const P=S.pins[S.m
       a.appendChild(cv); b.appendChild(rc); b.appendChild(t); d.appendChild(a); d.appendChild(b); S.refCanvases.push(rc); }
     else d.appendChild(cv);
     vc.appendChild(d); return cv; }); }
-function refFrame(spec,P){ let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(P.params, P.data) : spec.stages) : null; }catch(e){ console.error('[model-scope] stages() threw on the pinned result', {model:S.modelId, error:e}); st=null; }
-  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(P.params, P.data); }catch(e){ console.error('[model-scope] anim.length() threw on the pinned result', {model:S.modelId, error:e}); len=1; } }
+function resolveSeq(spec, params, data, what){
+  let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(params, data) : spec.stages) : null; }catch(e){ console.error(`[model-scope] stages() threw${what}`, {model:S.modelId, error:e}); st=null; }
+  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(params, data); }catch(e){ console.error(`[model-scope] anim.length() threw${what}`, {model:S.modelId, error:e}); len=1; } }
   len = sm ? st.length : Math.max(1, (Number.isFinite(len)?Math.floor(len):1) || 1);
   return { stages: sm?st:null, len, max: sm ? Math.max(0,len-1) : len }; }
+function refFrame(spec,P){ return resolveSeq(spec, P.params, P.data, ' on the pinned result'); }
 const fmtVal=(s,v)=> s.type==='bool' ? (v?'on':'off') : s.type==='enum' ? String((s.options||[])[v]!=null ? s.options[v] : v) : String(+(+v).toFixed(4));
 function pinUi(){ const P=S.pins[S.modelId], b=$('#pinBtn'), line=$('#pinLine');
   b.textContent = P ? 'Unpin' : 'Pin'; b.title = P ? 'Remove the pinned reference' : 'Keep this result as a reference beside every view';
   b.disabled = !P && (!S.data || !!S.simError || S.loading);
   if(!P){ line.hidden=true; line.textContent=''; return; }
   const diff=[]; for(const s of (S.model.params||[])){ const a=P.params[s.name], c=S.params[s.name]; if(a!==c) diff.push(`${s.label||s.name} ${fmtVal(s,a)} → ${fmtVal(s,c)}`); }
-  const seed=$('#seedInput').value||'seed'; if(P.seed!==seed) diff.push(`seed ${P.seed} → ${seed}`);
+  const seed=seedValue(); if(P.seed!==seed) diff.push(`seed ${P.seed} → ${seed}`);
   line.hidden=false; line.textContent = diff.length ? 'Pinned → now: '+diff.join(', ') : 'Pinned: the same parameters and seed as now'; }
 function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.views=[]; S.canvases=[]; S.refCanvases=[]; S.ref=null; vc.classList.remove('pinned');
   const d=document.createElement('div'); d.className='empty'; d.setAttribute('role','alert'); const b=document.createElement('b'); b.textContent=title;
   d.appendChild(b); d.appendChild(document.createElement('br')); d.appendChild(document.createTextNode(detail)); vc.appendChild(d); }
 
-function recompute(){ clearTimeout(rt); supersede(); staleLink(); const myGen=S.gen; S.seed=$('#seedInput').value||'seed';
+function recompute(){ clearTimeout(rt); supersede(); staleLink(); S.seed=seedValue();
   const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null; S.dataParams={...S.params};
   S.inSim=true; try{ S.data=S.model.simulate({...S.params}, env); }
   catch(e){ S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[model-scope] simulate() threw', {model:S.modelId, error:e}); }
   finally{ S.inSim=false; }
   if(!S.simError && (!S.data || typeof S.data!=='object')){ S.data=null; S.simError='simulate() returned no data object'; console.error('[model-scope] '+S.simError, {model:S.modelId}); }
-  if(myGen!==S.gen) return; bindLens(); }
+  bindLens(); }
 function bindLens(){ const spec=activeSpec(); pinUi();
   if(S.simError){ S.stageList=null; S.stageMode=false; S.anim=null; S.length=1; S.maxHead=1; S.head=1; boot=false;
     $('#tbar').classList.toggle('hidden', !S.lensKeys); $('#transport').style.display='none'; $('#tip').textContent='';
     showProblem('This model could not be simulated with these values.', S.simError+'. Change a control, or fix the model in engine.js; the views come back as soon as it runs.'); return; }
   S.views=spec.views||[]; buildCards();
   $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'Move a slider, or step through each stage.':spec.anim?'Move a slider, or play to watch it build.':'Move a slider and watch the views update.');
-  try { S.stageList = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(S.params, S.data) : spec.stages) : null; }
-  catch(e){ console.error('[model-scope] stages() threw', {model:S.modelId, error:e}); S.stageList=null; }
-  S.stageMode = !!(S.stageList && S.stageList.length); S.anim = spec.anim || null;
-  let alen=1; if(S.anim){ try{ alen=S.anim.length(S.params, S.data); }catch(e){ console.error('[model-scope] anim.length() threw', {model:S.modelId, error:e}); alen=1; } }
-  S.length = S.stageMode ? S.stageList.length : Math.max(1, (Number.isFinite(alen)?Math.floor(alen):1) || 1);
-  S.maxHead = S.stageMode ? Math.max(0, S.length-1) : S.length;
+  const q=resolveSeq(spec, S.dataParams||S.params, S.data, '');
+  S.stageList=q.stages; S.stageMode=!!q.stages; S.anim=spec.anim||null; S.length=q.len; S.maxHead=q.max;
   const seq = S.stageMode || !!S.anim;
   $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));
   $('#transport').style.display = seq ? 'flex' : 'none'; $('#lensSep').style.display = (S.lensKeys && seq) ? 'block' : 'none';
   $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
-  const spd=$('#spd'); if(S.stageMode){ spd.min=0.2; spd.max=8; spd.step=0.1; spd.value=1.4; S.speed=1.4; } else { spd.min=1; spd.max=800; spd.step=1; spd.value=12; S.speed=12; } speedUi();
+  setSpeedMode(S.stageMode?'stage':'anim');
   const useQ = boot && (Q.still==='1' || Q.head!=null); if(!S.loading) boot=false;
   if(useQ){ S.head = Q.head!=null ? clamp(parseFloat(Q.head)||0, 0, S.maxHead) : S.maxHead; readout(); drawAll(); return; }
   S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
   readout(); if(seq && !reduceMotion && !S.loading){ play(); } else { drawAll(); } }
-function drawAll(){ const stg = S.stageMode ? Math.min(S.length-1, Math.max(0, Math.floor(S.head))) : null;
-  const ui={ head:S.head, playing:S.playing, params:S.params, frac:S.head-Math.floor(S.head),
-    stage:stg, stageKey:(stg!=null && S.stageList[stg]) ? S.stageList[stg].key : null, stages:S.stageList, nStages:S.stageMode?S.length:0 };
-  for(let i=0;i<S.views.length;i++){
-    try{ S.views[i].draw(Plot.make(S.canvases[i]), S.data, ui); }
-    catch(e){ console.error('[model-scope] view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
-      try{ Plot.make(S.canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } }
+function uiAt(head, playing, params, stages, n){ const stg = stages ? Math.min(n-1, Math.max(0, Math.floor(head))) : null;
+  return { head, playing, params, frac:head-Math.floor(head), stage:stg, stageKey:(stg!=null && stages[stg]) ? stages[stg].key : null, stages, nStages:stages?n:0 }; }
+function drawViews(canvases, data, ui, what){
+  for(let i=0;i<S.views.length && i<canvases.length;i++){
+    try{ S.views[i].draw(Plot.make(canvases[i]), data, ui); }
+    catch(e){ console.error(`[model-scope] ${what} draw failed`, { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
+      try{ Plot.make(canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
+function drawAll(){
+  drawViews(S.canvases, S.data, uiAt(S.head, S.playing, S.dataParams||S.params, S.stageMode?S.stageList:null, S.length), 'view');
   if(S.ref && S.refCanvases.length && (!S.playing || !S.refDrawn)) drawRefs(); }
 function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
-  const h = S.playing ? R.max : R.stages ? Math.min(R.max, Math.max(0, Math.floor(S.head))) : (S.maxHead ? S.head/S.maxHead*R.max : R.max), stg = R.stages ? Math.floor(h) : null;
-  const ui={ head:h, playing:false, params:P.params, frac:h-Math.floor(h), stage:stg, stageKey:(stg!=null && R.stages[stg]) ? R.stages[stg].key : null, stages:R.stages, nStages:R.stages?R.len:0 };
-  for(let i=0;i<S.views.length && i<S.refCanvases.length;i++){
-    try{ S.views[i].draw(Plot.make(S.refCanvases[i]), P.data, ui); }
-    catch(e){ console.error('[model-scope] pinned view draw failed', { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
-      try{ Plot.make(S.refCanvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
+  const h = S.playing ? R.max : R.stages ? Math.min(R.max, Math.max(0, Math.floor(S.head))) : (S.maxHead ? S.head/S.maxHead*R.max : R.max);
+  drawViews(S.refCanvases, P.data, uiAt(h, false, P.params, R.stages, R.len), 'pinned view'); }
 function redrawAll(){ S.refDrawn=false; drawAll(); }
-let rt; function schedule(){ clearTimeout(rt); staleLink(); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, 220); }
+let rt; function schedule(){ clearTimeout(rt); staleLink(); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, WAIT.simulate); }
 
 function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;
   let ended=false;
@@ -336,7 +332,9 @@ function pico(){ const b=$('#playBtn'), t=S.playing?'Pause':'Play'; b.title=t; b
   $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
 
 const rangeFill=el=>el.style.setProperty('--fill', clamp((+el.value-+el.min)/((+el.max-+el.min)||1)*100,0,100)+'%');
-function speedUi(){ const el=$('#spd'); rangeFill(el); el.setAttribute('aria-valuetext', (+el.value)+(S.stageMode?' steps':' frames')+' per second'); }
+function speedUi(){ const el=$('#spd'); rangeFill(el); el.setAttribute('aria-valuetext', (+el.value)+' '+SPEED[S.speedMode||'anim'].unit+' per second'); }
+function setSpeedMode(mode){ if(mode===S.speedMode) return; const c=SPEED[mode], el=$('#spd');
+  S.speedMode=mode; el.min=c.min; el.max=c.max; el.step=c.step; el.value=c.value; S.speed=c.value; speedUi(); }
 function setFontScale(v){ const f=$('#fontScale'); v=clamp(v, +f.min, +f.max); f.value=v; window.__plotFontScale=v; const t=Math.round(v*100)+'%';
   $('#fontScaleVal').textContent=t; f.setAttribute('aria-valuetext', t); rangeFill(f); }
 function staleLink(){ const o=$('#linkOut'); if(o && !o.hidden){ o.hidden=true; o.value=''; } }
@@ -360,7 +358,7 @@ $('#pinBtn').onclick=()=>{ const id=S.modelId;
 $('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
 $('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
 $('#linkBtn').onclick=()=>{ const url=stateUrl(), out=$('#linkOut'), btn=$('#linkBtn'); out.value=url; out.hidden=false; out.select();
-  const done=ok=>{ say(ok?'Link copied.':'Link ready to copy.'); if(ok){ btn.textContent='Copied'; setTimeout(()=>{ btn.textContent='Copy link'; },1400); } };
+  const done=ok=>{ say(ok?'Link copied.':'Link ready to copy.'); if(ok){ btn.textContent='Copied'; setTimeout(()=>{ btn.textContent='Copy link'; },WAIT.copied); } };
   try{ navigator.clipboard.writeText(url).then(()=>done(true),()=>done(false)); }catch(e){ done(false); } };
 $('#playBtn').onclick=()=>{ if(S.playing)pause(); else play(); };
 $('#toStartBtn').onclick=()=>{ S.head=0; play(); };
@@ -372,7 +370,7 @@ $('#scrub').addEventListener('input',()=>{ stopPlayback(); S.head=clamp(+$('#scr
 $('#scrub').addEventListener('change',()=>say(readoutText()));
 $('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; speedUi(); });
 $('#fontScale').addEventListener('input',()=>{ setFontScale(+$('#fontScale').value); redrawAll(); });
-let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,90); };
+let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,WAIT.resize); };
 addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
 if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };
   if(mqReduce.addEventListener) mqReduce.addEventListener('change',onMotion); else if(mqReduce.addListener) mqReduce.addListener(onMotion); }
@@ -384,6 +382,8 @@ addEventListener('hashchange',()=>{ const h=parseHash(); if(!h) return;
 const APP=SIM.APP||{};
 if(APP.title){ $('#appTitle').textContent=APP.title; document.title=APP.title; }
 if(APP.tagline!=null) $('#appTagline').textContent=APP.tagline;
+{ const f=$('#fontScale'), F=Plot.FONT_SCALE; f.min=F.min; f.max=F.max; f.step=F.step; f.value=1; }
+$('#seedInput').value=DEFAULT_SEED;
 setFontScale(+$('#fontScale').value);
 if(Q.text){ const ts=parseFloat(Q.text); if(ts>0) setFontScale(ts); }
 if(!SIM.MODEL_ORDER.length){

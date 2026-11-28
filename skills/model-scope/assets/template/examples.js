@@ -63,9 +63,9 @@
           const pri=xs.map(x=>[x,npdf(x,p.mu0,p.sigma0)]), lik=xs.map(x=>[x,npdf(x,d.m,p.sigma_m)]), pos=xs.map(x=>[x,npdf(x,d.muPost,d.sigPost)]);
           const ymax=Math.max(...pri.map(a=>a[1]),...lik.map(a=>a[1]),...pos.map(a=>a[1]))*1.1;
           g.frame({x:[d.lo,d.hi], y:[0,ymax], xlabel:'stimulus value', title:'prior, likelihood, posterior'});
-          g.band(pri,{color:'rgba(74,122,147,.12)'}).line(pri,{color:T.accent,width:1.4,dash:[4,3]});
+          g.band(pri,{color:TH().rgba('accent',.12)}).line(pri,{color:T.accent,width:1.4,dash:[4,3]});
           g.line(lik,{color:T.faint,width:1.6});
-          g.band(pos,{color:'rgba(46,139,122,.16)'}).line(pos,{color:T.pos,width:2});
+          g.band(pos,{color:TH().rgba('pos',.16)}).line(pos,{color:T.pos,width:2});
           g.vline(p.theta,{color:T.ink,label:'θ'}); g.vline(d.m,{color:T.faint,label:'m'}); g.vline(d.muPost,{color:T.pos,label:'θ̂'});
           g.legend([{label:'prior',color:T.accent},{label:'likelihood',color:T.faint},{label:'posterior',color:T.pos}]);
         }},
@@ -76,7 +76,7 @@
           const est=xs.map(th=>[th, d.w*th+(1-d.w)*p.mu0]);
           const up=xs.map(th=>[th, d.w*th+(1-d.w)*p.mu0 + d.w*p.sigma_m]);
           const dn=xs.map((th,i)=>[th, d.w*th+(1-d.w)*p.mu0 - d.w*p.sigma_m]);
-          g.ctx.fillStyle='rgba(46,139,122,.12)'; g.ctx.beginPath();
+          g.ctx.fillStyle=TH().rgba('pos',.12); g.ctx.beginPath();
           up.forEach((pt,i)=>{const X=g.X(pt[0]),Y=g.Y(pt[1]); i?g.ctx.lineTo(X,Y):g.ctx.moveTo(X,Y);});
           for(let i=dn.length-1;i>=0;i--){const X=g.X(dn[i][0]),Y=g.Y(dn[i][1]); g.ctx.lineTo(X,Y);} g.ctx.closePath(); g.ctx.fill();
           g.line(est,{color:T.pos,width:2});
@@ -87,7 +87,7 @@
           g.hline(p.stimMean,{color:T.faint,dash:[5,4],label:'stimulus mean'});
           const k=Math.max(1,Math.min(d.N,Math.floor(ui.head)));
           const pts=[]; for(let t=0;t<=k;t++) pts.push([t,d.muSeq[t]]); g.line(pts,{color:T.accent,width:1.8});
-          g.marker(k,d.muSeq[k],{color:T.accent,stroke:'#fff'});
+          g.marker(k,d.muSeq[k],{color:T.accent,stroke:TH().surface});
         }},
       ],
       anim:{ length:(p)=>Math.round(p.nTrials) },
@@ -128,19 +128,19 @@
         { title:'Prior & efficient encoding', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
           g.frame({x:[d.lo,d.hi],y:[0,1.05],xlabel:'stimulus θ',ylabel:'F(θ)',title:'prior p(θ) → encoding F(θ)=CDF'});
           const pm=Math.max(...d.prior), pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm*0.9]);
-          g.band(pri,{color:'rgba(74,122,147,.10)'}).line(pri,{color:T.accent,width:1.2,dash:[4,3]});
+          g.band(pri,{color:TH().rgba('accent',.10)}).line(pri,{color:T.accent,width:1.2,dash:[4,3]});
           if(ui.stage>=1){ const Fp=Array.from(d.grid,(x,i)=>[x,d.F[i]]); g.line(Fp,{color:T.ink,width:2});
-            g.marker(p.theta, global.MSLIB.efficient.encode(p.theta,d.grid,d.F),{color:T.ink,stroke:'#fff',r:4,label:'F(θ)'}); }
+            g.marker(p.theta, global.MSLIB.efficient.encode(p.theta,d.grid,d.F),{color:T.ink,stroke:TH().surface,r:4,label:'F(θ)'}); }
           g.vline(p.theta,{color:T.faint,label:'θ'});
-          if(ui.stage>=2){ const my=Math.max(0,Math.min(1,d.mt)); g.hline(my,{color:T.warn,dash:[3,3],label:'m̃'}); g.marker(d.mBack,my,{color:T.warn,stroke:'#fff',r:3.5}); }
+          if(ui.stage>=2){ const my=Math.max(0,Math.min(1,d.mt)); g.hline(my,{color:T.warn,dash:[3,3],label:'m̃'}); g.marker(d.mBack,my,{color:T.warn,stroke:TH().surface,r:3.5}); }
           g.legend([{label:'prior',color:T.accent},{label:'F(θ)',color:T.ink}]);
         }},
         { title:'Likelihood, prior, posterior', draw:(g,d,ui)=>{ const T=TH(), p=ui.params;
           const pm=Math.max(...d.prior), lm=Math.max(...d.like)||1, pom=Math.max(...d.post)||1;
           g.frame({x:[d.lo,d.hi],y:[0,1.1],xlabel:'stimulus θ',title:'inference in stimulus space'});
-          const pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm]); g.band(pri,{color:'rgba(74,122,147,.10)'}).line(pri,{color:T.accent,width:1.1,dash:[4,3]});
+          const pri=Array.from(d.grid,(x,i)=>[x,d.prior[i]/pm]); g.band(pri,{color:TH().rgba('accent',.10)}).line(pri,{color:T.accent,width:1.1,dash:[4,3]});
           if(ui.stage>=3){ const lik=Array.from(d.grid,(x,i)=>[x,d.like[i]/lm]); g.line(lik,{color:T.warn,width:1.6}); }
-          if(ui.stage>=4){ const pos=Array.from(d.grid,(x,i)=>[x,d.post[i]/pom]); g.band(pos,{color:'rgba(46,139,122,.16)'}).line(pos,{color:T.pos,width:2}); }
+          if(ui.stage>=4){ const pos=Array.from(d.grid,(x,i)=>[x,d.post[i]/pom]); g.band(pos,{color:TH().rgba('pos',.16)}).line(pos,{color:T.pos,width:2}); }
           g.vline(p.theta,{color:T.ink,label:'θ'});
           if(ui.stage>=2) g.vline(d.mBack,{color:T.warn,label:'m'});
           if(ui.stage>=5){ g.vline(d.est,{color:T.pos,label:'θ̂'}); g.vline(p.lossMAP?d.estBLS:d.estMAP,{color:T.faint,dash:[2,2],label:p.lossMAP?'BLS':'MAP'}); }
@@ -150,7 +150,7 @@
           if(ui.stage<6){ g.frame({x:[-1.4,1.4],y:[-1,1],xlabel:'stimulus θ',title:'bias & discriminability'}); g.note('→ advance to the final stage'); return; }
           let mn=0,mx=0; for(const b of d.bias){ mn=Math.min(mn,b[1]); mx=Math.max(mx,b[1]); } const pad=(mx-mn)*0.25||0.1;
           g.frame({x:[-1.4,1.4],y:[mn-pad,mx+pad],xlabel:'stimulus θ',ylabel:'bias b(θ)',title:'repulsion lobes + discriminability D∝1/p (dashed)'});
-          g.hline(0,{color:T.faint,dash:[3,3]}); g.vline(0,{color:'rgba(80,75,65,.12)',dash:null,label:'prior peak'});
+          g.hline(0,{color:T.faint,dash:[3,3]}); g.vline(0,{color:TH().rgba('shade',.12),dash:null,label:'prior peak'});
           const dmax=Math.max(...d.disc.map(c=>c[1]))||1, scale=(mx-mn)||1, dpts=d.disc.map(c=>[c[0], mn + c[1]/dmax*scale*0.9]);
           g.line(dpts,{color:T.faint,width:1.4,dash:[5,4]}); g.line(d.bias,{color:T.pos,width:2});
         }},
@@ -191,19 +191,19 @@
         { title:'Cue plane', draw:(g,d,ui)=>{ const T=TH();
           g.frame({x:[-18,18],y:[-18,18],xlabel:'visual xᵥ',ylabel:'auditory xₐ',title:'cues in 2-D (diagonal = common cause)'});
           g.line([[-18,-18],[18,18]],{color:T.faint,dash:[4,4]});
-          g.vline(0,{color:'rgba(80,75,65,.10)',dash:null}); g.hline(0,{color:'rgba(80,75,65,.10)',dash:null});
+          g.vline(0,{color:TH().rgba('shade',.10),dash:null}); g.hline(0,{color:TH().rgba('shade',.10),dash:null});
           g.marker(d.xv,d.xa,{color:T.accent,r:5,label:'(xᵥ,xₐ)'});
         }},
         { title:'Causal evidence', draw:(g,d,ui)=>{ const T=TH();
           g.frame({x:[0,1],y:[0,1],title:'one cause vs two → p(C=1|x)'}); const fr=g.frameRect(), ctx=g.ctx;
           if(ui.stage>=1){ const den=Math.max(d.lc,d.ls)||1, bw=fr.pw*0.16, bx1=fr.px+fr.pw*0.24, bx2=fr.px+fr.pw*0.58;
-            ctx.fillStyle='rgba(74,122,147,.75)'; const h1=d.lc/den*fr.ph*0.72; ctx.fillRect(bx1,fr.py+fr.ph-h1,bw,h1);
-            ctx.fillStyle='rgba(194,91,66,.75)'; const h2=d.ls/den*fr.ph*0.72; ctx.fillRect(bx2,fr.py+fr.ph-h2,bw,h2);
+            ctx.fillStyle=TH().rgba('accent',.75); const h1=d.lc/den*fr.ph*0.72; ctx.fillRect(bx1,fr.py+fr.ph-h1,bw,h1);
+            ctx.fillStyle=TH().rgba('neg',.75); const h2=d.ls/den*fr.ph*0.72; ctx.fillRect(bx2,fr.py+fr.ph-h2,bw,h2);
             ctx.fillStyle=T.dim; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center';
             ctx.fillText('common',bx1+bw/2,fr.py+fr.ph+13); ctx.fillText('separate',bx2+bw/2,fr.py+fr.ph+13); }
           if(ui.stage>=2){ const pc=d.r.pCommon; ctx.fillStyle=T.ink; ctx.font='600 13px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='center';
             ctx.fillText('p(C=1) = '+pc.toFixed(2), fr.px+fr.pw*0.5, fr.py+16);
-            const gy=fr.py+30, gw=fr.pw*0.6, gx=fr.px+fr.pw*0.2; ctx.fillStyle='rgba(80,75,65,.12)'; ctx.fillRect(gx,gy,gw,7);
+            const gy=fr.py+30, gw=fr.pw*0.6, gx=fr.px+fr.pw*0.2; ctx.fillStyle=TH().rgba('shade',.12); ctx.fillRect(gx,gy,gw,7);
             ctx.fillStyle=T.pos; ctx.fillRect(gx,gy,gw*pc,7); }
         }},
         { title:'Estimates & bias', draw:(g,d,ui)=>{ const T=TH();
@@ -254,7 +254,7 @@
           ctx.fillStyle=T.dim; ctx.font='600 11px "IBM Plex Sans",system-ui,sans-serif'; ctx.textAlign='left'; ctx.fillText('feature circle (orientation / hue)',10,15);
           const P=(a,r)=>[cx+r*Math.cos(a), cy-r*Math.sin(a)], sd=Math.min(1.2,d.sd);
           if(ui.stage>=1) for(let i=0;i<d.items.length;i++){ const a=d.items[i], isT=i===0;
-            ctx.strokeStyle=isT?'rgba(46,139,122,.30)':'rgba(74,122,147,.26)'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(cx,cy,R,-a-sd,-a+sd); ctx.stroke();
+            ctx.strokeStyle=isT?TH().rgba('pos',.30):TH().rgba('accent',.26); ctx.lineWidth=6; ctx.beginPath(); ctx.arc(cx,cy,R,-a-sd,-a+sd); ctx.stroke();
             const q=P(a,R); ctx.fillStyle=isT?T.pos:T.accent; ctx.beginPath(); ctx.arc(q[0],q[1],isT?5.5:4,0,7); ctx.fill(); }
           if(ui.stage>=3){ const t=P(d.target,R); ctx.strokeStyle=T.pos; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(t[0],t[1],9,0,7); ctx.stroke();
             ctx.fillStyle=T.pos; ctx.font='10px "IBM Plex Mono",monospace'; ctx.textAlign='center'; ctx.fillText('probe',t[0],t[1]-13); }
@@ -266,7 +266,7 @@
           g.frame({x:[1,8],y:[0,1.05],xlabel:'set size N',ylabel:'precision (rel.)',title:'shared-resource power law  P ∝ N^-0.74'});
           const pts=[1,2,3,4,5,6,7,8].map(N=>[N, W.precisionFromSetsize(N,{k:0.74})]);
           g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:3});
-          g.marker(d.N, W.precisionFromSetsize(d.N,{k:0.74}),{color:T.pos,stroke:'#fff',r:5,label:'N='+d.N});
+          g.marker(d.N, W.precisionFromSetsize(d.N,{k:0.74}),{color:T.pos,stroke:TH().surface,r:5,label:'N='+d.N});
           g.text(1.15,0.13,'κ='+d.kappa+' ,  circ.SD≈'+(d.sd*180/Math.PI).toFixed(0)+'°',{color:T.dim});
         }},
         { title:'Recall error & mixture', draw:(g,d,ui)=>{ const T=TH(), PIc=Math.PI, W=global.MSLIB.wm;
@@ -276,9 +276,9 @@
             for(let i=0;i<=NG;i++){ const x=-PIc+2*PIc*i/NG; curve.push([x, W.mixturePdf(x,comps)*d.errs.length*hist.binW]); }
             guessY=d.pGuess*(1/(2*PIc))*d.errs.length*hist.binW; mx=Math.max(mx,...curve.map(c=>c[1])); }
           g.frame({x:[-PIc,PIc],y:[0,mx*1.08],xlabel:'report error θ̂−θ (rad)',title:'target peak + swap bumps + guess floor'});
-          for(const o of d.offs) g.vline(o,{color:'rgba(176,125,42,.45)',dash:[2,3]});
-          g.bars(hist,{dir:'up',baseY:0,color:'rgba(74,122,147,.55)',max:mx});
-          if(curve){ g.hline(guessY,{color:T.neg,dash:[4,3],label:'guess floor'}); g.line(curve,{color:T.pos,width:2}); g.legend([{label:'data',color:'rgba(74,122,147,.8)'},{label:'mixture',color:T.pos}]); }
+          for(const o of d.offs) g.vline(o,{color:TH().rgba('warn',.45),dash:[2,3]});
+          g.bars(hist,{dir:'up',baseY:0,color:TH().rgba('accent',.55),max:mx});
+          if(curve){ g.hline(guessY,{color:T.neg,dash:[4,3],label:'guess floor'}); g.line(curve,{color:T.pos,width:2}); g.legend([{label:'data',color:TH().rgba('accent',.8)},{label:'mixture',color:T.pos}]); }
         }},
       ],
     },
@@ -307,8 +307,8 @@
             { title:'one update: x′ = x + drift + noise', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), s=d.steps0[k];
               const inc=Math.max(Math.abs(s.drift), Math.abs(s.noise), 0.01), pad=inc*2.6+0.015, lo=Math.min(s.x,s.xNext)-pad, hi=Math.max(s.x,s.xNext)+pad;
               g.frame({x:[lo,hi], y:[-0.6,3.6], yticks:1, xlabel:'evidence x (zoomed to this step)', title:`one update — step ${k+1}: signal vs noise`});
-              if(z<=hi&&z>=lo) g.vline(z,{color:T.pos,dash:[5,4],label:'+z'}); if(-z>=lo&&-z<=hi) g.vline(-z,{color:T.neg,dash:[5,4],label:'−z'}); if(0>=lo&&0<=hi) g.vline(0,{color:'rgba(80,75,65,.16)',dash:[2,3]});
-              const gl=(xv,y0,y1)=>g.line([[xv,y0],[xv,y1]],{color:'rgba(80,75,65,.16)',dash:[2,3],width:1});
+              if(z<=hi&&z>=lo) g.vline(z,{color:T.pos,dash:[5,4],label:'+z'}); if(-z>=lo&&-z<=hi) g.vline(-z,{color:T.neg,dash:[5,4],label:'−z'}); if(0>=lo&&0<=hi) g.vline(0,{color:TH().rgba('shade',.16),dash:[2,3]});
+              const gl=(xv,y0,y1)=>g.line([[xv,y0],[xv,y1]],{color:TH().rgba('shade',.16),dash:[2,3],width:1});
               gl(s.x,3,2); gl(s.x+s.drift,2,1); gl(s.xNext,1,0);
               g.text(lo,3,'x',{color:T.dim,size:10}); g.marker(s.x,3,{color:T.ink,r:4.5,label:s.x.toFixed(3)});
               g.text(lo,2,'+ drift',{color:T.dim,size:10}); g.arrow(s.x,2,s.x+s.drift,2,{color:T.accent,label:`A·dt +${s.drift.toFixed(3)}`});
@@ -318,7 +318,7 @@
             }},
             { title:'…repeat the atom → a trajectory', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.stepCap-1,Math.floor(ui.head)), tWin=Math.max(0.05,d.stepCap*d.pp.dt);
               g.frame({x:[0,tWin], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:`first ${d.stepCap} steps`});
-              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
+              g.hline(0,{color:TH().rgba('shade',.12),dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
               const pts=[[0,0]]; for(let i=0;i<=k;i++) pts.push([d.steps0[i].t+d.pp.dt, d.steps0[i].xNext]);
               g.clip().line(pts,{color:T.accent,width:2}).unclip(); const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:T.ink,r:3.2});
             }},
@@ -328,10 +328,10 @@
           views:[
             { title:'one trial: evidence random-walks to a bound', draw:(g,d,ui)=>{ const T=TH(), z=d.pp.z, k=Math.min(d.steps0.length-1,Math.floor(ui.head)), tView=Math.max(0.2,d.rtMax*1.05);
               g.frame({x:[0,tView], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:'evidence x(t) — trial 1'});
-              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z (correct)'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z (error)'});
+              g.hline(0,{color:TH().rgba('shade',.12),dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z (correct)'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z (error)'});
               const pts=[[0,0]]; for(let i=0;i<=k;i++) pts.push([d.steps0[i].t+d.pp.dt, d.steps0[i].xNext]);
               const last=d.steps0[k], done=!!last.cross && k>=d.steps0.length-1;
-              g.clip().line(pts,{color:done?(last.cross===1?T.pos:T.neg):'#6b675d',width:2}).unclip();
+              g.clip().line(pts,{color:done?(last.cross===1?T.pos:T.neg):TH().dim,width:2}).unclip();
               const tip=pts[pts.length-1]; g.marker(tip[0],Math.max(-z*1.5,Math.min(z*1.5,tip[1])),{color:done?(last.cross===1?T.pos:T.neg):T.ink,r:3.4});
               if(done) g.text(tip[0],(last.cross===1?1:-1)*z*1.34,`${last.cross===1?'✓ correct':'✗ error'}, RT ${(last.t+d.pp.dt).toFixed(2)} s`,{color:last.cross===1?T.pos:T.neg,size:10,align:'right'});
             }},
@@ -342,17 +342,17 @@
             { title:'each trial flashes by', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n-1,Math.floor(ui.head)), frac=ui.playing?(ui.head-Math.floor(ui.head)):1;
               const path=ddmPath(d.pp,d.seed,k), z=d.pp.z, tView=Math.max(0.2,d.rtMax*1.05);
               g.frame({x:[0,tView], y:[-z*1.5,z*1.5], xlabel:'time (s)', title:`trial ${k+1} of ${d.n.toLocaleString()}`});
-              g.hline(0,{color:'rgba(80,75,65,.12)',dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
+              g.hline(0,{color:TH().rgba('shade',.12),dash:null}); g.hline(z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-z,{color:T.neg,dash:[5,4],label:'−z'});
               const nshow=Math.max(2,Math.floor(path.pts.length*frac)), done=nshow>=path.pts.length&&path.outcome;
-              g.clip().line(path.pts.slice(0,nshow),{color:done?(path.outcome===1?T.pos:T.neg):'#6b675d',width:1.6}).unclip();
+              g.clip().line(path.pts.slice(0,nshow),{color:done?(path.outcome===1?T.pos:T.neg):TH().dim,width:1.6}).unclip();
             }},
             { title:'response-time distribution (building up)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.n,Math.floor(ui.head)); const cor=[],err=[];
               for(let i=0;i<k;i++){ if(d.out[i]===1)cor.push(d.rt[i]); else if(d.out[i]===2)err.push(d.rt[i]); }
               const hc=HIST(cor,52,0,d.rtMax,d.pp.dt), he=HIST(err,52,0,d.rtMax,d.pp.dt), mx=Math.max(hc.max,he.max,1);
               g.frame({x:[0,d.rtMax], y:[-mx,mx], xlabel:'RT (s)', yticks:4, title:'correct above, error below'});
-              g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
-              g.bars(hc,{dir:'up',baseY:0,color:'rgba(46,139,122,.78)',max:mx,height:g.Y(0)-g.frameRect().py});
-              g.bars(he,{dir:'down',baseY:0,color:'rgba(194,91,66,.78)',max:mx,height:g.frameRect().py+g.frameRect().ph-g.Y(0)});
+              g.hline(0,{color:TH().rgba('shade',.18),dash:null});
+              g.bars(hc,{dir:'up',baseY:0,color:TH().rgba('pos',.78),max:mx,height:g.Y(0)-g.frameRect().py});
+              g.bars(he,{dir:'down',baseY:0,color:TH().rgba('neg',.78),max:mx,height:g.frameRect().py+g.frameRect().ph-g.Y(0)});
               const dec=cor.length+err.length, er=dec?100*err.length/dec:0;
               g.text(d.rtMax*0.02, mx*0.92, `${dec.toLocaleString()} trials, error ${er.toFixed(1)}%`, {color:T.dim});
             }},
@@ -391,35 +391,35 @@
       views:[
         { title:'speed–accuracy: integrate-to-bound vs one sample', draw:(g,d)=>{ const T=TH();
           g.frame({x:[0,d.tMax], y:[0.46,1.02], xlabel:'time to decision (s)', ylabel:'accuracy', title:'DDM trades time for accuracy along the bound; one sample only by observing longer'});
-          g.hline(1,{color:'rgba(80,75,65,.28)',dash:[2,3],label:'ceiling'}); g.hline(0.5,{color:'rgba(80,75,65,.3)',dash:[4,3],label:'chance'});
+          g.hline(1,{color:TH().rgba('shade',.28),dash:[2,3],label:'ceiling'}); g.hline(0.5,{color:TH().rgba('shade',.3),dash:[4,3],label:'chance'});
           const clip=a=>a.map(q=>[q[0],Math.max(0.5,Math.min(1,q[1]))]);
           g.line(clip(d.satDDM),{color:T.accent,width:d.useDDM?2.6:1.3,dash:d.useDDM?null:[4,3]});
           g.line(clip(d.satSS),{color:T.neg,width:d.useDDM?1.3:2.6,dash:d.useDDM?[4,3]:null});
-          g.marker(d.dtD+d.Ter, Math.max(0.5,Math.min(1,d.accD)), {color:T.accent,stroke:'#fff',r:5,label:'DDM'});
-          g.marker(d.T+d.Ter, Math.max(0.5,Math.min(1,d.accS)), {color:T.neg,stroke:'#fff',r:5,label:'1-sample'});
+          g.marker(d.dtD+d.Ter, Math.max(0.5,Math.min(1,d.accD)), {color:T.accent,stroke:TH().surface,r:5,label:'DDM'});
+          g.marker(d.T+d.Ter, Math.max(0.5,Math.min(1,d.accS)), {color:T.neg,stroke:TH().surface,r:5,label:'1-sample'});
           g.legend([{label:'DDM (sweep bound z)',color:T.accent},{label:'1-sample (sweep T)',color:T.neg}],{corner:'br'}); }},
         { title:'metric over (drift, noise) — heatmap', draw:(g,d)=>{ const T=TH();
           const cmap=v=>Plot.RAMPS.green((v-d.gmin)/((d.gmax-d.gmin)||1));
           g.frame({cbar:true, x:[d.Amin,d.Amax], y:[d.cmin,d.cmax], xlabel:'drift A', ylabel:'noise c', title:(d.useDDM?'DDM, ':'1-sample, ')+d.metricName+' over (A × c)'});
           g.heat(d.NX, d.NY, (i,j)=>d.grid[j*d.NX+i], cmap);
           const fmt=v=>d.metric===0?v.toFixed(2):v.toFixed(2); g.colorbar(d.gmin, d.gmax, cmap, {ticks:[{v:d.gmin,label:fmt(d.gmin)},{v:(d.gmin+d.gmax)/2,label:fmt((d.gmin+d.gmax)/2)},{v:d.gmax,label:fmt(d.gmax)}], label:d.metricName});
-          g.marker(d.A, d.c, {color:'#fff', stroke:T.ink, r:5, label:'now'}); }},
+          g.marker(d.A, d.c, {color:TH().surface, stroke:T.ink, r:5, label:'now'}); }},
         { title:'this operating point — DDM vs 1-sample', draw:(g,d)=>{ const T=TH(), ctx=g.ctx;
           const groups=[{name:'accuracy',dv:d.accD,sv:d.accS,f:x=>x.toFixed(2),floor:0.5},{name:'speed (1/s)',dv:1/(d.dtD+d.Ter),sv:1/(d.T+d.Ter),f:x=>x.toFixed(1)},{name:'reward (1/s)',dv:d.rrD,sv:d.rrS,f:x=>x.toFixed(2)}];
           g.frame({x:[-0.5,2.5], y:[0,1.18], yticks:2, xticklabels:groups.map(q=>q.name), title:'accuracy floored at chance (0=chance); speed/reward scaled to the larger bar'});
           const bw=0.17, aD=d.useDDM?1:0.4, aS=d.useDDM?0.4:1;
           groups.forEach((q,i)=>{ const h=q.floor!=null?(v=>Math.max(0,Math.min(1,(v-q.floor)/(1-q.floor)))):(v=>v/Math.max(q.dv,q.sv,1e-9)), hD=h(q.dv), hS=h(q.sv), y0=g.Y(0);
-            ctx.fillStyle='rgba(74,122,147,'+aD+')'; ctx.fillRect(g.X(i-bw*1.05)-1, g.Y(hD), g.X(i)-g.X(i-bw*1.05), y0-g.Y(hD));
-            ctx.fillStyle='rgba(194,91,66,'+aS+')'; ctx.fillRect(g.X(i+0.02), g.Y(hS), g.X(i+bw*1.05)-g.X(i+0.02), y0-g.Y(hS));
+            ctx.fillStyle=TH().rgba('accent',aD); ctx.fillRect(g.X(i-bw*1.05)-1, g.Y(hD), g.X(i)-g.X(i-bw*1.05), y0-g.Y(hD));
+            ctx.fillStyle=TH().rgba('neg',aS); ctx.fillRect(g.X(i+0.02), g.Y(hS), g.X(i+bw*1.05)-g.X(i+0.02), y0-g.Y(hS));
             ctx.fillStyle=T.dim; ctx.font=(9*(g.FS||1)).toFixed(1)+'px "IBM Plex Mono",monospace'; ctx.textAlign='center';
             ctx.fillText(q.f(q.dv), g.X(i-bw*0.52), g.Y(hD)-4); ctx.fillText(q.f(q.sv), g.X(i+bw*0.54), g.Y(hS)-4); });
           g.legend([{label:'DDM',color:T.accent},{label:'1-sample',color:T.neg}],{corner:'tr'}); }},
         { title:'mechanism: walk-to-bound vs single draw', draw:(g,d)=>{ const T=TH();
           g.frame({x:[0,d.tMax], y:[-d.z*1.7,d.z*1.7], xlabel:'time (s)', ylabel:'evidence', title:'DDM integrates to ±z, 1-sample draws once at T, decides sign'});
-          g.hline(d.z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-d.z,{color:T.neg,dash:[5,4],label:'−z'}); g.hline(0,{color:'rgba(80,75,65,.18)',dash:null});
+          g.hline(d.z,{color:T.pos,dash:[5,4],label:'+z'}); g.hline(-d.z,{color:T.neg,dash:[5,4],label:'−z'}); g.hline(0,{color:TH().rgba('shade',.18),dash:null});
           g.line([[0,0],[d.dtD, Math.min(d.z, d.A*d.dtD)]],{color:T.accent,width:2.4}); g.vline(d.dtD+d.Ter,{color:T.accent,dash:[3,3],label:'mean DT'});
           const yMu=Math.max(-d.z*1.7,Math.min(d.z*1.7, d.A*d.T)), sd=d.c*Math.sqrt(d.T);
-          g.line([[d.T, Math.max(-d.z*1.7,yMu-sd)],[d.T, Math.min(d.z*1.7,yMu+sd)]],{color:T.neg,width:3}); g.marker(d.T, yMu,{color:T.neg,stroke:'#fff',r:4,label:'one draw ±SD'});
+          g.line([[d.T, Math.max(-d.z*1.7,yMu-sd)],[d.T, Math.min(d.z*1.7,yMu+sd)]],{color:T.neg,width:3}); g.marker(d.T, yMu,{color:T.neg,stroke:TH().surface,r:4,label:'one draw ±SD'});
           g.vline(d.T+d.Ter,{color:T.neg,dash:[3,3]});
           g.legend([{label:'DDM drift→bound',color:T.accent},{label:'1-sample @ T',color:T.neg}],{corner:'bl'}); }},
       ],
@@ -472,16 +472,16 @@
         transform:{ label:'Transform', about:'each oriented channel re-represents the image as an energy map',
           views:[ { title:'oriented Gabor energy maps — one per channel', draw:(g,d)=>{ const N=d.N, K=d.K, cols=3, rows=Math.ceil(K/cols);
             g.frame({cbar:true, x:[0,cols*N], y:[0,rows*N], xticks:1, yticks:1, title:'how each orientation channel re-represents the image'});
-            g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?[244,243,238]:VHOT(v,d.emax), {smooth:false});
+            g.heat(cols*N, rows*N, (i,j)=>{ const col=Math.floor(i/N), rowB=Math.floor(j/N), k=(rows-1-rowB)*cols+col; if(k<0||k>=K) return -1; return d.maps[k][(j%N)*N+(i%N)]; }, v=> v<0?TH().rgb.bg:VHOT(v,d.emax), {smooth:false});
             for(let k=0;k<K;k++){ const col=k%cols, row=Math.floor(k/cols), cx=(col+0.5)*N, cy=(rows-1-row)*N + N*0.9, hit=Math.abs(((d.oris[k]-d.ori+90)%180)-90)<16;
-              g.text(cx, cy, d.oris[k].toFixed(0)+'°', {color: hit?'#fff':'rgba(255,255,255,.82)', size:9.5, align:'center'}); }
+              g.text(cx, cy, d.oris[k].toFixed(0)+'°', {color: hit?TH().surface:TH().rgba('surface',.82), size:9.5, align:'center'}); }
             g.colorbar(0, d.emax, v=>VHOT(v,d.emax), {label:'energy'});
           }} ] },
         readout:{ label:'Readout', about:'pool the channels → orientation tuning curve → decoded orientation',
           views:[ { title:'orientation tuning (pooled energy) → decoded θ̂', draw:(g,d)=>{ const T=TH();
             g.frame({x:[-12,180], y:[0, d.pmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`readout: tuning peak = decoded θ̂ = ${d.dec.toFixed(0)}° (true ${d.ori}°)`});
             const pts=d.oris.map((o,k)=>[o,d.pooled[k]]); g.line(pts,{color:T.accent,width:2}); g.points(pts,{color:T.accent,r:4});
-            g.vline(d.ori,{color:'rgba(80,75,65,.5)',dash:[4,3],label:'true θ'});
+            g.vline(d.ori,{color:TH().rgba('shade',.5),dash:[4,3],label:'true θ'});
             g.vline(d.dec,{color:T.pos,dash:[5,4],label:'decoded θ̂'});
           }} ] },
       },
@@ -512,7 +512,7 @@
           anim:{ length:(p,d)=>d.nS },
           views:[ { title:'membrane potential V(t)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nS-1,Math.floor(ui.head));
             g.frame({x:[0,d.T], y:[d.vmin,6], xlabel:'time (s)', ylabel:'V (mV)', title:'integrate → spike → reset'});
-            g.hline(d.pr.Vth,{color:T.warn,dash:[5,4],label:'threshold'}); g.hline(d.pr.EL,{color:'rgba(80,75,65,.25)',dash:[2,3],label:'rest'});
+            g.hline(d.pr.Vth,{color:T.warn,dash:[5,4],label:'threshold'}); g.hline(d.pr.EL,{color:TH().rgba('shade',.25),dash:[2,3],label:'rest'});
             const pts=[]; for(let i=0;i<=k;i++) pts.push([d.tm[i],d.v[i]]); g.line(pts,{color:T.accent,width:1.7});
           }} ] },
         raster:{ label:'Raster', about:'many repeats → spike raster + the mean firing rate',
@@ -562,7 +562,7 @@
             const pts=[]; for(let i=0;i<=k;i++) pts.push([i,d.V[i]]); g.line(pts,{color:T.accent,width:2});
           }} ] },
         rate:{ label:'Rate sweep', about:'how the learning rate α changes speed and stability',
-          views:[ { title:'learning curves across α', draw:(g,d)=>{ const T=TH(), cols=['#86b0c4','#4a7a93','#c25b42'];
+          views:[ { title:'learning curves across α', draw:(g,d)=>{ const T=TH(), cols=[TH().accentLight,TH().accent,TH().neg];
             g.frame({x:[0,d.n], y:[0,1.05], xlabel:'trial', ylabel:'value V', title:'small α = slow & smooth, large α = fast & jittery'});
             g.hline(d.pRew,{color:T.warn,dash:[5,4],label:'reward prob'});
             d.curves.forEach((c,i)=>{ const pts=[]; for(let t=0;t<=d.n;t++) pts.push([t,c.vv[t]]); g.line(pts,{color:cols[i],width:1.8}); });
@@ -631,7 +631,7 @@
           anim:{ length:(p,d)=>d.nF },
           views:[ { title:'pool rates r₁, r₂ over time', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), tE=d.t[d.nF-1]||1, ymax=Math.max(40, Math.max(...d.r1), Math.max(...d.r2))*1.1;
             g.frame({x:[0,tE], y:[0,ymax], xlabel:'time (s)', ylabel:'rate (Hz)', title:'winner-take-all: one pool rises, the other is suppressed'});
-            g.hline(d.thr,{color:'#7a5a93',dash:[5,4],label:'decision threshold'});
+            g.hline(d.thr,{color:TH().violet,dash:[5,4],label:'decision threshold'});
             const p1=[],p2=[]; for(let i=0;i<=k;i++){ p1.push([d.t[i],d.r1[i]]); p2.push([d.t[i],d.r2[i]]); }
             g.line(p1,{color:T.pos,width:2.2}); g.line(p2,{color:T.neg,width:2.2});
             if(d.decT>=0 && d.t[k]>=d.decT) g.vline(d.decT,{color:T.ink,label:'decided, pool '+d.win});
@@ -642,9 +642,9 @@
             const cmap=v=>Plot.RAMPS.night(v/(d.fmax||1));
             g.frame({cbar:true, x:[0,1], y:[0,1], xlabel:'S₁ (pool 1 gating)', ylabel:'S₂ (pool 2 gating)', title:'two basins = two choices; the path rolls into one'});
             g.heat(d.NG, d.NG, (i,j)=>d.flow[j*d.NG+i], cmap);
-            g.line([[0,0],[1,1]],{color:'rgba(255,255,255,.35)',dash:[3,3]});
-            const path=[]; for(let i=0;i<d.nF;i++) path.push([d.s1[i],d.s2[i]]); g.line(path,{color:'#fff',width:2});
-            g.marker(d.s1[0],d.s2[0],{color:T.dim,stroke:'#fff',r:4}); g.marker(d.s1[d.nF-1],d.s2[d.nF-1],{color:d.win===1?T.pos:T.neg,stroke:'#fff',r:5,label:'pool '+d.win});
+            g.line([[0,0],[1,1]],{color:TH().rgba('surface',.35),dash:[3,3]});
+            const path=[]; for(let i=0;i<d.nF;i++) path.push([d.s1[i],d.s2[i]]); g.line(path,{color:TH().surface,width:2});
+            g.marker(d.s1[0],d.s2[0],{color:T.dim,stroke:TH().surface,r:4}); g.marker(d.s1[d.nF-1],d.s2[d.nF-1],{color:d.win===1?T.pos:T.neg,stroke:TH().surface,r:5,label:'pool '+d.win});
             g.colorbar(0,d.fmax,cmap,{label:'|dS/dt|'});
           }} ] },
       },
@@ -686,8 +686,8 @@
         threshold:{ label:'Threshold', about:'peak prevalence vs R₀ for one well-mixed population (no space) — flat below 1, rising sharply above',
           views:[ { title:'epidemic threshold: peak infected vs R₀', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.05,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[0,4], y:[0,ymax], xlabel:'basic reproduction number R₀', ylabel:'peak infected fraction', title:'no outbreak below R₀ = 1; epidemic above'});
-            g.vline(1,{color:'#7a5a93',dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
-            g.marker(d.R0, Plot.nearestY(d.sweep, d.R0), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.vline(1,{color:TH().violet,dash:[5,4],label:'threshold R₀=1'}); g.line(d.sweep,{color:T.warn,width:2.2});
+            g.marker(d.R0, Plot.nearestY(d.sweep, d.R0), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -728,7 +728,7 @@
             ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText(`${K} stored ±1 pattern(s) — each written into the weights by an outer product ξξᵀ`, W/2, 22*F);
             const pw=Math.min(96*F,(W-40*F)/show-8*F), gap=show>1?(W-40*F-show*pw)/(show-1):0, y0=46*F, x0=20*F;
             for(let k=0;k<show;k++){ const x=x0+k*(pw+gap), pat=d.patterns[k];
-              g.image(side, side, (i,j)=>pat[j*side+i], v=> v>0?[51,49,44]:[235,232,224], {x, y:y0, w:pw, h:pw, smooth:false});
+              g.image(side, side, (i,j)=>pat[j*side+i], v=> v>0?TH().rgb.ink:TH().rgb.well, {x, y:y0, w:pw, h:pw, smooth:false});
               ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x,y0,pw,pw); ctx.fillStyle=k===0?T.accent:T.dim; ctx.font=(11*F)+'px monospace'; ctx.textAlign='center';
               ctx.fillText('memory '+(k+1)+(k===0?' (cued)':''), x+pw/2, y0+pw+15*F); }
             ctx.fillStyle=T.faint; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText('More memories share the same weights, so they interfere — recall stays perfect only up to a capacity (see the Capacity lens).', W/2, y0+pw+44*F);
@@ -738,7 +738,7 @@
           views:[
             { title:'the state settling in (sweep by sweep)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), side=d.side, st=d.states[k];
               g.frame({x:[0,side], y:[0,side], xticks:1, yticks:1, title:`sweep ${k} of ${d.nF-1}: overlap with the target = ${(d.ovs[k]).toFixed(2)} (1 = recalled)`});
-              g.image(side,side,(i,j)=>st[j*side+i], v=> v>0?[51,49,44]:[235,232,224], {smooth:false}); }},
+              g.image(side,side,(i,j)=>st[j*side+i], v=> v>0?TH().rgb.ink:TH().rgb.well, {smooth:false}); }},
             { title:'overlap rises to 1 and energy falls as it settles', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), emin=Math.min(...d.energies), emax=Math.max(...d.energies,emin+1);
               g.frame({x:[0,d.nF-1], y:[-1.05,1.05], xlabel:'async sweep', ylabel:'overlap with target', title:'overlap → 1 means the cue has been recalled as the stored memory'});
               g.hline(1,{color:T.faint,dash:[4,3]}); g.line(d.ovs.map((v,i)=>[i,v]),{color:T.pos,width:2.4}); g.points(d.ovs.map((v,i)=>[i,v]),{color:T.pos,r:3});
@@ -748,8 +748,8 @@
         capacity:{ label:'Capacity', about:'recall accuracy vs memory load — the ≈0.14·N capacity cliff',
           views:[ { title:'recall accuracy vs load (capacity ≈ 0.14·N)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0, d.sweep[d.sweep.length-1][0]*1.02], y:[0,1.05], xlabel:'memory load (patterns / N)', ylabel:'recall accuracy', title:'reliable recall up to ≈ 0.14·N, then it breaks down'});
-            g.hline(1,{color:T.faint,dash:[4,3]}); g.vline(d.cap,{color:'#7a5a93',dash:[5,4],label:'≈0.14·N'}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.load, Plot.nearestY(d.sweep, d.load), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.hline(1,{color:T.faint,dash:[4,3]}); g.vline(d.cap,{color:TH().violet,dash:[5,4],label:'≈0.14·N'}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.load, Plot.nearestY(d.sweep, d.load), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -800,8 +800,8 @@
         sync:{ label:'Sync', about:'the synchronization transition — steady-state r as a function of coupling K',
           views:[ { title:'synchronization transition: r vs coupling K', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0,8], y:[0,1.05], xlabel:'coupling K', ylabel:'steady-state synchrony r', title:'incoherent (r≈0) below K_c, synchronised (r→1) above'});
-            g.vline(d.Kc,{color:'#7a5a93',dash:[5,4],label:'K_c ≈ '+d.Kc.toFixed(2)}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.K, Plot.nearestY(d.sweep, d.K), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.vline(d.Kc,{color:TH().violet,dash:[5,4],label:'K_c ≈ '+d.Kc.toFixed(2)}); g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
+            g.marker(d.K, Plot.nearestY(d.sweep, d.K), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -835,7 +835,7 @@
         structure:{ label:'Structure', about:'the model: a hidden state that diffuses (transition) and is seen only through noisy observations',
           views:[ { title:'the two ingredients: a transition kernel and an observation likelihood', draw:(g,d)=>{ const T=TH(), S=d.S, c=Math.floor(S/2);
             g.frame({x:[0,S], y:[0,1.05], xlabel:'state (a ring of locations)', ylabel:'probability (relative)', title:'predict with the transition, then correct with the observation likelihood'});
-            const tr=d.T[c], trm=Math.max(...tr); g.band(tr.map((v,i)=>[i+0.5, v/trm]),{color:'rgba(74,122,147,.20)'}); g.line(tr.map((v,i)=>[i+0.5, v/trm]),{color:T.accent,width:2});
+            const tr=d.T[c], trm=Math.max(...tr); g.band(tr.map((v,i)=>[i+0.5, v/trm]),{color:TH().rgba('accent',.20)}); g.line(tr.map((v,i)=>[i+0.5, v/trm]),{color:T.accent,width:2});
             const onS=d.obsNoise, ll=[]; for(let j=0;j<S;j++){ const dd=Math.min(Math.abs(j-c), S-Math.abs(j-c)); ll.push([j+0.5, Math.exp(-0.5*(dd/onS)*(dd/onS))]); } g.line(ll,{color:T.neg,width:2,dash:[5,3]});
             g.vline(c+0.5,{color:T.faint,dash:[3,3],label:'current / observed state'});
             g.legend([{label:'transition P(next|state)',color:T.accent},{label:'observation P(obs|state)',color:T.neg}],{corner:'tr'});
@@ -847,12 +847,12 @@
               const cmap=v=>Plot.RAMPS.blue(v/(d.bmax||1));
               g.frame({cbar:true, x:[0,S], y:[0,d.Tn], xlabel:'state (location)', ylabel:'time step', title:'the belief trajectory; the line is the true hidden state'});
               g.heat(S, d.nF, (i,j)=>d.beliefs[j][i], cmap, {smooth:false});
-              const path=[]; for(let t=0;t<d.trueX.length;t++){ if(t>0 && Math.abs(d.trueX[t]-d.trueX[t-1])>S/2) path.push([NaN,NaN]); path.push([d.trueX[t]+0.5, t]); } g.line(path,{color:'rgba(255,255,255,.9)',width:1.8});
+              const path=[]; for(let t=0;t<d.trueX.length;t++){ if(t>0 && Math.abs(d.trueX[t]-d.trueX[t-1])>S/2) path.push([NaN,NaN]); path.push([d.trueX[t]+0.5, t]); } g.line(path,{color:TH().rgba('surface',.9),width:1.8});
               g.hline(k,{color:T.ink,dash:[2,3],label:'now'}); g.colorbar(0,d.bmax,cmap,{label:'belief'});
             }},
             { title:'belief at this step: where the filter thinks it is', draw:(g,d,ui)=>{ const T=TH(), S=d.S, k=Math.min(d.nF-1,Math.floor(ui.head)), bb=d.beliefs[k], bm=Math.max(...bb)*1.18;
               g.frame({x:[0,S], y:[0,bm], xlabel:'state (location)', ylabel:'belief probability', title:`step ${k}: belief (bars) vs the true state and the noisy observation`});
-              g.band(bb.map((v,i)=>[i+0.5,v]),{color:'rgba(74,122,147,.18)'}); g.line(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,width:2}); g.points(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,r:2.4});
+              g.band(bb.map((v,i)=>[i+0.5,v]),{color:TH().rgba('accent',.18)}); g.line(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,width:2}); g.points(bb.map((v,i)=>[i+0.5,v]),{color:T.accent,r:2.4});
               g.vline(d.trueX[k]+0.5,{color:T.pos,width:2,label:'true state'}); if(d.obs[k]!=null) g.marker(d.obs[k]+0.5, bm*0.06, {color:T.neg,r:5,label:'observation'});
               g.legend([{label:'belief',color:T.accent},{label:'true',color:T.pos},{label:'obs',color:T.neg}],{corner:'tr'});
             }},
@@ -861,7 +861,7 @@
           views:[ { title:'tracking error grows with observation noise', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.5,...d.sweep.map(q=>q[1]))*1.12;
             g.frame({x:[d.sweep[0][0], d.sweep[d.sweep.length-1][0]], y:[0,ymax], xlabel:'observation noise σ', ylabel:'tracking error (states)', title:'noisier observations → blurrier belief → larger tracking error'});
             g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
-            g.marker(d.obsNoise, Plot.nearestY(d.sweep, d.obsNoise), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.obsNoise, Plot.nearestY(d.sweep, d.obsNoise), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -894,7 +894,7 @@
         structure:{ label:'Structure', about:'the Mexican-hat connectivity: each unit excites its neighbours and inhibits the rest',
           views:[ { title:'Mexican-hat connectivity (from one unit to the ring)', draw:(g,d)=>{ const T=TH(), ys=d.kernelRow.map(q=>q[1]), ymin=Math.min(...ys), ymax=Math.max(...ys);
             g.frame({x:[-180,180], y:[ymin-Math.abs(ymin)*0.15-0.05, ymax*1.18], xlabel:'relative location (°)', ylabel:'connection weight', title:'local excitation (+) and broad inhibition (−) → one bump is stable'});
-            g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.kernelRow,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.kernelRow,{color:T.accent,width:2.4});
+            g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.kernelRow,{color:TH().rgba('accent',.16), base:0}); g.line(d.kernelRow,{color:T.accent,width:2.4});
             g.text(0, ymax*0.98, 'excite neighbours', {color:T.pos, size:10.5, align:'center'}); g.text(120, ymin*0.55, 'inhibit the rest', {color:T.neg, size:10.5, align:'center'});
           }} ] },
         dynamics:{ label:'Dynamics', about:'a cue seeds a localized bump; recurrence holds it after the cue ends',
@@ -902,7 +902,7 @@
           views:[
             { title:'activity bump over the ring (persists after the cue)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), r=d.snaps[k], pts=d.ang.map((a,i)=>[a,r[i]]), on=k<=d.offFrame;
               g.frame({x:[0,360], y:[0,1.08], xlabel:'location on the ring (°)', ylabel:'unit activity', title:`t=${d.times[k].toFixed(2)}s — ${on?'cue ON: bump forming':'cue OFF: bump persisting (working memory)'}`});
-              g.band(pts,{color:'rgba(74,122,147,.18)'}); g.line(pts,{color:T.accent,width:2.2});
+              g.band(pts,{color:TH().rgba('accent',.18)}); g.line(pts,{color:T.accent,width:2.2});
               g.vline(d.cue,{color:T.dim,dash:[4,3],label:'cued'}); if(d.conf[k]>0.15) g.vline(((d.dec[k]%360)+360)%360,{color:T.pos,label:'decoded'}); }},
             { title:'the bump over time (a space-time kymograph)', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head)), N=d.N;
               const cmap=v=>Plot.RAMPS.blue(v);
@@ -920,7 +920,7 @@
           views:[ { title:'bump width vs inhibition (the E/I balance)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.4,2.5], y:[0,1.05], xlabel:'inhibition J_I', ylabel:'fraction of ring active', title:'too little inhibition floods the ring; more sharpens, then kills, the bump'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.JI, Plot.nearestY(d.sweep, d.JI), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.JI, Plot.nearestY(d.sweep, d.JI), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -952,7 +952,7 @@
             ctx.textAlign='center'; ctx.fillStyle=T.ink; ctx.font=(13*F)+'px sans-serif'; ctx.fillText('a feedforward stack: each layer re-represents the image through its receptive field', W/2, 20*F);
             const stages=['Image / receptors','Center-surround\n(bipolar + horizontal)','Ganglion\n(edges)','V1 simple\n(oriented)','V1 complex\n(energy)'], n=stages.length;
             const bw=Math.min(176*F,(W-40*F)/n-10*F), gap=(W-40*F-n*bw)/Math.max(1,n-1), y0=58*F, bh=58*F, x0=20*F, cy=y0+bh/2;
-            for(let i=0;i<n;i++){ const x=x0+i*(bw+gap); ctx.fillStyle=i===1?'#eef3f5':'#ffffff'; ctx.strokeStyle=i===1?T.warn:T.accent; ctx.lineWidth=1.8;
+            for(let i=0;i<n;i++){ const x=x0+i*(bw+gap); ctx.fillStyle=i===1?TH().accentPale:TH().surface; ctx.strokeStyle=i===1?T.warn:T.accent; ctx.lineWidth=1.8;
               const rr=8*F; ctx.beginPath(); ctx.moveTo(x+rr,y0); ctx.arcTo(x+bw,y0,x+bw,y0+bh,rr); ctx.arcTo(x+bw,y0+bh,x,y0+bh,rr); ctx.arcTo(x,y0+bh,x,y0,rr); ctx.arcTo(x,y0,x+bw,y0,rr); ctx.closePath(); ctx.fill(); ctx.stroke();
               ctx.fillStyle=T.ink; ctx.font=(11.5*F)+'px sans-serif'; const lines=stages[i].split('\n'); lines.forEach((ln,li)=>ctx.fillText(ln, x+bw/2, cy-4*F+li*13*F+(lines.length===1?4*F:0)));
               if(i<n-1){ const ax=x+bw, ay=cy; ctx.strokeStyle=T.dim; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(ax+gap,ay); ctx.stroke(); ctx.fillStyle=T.dim; ctx.beginPath(); ctx.moveTo(ax+gap,ay); ctx.lineTo(ax+gap-5*F,ay-4*F); ctx.lineTo(ax+gap-5*F,ay+4*F); ctx.closePath(); ctx.fill(); } }
@@ -972,7 +972,7 @@
           views:[
             { title:'center-surround receptive field (difference of Gaussians)', draw:(g,d)=>{ const T=TH(), ys=d.prof.map(q=>q[1]), ymin=Math.min(...ys), ymax=Math.max(...ys);
               g.frame({x:[d.prof[0][0],d.prof[d.prof.length-1][0]], y:[ymin-Math.abs(ymin)*0.2-1e-3, ymax*1.2], xlabel:'distance from RF centre (pixels)', ylabel:'sensitivity', title:'excitatory centre, inhibitory surround (the horizontal-cell antagonism)'});
-              g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.prof,{color:'rgba(74,122,147,.16)', base:0}); g.line(d.prof,{color:T.accent,width:2.4}); }},
+              g.hline(0,{color:T.faint,dash:[4,3]}); g.band(d.prof,{color:TH().rgba('accent',.16), base:0}); g.line(d.prof,{color:T.accent,width:2.4}); }},
             { title:'V1 orientation tuning (complex-cell energy)', draw:(g,d)=>{ const T=TH(); g.frame({x:[-10,180], y:[0,d.tmax*1.18], xlabel:'channel orientation (°)', ylabel:'pooled energy', title:`tuning peaks at the stimulus orientation (decoded ${d.dec.toFixed(0)}° vs ${d.ori}°)`});
               const tun=d.tuning.concat([[180, d.tuning[0][1]]]);
               g.line(tun,{color:T.accent,width:2}); g.points(d.tuning,{color:T.accent,r:3.5}); g.vline(d.ori,{color:T.pos,dash:[4,3],label:'stimulus θ'}); }},
@@ -981,7 +981,7 @@
           views:[ { title:'output contrast vs surround strength', draw:(g,d)=>{ const T=TH(), ymax=Math.max(...d.sweep.map(q=>q[1]))*1.15;
             g.frame({x:[0,1.4], y:[0,ymax], xlabel:'horizontal-cell surround strength', ylabel:'output contrast (RMS)', title:'a stronger surround subtracts more; coarse gratings lose the most (band-pass)'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.surround, Plot.nearestY(d.sweep, d.surround), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.surround, Plot.nearestY(d.sweep, d.surround), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1016,13 +1016,13 @@
         observe:{ label:'Observe', about:'the observed X–Y association — confounded by U',
           views:[ { title:'what you SEE: Y vs X (the observed association)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[d.xlo,d.xhi], y:[d.ylo,d.yhi], xlabel:'treatment X', ylabel:'outcome Y', title:`observed slope = ${d.obsSlope.toFixed(2)} — mixes the causal effect with confounding`});
-            g.points(d.obs,{color:'rgba(74,122,147,.45)',r:2.3});
+            g.points(d.obs,{color:TH().rgba('accent',.45),r:2.3});
             g.line([[d.xlo, d.obsMy+d.obsSlope*(d.xlo-d.obsMx)],[d.xhi, d.obsMy+d.obsSlope*(d.xhi-d.obsMx)]],{color:T.accent,width:2.6});
           }} ] },
         intervene:{ label:'Intervene', about:'do(X) cuts the backdoor — the true causal effect',
           views:[ { title:'what you would CHANGE: Y vs do(X)', draw:(g,d)=>{ const T=TH();
             g.frame({x:[d.xlo,d.xhi], y:[d.ylo,d.yhi], xlabel:'intervention do(X = x)', ylabel:'outcome Y', title:`do-slope = ${d.doSlope.toFixed(2)} ≈ the true causal effect ${d.causal.toFixed(2)}`});
-            g.points(d.doPts,{color:'rgba(46,139,122,.45)',r:2.3});
+            g.points(d.doPts,{color:TH().rgba('pos',.45),r:2.3});
             g.line([[d.xlo, d.obsMy+d.obsSlope*(d.xlo-d.obsMx)],[d.xhi, d.obsMy+d.obsSlope*(d.xhi-d.obsMx)]],{color:T.accent,width:2,dash:[5,4]});
             g.line([[d.xlo, d.doMy+d.doSlope*(d.xlo-d.doMx)],[d.xhi, d.doMy+d.doSlope*(d.xhi-d.doMx)]],{color:T.pos,width:2.6});
             g.legend([{label:'observed (confounded)',color:T.accent},{label:'do(X): causal',color:T.pos}],{corner:'tl'});
@@ -1031,7 +1031,7 @@
           views:[ { title:'confounding inflates the observed effect (observed − causal)', draw:(g,d)=>{ const T=TH(), ymax=Math.max(0.1,...d.sweep.map(q=>q[1]))*1.15;
             g.frame({x:[0,1.5], y:[Math.min(0,...d.sweep.map(q=>q[1]))-0.05, ymax], xlabel:'confounding strength', ylabel:'observed slope − causal effect', title:'with no confounding the observed effect equals the causal effect; it inflates as U strengthens'});
             g.hline(0,{color:T.faint,dash:[4,3]}); g.line(d.sweep,{color:T.warn,width:2.4}); g.points(d.sweep,{color:T.warn,r:3});
-            g.marker(d.conf, Plot.nearestY(d.sweep, d.conf), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.conf, Plot.nearestY(d.sweep, d.conf), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1051,7 +1051,7 @@
           let o=0; for(let j=0;j<N;j++) o+=row[j]*value[j]; out.push(o); ent.push(A.entropy(row)/Math.log(N)); }
         const sweep=[]; for(let s=0;s<=20;s++){ const tp=0.1+s*(3-0.1)/20; let he=0; for(let i=0;i<N;i++){ const row=A.softmax(Array.from({length:N},(_,j)=>score(i,j,tp))); he+=A.entropy(row)/Math.log(N); } sweep.push([tp, he/N]); }
         const q=Math.max(0,Math.min(N-1,Math.round(p.query)));
-        const TYPECOL=['#4a7a93','#c25b42','#2e8b7a'];
+        const TYPECOL=[TH().accent,TH().neg,TH().pos];
         return { N, type, value, attn, out, ent, sweep, q, qWeights:attn[q], temp:p.temp, meanEnt:ent.reduce((a,b)=>a+b,0)/N, TYPECOL };
       },
       lenses:{
@@ -1075,7 +1075,7 @@
           views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard attention; high = uniform averaging'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1115,13 +1115,13 @@
             const x0=W*0.30, y0=52*F, cw=(W*0.62)/2, rh=42*F;
             ctx.font=(11.5*F)+'px sans-serif'; ctx.fillStyle=T.dim; for(let j=0;j<2;j++) ctx.fillText(cols[j], x0+cw*(j+0.5), y0-8*F);
             for(let i=0;i<3;i++){ ctx.textAlign='right'; ctx.fillStyle=T.ink; ctx.fillText(rows[i], x0-10*F, y0+rh*(i+0.62));
-              for(let j=0;j<2;j++){ const v=cell[i][j], x=x0+cw*j, y=y0+rh*i; ctx.fillStyle = v>0?'rgba(46,139,122,.22)':(v<-1?'rgba(194,91,66,.22)':'rgba(0,0,0,.04)'); ctx.fillRect(x+2,y+2,cw-4,rh-4);
+              for(let j=0;j<2;j++){ const v=cell[i][j], x=x0+cw*j, y=y0+rh*i; ctx.fillStyle = v>0?TH().rgba('pos',.22):(v<-1?TH().rgba('neg',.22):TH().rgba('black',.04)); ctx.fillRect(x+2,y+2,cw-4,rh-4);
                 ctx.strokeStyle=T.edge; ctx.lineWidth=1; ctx.strokeRect(x+2,y+2,cw-4,rh-4); ctx.fillStyle=T.ink; ctx.textAlign='center'; ctx.font=(13*F)+'px monospace'; ctx.fillText((v>0?'+':'')+v, x+cw/2, y+rh*0.62); ctx.font=(11.5*F)+'px sans-serif'; } }
             ctx.textAlign='center'; ctx.fillStyle=T.dim; ctx.font=(11.5*F)+'px sans-serif'; ctx.fillText(`Listening returns a roar from the correct side with accuracy ${(d.obsAcc*100).toFixed(0)}% (discount γ=${d.gamma}).`, W/2, y0+rh*3+24*F);
             ctx.fillStyle=T.faint; ctx.fillText('You never see the state — you act on the BELIEF that the tiger is left vs right.', W/2, y0+rh*3+42*F);
           }} ] },
         policy:{ label:'Policy', about:'the value function over belief, and where to listen vs open',
-          views:[ { title:'value iteration: listen while uncertain, open when confident', draw:(g,d)=>{ const T=TH(), COL=['rgba(74,122,147,.14)','rgba(46,139,122,.14)','rgba(176,125,42,.14)'];
+          views:[ { title:'value iteration: listen while uncertain, open when confident', draw:(g,d)=>{ const T=TH(), COL=[TH().rgba('accent',.14),TH().rgba('pos',.14),TH().rgba('warn',.14)];
             g.frame({x:[0,1], y:[d.vmin-2, d.vmax+2], xlabel:'belief b = P(tiger left)', ylabel:'value / Q', title:'V(b) is the upper envelope; background = optimal action'});
             const ctx=g.ctx, y0=g.Y(d.vmin-2), y1=g.Y(d.vmax+2); for(let k=0;k<d.N;k++){ ctx.fillStyle=COL[d.pol[k]]; const xa=g.X((k-0.5)/(d.N-1)), xb=g.X((k+0.5)/(d.N-1)); ctx.fillRect(xa, y1, xb-xa, y0-y1); }
             g.line(d.qOL,{color:T.pos,width:1.5,dash:[4,3]}); g.line(d.qOR,{color:T.warn,width:1.5,dash:[4,3]}); g.line(d.qL,{color:T.accent,width:1.5,dash:[4,3]});
@@ -1134,12 +1134,12 @@
             g.frame({x:[-0.3, Math.max(1,d.traj.length-1)+0.3], y:[0,1], yticks:4, xlabel:'listen step', ylabel:'belief b = P(tiger left)', title: d.reward!=null ? `opened → ${d.acts[d.acts.length-1]===1?'left':'right'} door, reward ${d.reward>0?'+':''}${d.reward} (tiger was ${d.trueTL?'left':'right'})` : 'listening…'});
             g.hline(0.5,{color:T.faint,dash:[4,3],label:'uncertain'});
             const pts=d.traj.slice(0,k+1).map((v,i)=>[i,v]); g.line(pts,{color:T.accent,width:2.4}); g.points(pts,{color:T.accent,r:3.5});
-            if(k>=d.traj.length-1 && d.reward!=null){ const xo=d.traj.length-1; g.marker(xo, d.traj[xo], {color:d.reward>0?T.pos:T.neg, stroke:'#fff', r:6, label:'open'}); } }} ] },
+            if(k>=d.traj.length-1 && d.reward!=null){ const xo=d.traj.length-1; g.marker(xo, d.traj[xo], {color:d.reward>0?T.pos:T.neg, stroke:TH().surface, r:6, label:'open'}); } }} ] },
         compare:{ label:'Compare', about:'how the stakes reshape the strategy — listen region vs tiger penalty',
           views:[ { title:'caution vs the tiger penalty', draw:(g,d)=>{ const T=TH();
             g.frame({x:[20,200], y:[0,1.0], xlabel:'tiger penalty', ylabel:'fraction of beliefs where you listen', title:'a bigger penalty → demand more confidence before opening → listen more'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            const pen=-d.rTiger; g.marker(pen, Plot.nearestY(d.sweep, pen), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            const pen=-d.rTiger; g.marker(pen, Plot.nearestY(d.sweep, pen), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1182,13 +1182,13 @@
               g.legend([{label:'E (excitatory)',color:T.pos},{label:'I (inhibitory)',color:T.neg}],{corner:'tr'}); }},
             { title:'phase plane (E vs I): a loop = a limit cycle', draw:(g,d,ui)=>{ const T=TH(), k=Math.min(d.nF-1,Math.floor(ui.head));
               g.frame({x:[0,1], y:[0,1], xlabel:'E activity', ylabel:'I activity', title:'the trajectory settles to a point, or orbits a limit cycle'});
-              g.line(d.traj.slice(0,k+1),{color:'rgba(74,122,147,.5)',width:1.6}); g.marker(d.Et[k], d.It[k], {color:T.accent,stroke:'#fff',r:5}); }},
+              g.line(d.traj.slice(0,k+1),{color:TH().rgba('accent',.5),width:1.6}); g.marker(d.Et[k], d.It[k], {color:T.accent,stroke:TH().surface,r:5}); }},
           ] },
         compare:{ label:'Compare', about:'oscillation amplitude vs drive — the Hopf bifurcation',
           views:[ { title:'the bifurcation: oscillation amplitude vs drive', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0,3], y:[0, d.ampMax*1.12], xlabel:'excitatory drive P', ylabel:'oscillation amplitude (E)', title:'flat (a steady state) below the critical drive; a limit cycle grows above it'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.P, Plot.nearestY(d.sweep, d.P), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.P, Plot.nearestY(d.sweep, d.P), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
 
@@ -1208,7 +1208,7 @@
         for(let l=0;l<L;l++){ const nv=new Array(N).fill(0); for(let i=0;i<N;i++){ let s=0; for(let h=0;h<H;h++){ let o=0; for(let j=0;j<N;j++) o+=heads[h][i][j]*v[j]; s+=o; } nv[i]=s/H; } layerV.push(nv); v=nv; }
         const ent=[]; for(let h=0;h<H;h++){ let e=0; for(let i=0;i<N;i++) e+=A.entropy(heads[h][i])/Math.log(N); ent.push(e/N); }
         const sweep=[]; for(let s=0;s<=20;s++){ const tp=0.1+s*(3-0.1)/20; let he=0,cnt=0; for(let h=0;h<H;h++) for(let i=0;i<N;i++){ const row=A.softmax(Array.from({length:N},(_,j)=>score(h,i,j)/tp)); he+=A.entropy(row)/Math.log(N); cnt++; } sweep.push([tp, he/cnt]); }
-        return { N, H, type, heads, layerV, nLayers:L, ent, sweep, temp:p.temp, HEADNAME:['content (same type)','previous token','local (nearby)'], TYPECOL:['#4a7a93','#c25b42','#2e8b7a'] };
+        return { N, H, type, heads, layerV, nLayers:L, ent, sweep, temp:p.temp, HEADNAME:['content (same type)','previous token','local (nearby)'], TYPECOL:[TH().accent,TH().neg,TH().pos] };
       },
       lenses:{
         heads:{ label:'Heads', about:'each head learns a different attention pattern',
@@ -1230,7 +1230,7 @@
           views:[ { title:'attention sharpness vs temperature', draw:(g,d)=>{ const T=TH();
             g.frame({x:[0.1,3], y:[0,1.05], xlabel:'softmax temperature', ylabel:'mean attention entropy (0 = peaked, 1 = uniform)', title:'low temperature = sharp, near-hard heads; high = uniform averaging'});
             g.line(d.sweep,{color:T.accent,width:2.4}); g.points(d.sweep,{color:T.accent,r:3});
-            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:'#fff',r:5,label:'now'}); }} ] },
+            g.marker(d.temp, Plot.nearestY(d.sweep, d.temp), {color:T.neg,stroke:TH().surface,r:5,label:'now'}); }} ] },
       },
     },
   };

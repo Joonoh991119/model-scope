@@ -6,6 +6,8 @@
 
 A [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin. It reads your paper, asks a few questions,
 writes the model, checks the math, and serves a no-build web app — **views chosen by the model**, not a fixed plot.
+For researchers in perception, decision-making, learning, memory and neural dynamics who want to understand
+a model by tuning it. An integer parameter becomes a condition selector; a boolean, a toggle.
 
 ## Quick start
 

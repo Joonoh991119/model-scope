@@ -3,6 +3,45 @@
 The plugin version lives in `.claude-plugin/plugin.json` only. Releases before 1.22.0 are described
 in the git history.
 
+## 1.23.0
+
+Refactor release. The public surface and every shipped model's `simulate()` are unchanged (the
+baseline's schema and simulate sections pass); the draw section was re-recorded for the fixes below.
+
+### No comments, no scattered constants
+
+- Every code comment is gone from the template and the tests. What only a comment said now lives in
+  the template `README.md`: the minimal model to paste, its check and the `t` toolkit, the
+  `runChunks` pattern, the `MSLIB` randomness convention, and the link grammar. `tests/bare-app.mjs`
+  takes the skeleton and its check from there.
+- One palette: `Plot.TH` holds every colour and both fonts (`TH.rgb.<name>`, `TH.rgba(name, a)`), the
+  canvas draws with it, and `plot.js` writes the page's CSS variables from it. The examples use theme
+  tokens instead of colour literals. Text-size range (`Plot.FONT_SCALE`), playback speeds, timings
+  and the default seed are each named once.
+- `page.mjs` reads `index.html`'s script tags the way the browser does (HTML comments ignored, unquoted
+  `src` accepted); the gate, the bundler and the test harness share it.
+- The gate checks the `MSLIB` families that are present instead of requiring all fourteen.
+
+### Fixes
+
+- A colorbar's default tick labels show the value (they were rounded, so 0 to 0.384 read "0" and "0").
+- Axis ticks no longer print floating-point residue such as `5.6e-17`.
+- `frame({ margin })` merges with the defaults; a partial margin no longer blanks the panel.
+- The process strip (`g.flow`) scales with the Text size control.
+- `histify` no longer adds a bin when the range is an exact multiple of the bin width.
+- Leaving a number field without changing it no longer re-runs the model; re-binding a lens keeps
+  the chosen playback speed; views read the parameters the current data was computed with.
+- An id such as `constructor` registers like any other.
+- `vmWrap` and its check describe the range it returns, `[−π, π)`.
+
+### Docs and tests
+
+- README leads with example figures; the detail moved to `docs/GUIDE.md`. `docs-check` reads the
+  tables there, guards its section markers, counts the README keyword table, and checks every
+  relative link and image in the main docs.
+- `tests/hero.py` builds the README hero from what `shots.mjs` measures, in the template palette,
+  with any system font. The browser channel and viewport are named once in the test harness.
+
 ## 1.22.0
 
 Minor release. The public surface is unchanged: the plugin, skill, command and agent names and roles,

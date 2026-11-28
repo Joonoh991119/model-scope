@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { pageScripts, isRemote, stripJsComments as stripComments } from './page.mjs';
 
 const HERE = new URL('./', import.meta.url);
 const ARGV = process.argv.slice(2);
 const optOf = f => { const i = ARGV.indexOf(f); return i >= 0 ? ARGV[i + 1] : undefined; };
+const SCAN_LIMIT = 3000, STUB_CANVAS = [600, 400], SNAPSHOT_SEED = 'seed-1';
 let fails = 0, warns = 0;
 const ok = b => (b ? '\x1b[32mPASS\x1b[0m' : (fails++, '\x1b[31mFAIL\x1b[0m'));
 const warn = msg => { warns++; console.log(`  \x1b[33m⚠ ${msg}\x1b[0m`); };
@@ -30,9 +32,8 @@ globalThis.document = { createElement: () => mkCanvas(1, 1) };
 console.log('\n=== model-scope gate ===\n');
 if (!fs.existsSync(new URL('index.html', HERE))) fatal('index.html not found next to validate.mjs');
 const html = fs.readFileSync(new URL('index.html', HERE), 'utf8');
-const tags = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].map(m => ({ body: m[2], src: (m[1].match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] }));
+const tags = pageScripts(html);
 const scripts = tags.filter(t => t.src).map(t => t.src), inline = tags.filter(t => !t.src).map(t => t.body);
-const isRemote = s => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(s);
 const sources = {};
 console.log(`--- page: index.html loads ${scripts.length} script${scripts.length === 1 ? '' : 's'} (${scripts.join(', ')}) ---`);
 const OWNER = {}, SHADOWED = {}; let current = null;
@@ -46,14 +47,13 @@ for (const s of scripts) {
   if (G && Array.isArray(G.MODEL_ORDER)) for (const id of G.MODEL_ORDER) if (!before.has(id) && !OWNER[id]) OWNER[id] = s;
   if (G && typeof G.register === 'function' && !G.register.gateWrapped) {
     const reg = G.register;
-    G.register = Object.assign((models, order) => { for (const id of (order || Object.keys(models || {}))) if (models && models[id] && G.MODELS[id]) (SHADOWED[current] = SHADOWED[current] || []).push(id); return reg(models, order); }, { gateWrapped: true });
+    G.register = Object.assign((models, order) => { for (const id of (order || Object.keys(models || {}))) if (models && Object.hasOwn(models, id) && Object.hasOwn(G.MODELS, id)) (SHADOWED[current] = SHADOWED[current] || []).push(id); return reg(models, order); }, { gateWrapped: true });
   }
 }
 const SIM = globalThis.SIM, Plot = globalThis.Plot, MSLIB = globalThis.MSLIB;
 if (!SIM || !SIM.MODELS || !Array.isArray(SIM.MODEL_ORDER)) fatal('no script defined window.SIM with MODELS and MODEL_ORDER (engine.js)');
 if (!Plot || typeof Plot.make !== 'function') fatal('no script defined window.Plot (plot.js)');
 
-const stripComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');
 const lineOf = (text, i) => text.slice(0, i).split('\n').length;
 const EXTERNAL = [
   [/\b(?:src|href)\s*=\s*["'`]?\s*(?:https?:)?\/\/[^\s"'`>]*/i, 'a src/href on another host'],
@@ -92,7 +92,7 @@ const isNum = v => typeof v === 'number' && isFinite(v);
 const allFinite = (v, depth = 0) => {
   if (typeof v === 'number') return isFinite(v);
   if (depth > 6) return true;
-  if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n = Math.min(v.length, 3000); for (let i = 0; i < n; i++) if (!allFinite(v[i], depth + 1)) return false; return true; }
+  if (Array.isArray(v) || ArrayBuffer.isView(v)) { const n = Math.min(v.length, SCAN_LIMIT); for (let i = 0; i < n; i++) if (!allFinite(v[i], depth + 1)) return false; return true; }
   if (v && typeof v === 'object') { for (const k in v) if (!allFinite(v[k], depth + 1)) return false; return true; }
   return true;
 };
@@ -114,7 +114,7 @@ function drawView(view, data, ui) {
   const rec = { badFrame: false, badData: false, heat: 0, colorbar: 0, dataInk: 0, chromeInk: 0, chrome: 0, threw: null };
   REC = rec;
   try {
-    const g = Plot.make(mkCanvas(600, 400));
+    const g = Plot.make(mkCanvas(...STUB_CANVAS));
     const sample = (nx, ny, val) => { if (typeof val !== 'function') return; for (const [i, j] of [[0, 0], [nx - 1, ny - 1], [nx >> 1, ny >> 1]]) if (!isNum(val(i, j))) rec.badData = true; };
     const before = {
       frame: o => { o = o || {}; if (o.x && (!isNum(o.x[0]) || !isNum(o.x[1]))) rec.badFrame = true; if (o.y && (!isNum(o.y[0]) || !isNum(o.y[1]))) rec.badFrame = true; },
@@ -289,15 +289,15 @@ for (const [s, ids] of Object.entries(SHADOWED)) for (const id of ids)
 
 const LIBRARY_CHECKS = t => {
   const { L, SIM } = t, rng = SIM.makeRNG('mslib'), g = () => SIM.gaussian(rng), U = () => rng();
-  const fam = ['sde', 'bayes', 'neuron', 'decision', 'rl', 'psy', 'efficient', 'causal', 'wm', 'network', 'osc', 'belief', 'vision', 'attn'].every(k => L[k]);
-  t.ok(fam, 'families present'); if (!fam) return;
-  { const wgt = L.bayes.weight(0.9, 1); t.ok(wgt > 0 && wgt < 1, 'bayes: weight ∈ (0,1)'); }
-  {
+  const has = (...ks) => ks.every(k => L[k]);
+  t.info(`families: ${Object.keys(L).join(', ')}`);
+  if (has('bayes')) { const wgt = L.bayes.weight(0.9, 1); t.ok(wgt > 0 && wgt < 1, 'bayes: weight ∈ (0,1)'); }
+  if (has('neuron')) {
     const fi = L.neuron.fI((s, I, dt) => L.neuron.lifStep(s, I, null, dt), () => ({ v: -65, refr: 0 }), [0.1, 0.3, 0.6, 1.0], 1e-4, 1.0);
     t.ok(fi.every((p, i) => i === 0 || p.rate >= fi[i - 1].rate) && fi[3].rate > fi[0].rate, 'neuron: LIF f–I monotonic');
     const want = { tau: 0.02, EL: -65, R: 100, Vth: -50, Vreset: -65, tref: 0.003 }, D = L.neuron.LIF_DEFAULT;
     t.ok(Object.keys(want).every(k => D[k] === want[k]), 'neuron: LIF_DEFAULT is the documented set (τ 20 ms, E_L −65 mV, R 100 MΩ, V_th −50 mV, V_reset −65 mV, t_ref 3 ms; rheobase 0.15 nA)'); }
-  {
+  if (has('decision')) {
     let s = { S1: 0.1, S2: 0.1, In1: 0, In2: 0 }, r; for (let k = 0; k < 3000; k++) r = L.decision.wwStep(s, { coh: 25.6 }, 0.0005, g);
     t.ok(r.r1 > r.r2, 'decision: Wong–Wang unit 1 wins at +coherence');
     const W = L.decision.WW, want = { a: 270, b: 108, d: 0.154, gamma: 0.641, tauS: 0.1, tauN: 0.002, sigma: 0.02, Js: 0.2609, Jc: 0.0497, I0: 0.3255, JAext: 5.2e-4, mu0: 30 };
@@ -308,15 +308,15 @@ const LIBRARY_CHECKS = t => {
     const nr = SIM.makeRNG('ww-noise'), gn = () => SIM.gaussian(nr), z = { S1: 0.1, S2: 0.1, In1: 0, In2: 0 }; let s2 = 0, n = 0;
     for (let k = 0; k < 400000; k++) { L.decision.wwStep(z, {}, 0.0001, gn); if (k > 2000) { s2 += z.In1 * z.In1; n++; } }
     t.ok(t.rel(Math.sqrt(s2 / n), W.sigma) < 0.05, `decision: the noise current inside wwStep has stationary SD σ (${Math.sqrt(s2 / n).toFixed(5)} vs ${W.sigma}, tol 5%)`); }
-  { let V = 0; for (let k = 0; k < 200; k++) V = L.rl.rescorlaWagner(V, 1, 0.1); t.ok(Math.abs(V - 1) < 0.01, 'rl: Rescorla–Wagner converges'); }
-  { t.ok(L.psy.psychometric(-2, { mu: 0, sigma: 1 }) < L.psy.psychometric(2, { mu: 0, sigma: 1 }), 'psy: psychometric monotonic'); t.ok(Math.abs(L.psy.sdt(0.84, 0.16).dprime - 2) < 0.2, 'psy: SDT sensitivity'); }
-  {
+  if (has('rl')) { let V = 0; for (let k = 0; k < 200; k++) V = L.rl.rescorlaWagner(V, 1, 0.1); t.ok(Math.abs(V - 1) < 0.01, 'rl: Rescorla–Wagner converges'); }
+  if (has('psy')) { t.ok(L.psy.psychometric(-2, { mu: 0, sigma: 1 }) < L.psy.psychometric(2, { mu: 0, sigma: 1 }), 'psy: psychometric monotonic'); t.ok(Math.abs(L.psy.sdt(0.84, 0.16).dprime - 2) < 0.2, 'psy: SDT sensitivity'); }
+  if (has('bayes', 'efficient')) {
     const xs = L.bayes.linspace(-4, 4, 241), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) * ((x - m) / sd)) / (sd * Math.sqrt(2 * Math.PI)), pri = Array.from(xs, x => npd(x, 0, 1)), F = L.efficient.cdf(xs, pri);
     t.ok(Math.abs(L.efficient.decode(L.efficient.encode(1.2, xs, F), 1e-3, xs, F, pri, 'BLS') - 1.2) < 0.05, 'efficient: zero-noise decode ≈ θ');
     const dsc = L.efficient.discrim(xs, pri); t.ok(dsc[20] > dsc[120] && dsc[220] > dsc[120], 'efficient: D ∝ 1/p, tails > peak');
     const lk = L.efficient.likelihood(L.efficient.encode(1, xs, F), 0.12, xs, F); let z = 0, mean = 0, mode = 0, md = -1; for (let i = 0; i < xs.length; i++) { z += lk[i]; mean += lk[i] * xs[i]; if (lk[i] > md) { md = lk[i]; mode = xs[i]; } } mean /= z;
     t.ok(mean > mode, 'efficient: likelihood skewed off peak'); t.ok(Math.abs(mode - 1) < 0.05, `efficient: the likelihood of m = F(1) peaks at θ = 1 (${mode.toFixed(3)})`); }
-  {
+  if (has('causal')) {
     t.ok(L.causal.cueCombineMLE([1, 3], [0.5, 1]).variance < 0.25, 'causal: MLE variance < the best single cue');
     t.ok(L.causal.ciPosteriorCommon(0.1, -0.1, 2, 9, 12, 0.3) > L.causal.ciPosteriorCommon(10, -10, 2, 9, 12, 0.3), 'causal: p(C=1) agree > disagree');
     const H = L.causal.numberGameHypotheses(100), pst = L.causal.conceptPosterior(H, [2, 4, 8, 16]); let iP = -1, iE = -1; H.forEach((h, i) => { if (h.name === 'powers 2') iP = i; if (h.name === 'even') iE = i; });
@@ -326,43 +326,43 @@ const LIBRARY_CHECKS = t => {
     t.ok(Math.abs(L.causal.ciFusedEstimate(3, -2, 2, 8, 1e6) - L.causal.cueCombineMLE([3, -2], [2, 8]).estimate) < 1e-6, 'causal: a flat prior reduces fusion to MLE cue combination');
     let z1 = 0, z2 = 0; const sv = 2, sa = 3, sp = 5, h = 0.25; for (let xv = -40; xv <= 40; xv += h) for (let xa = -40; xa <= 40; xa += h) { z1 += L.causal.ciLikCommon(xv, xa, sv, sa, sp) * h * h; z2 += L.causal.ciLikSeparate(xv, xa, sv, sa, sp) * h * h; }
     t.ok(Math.abs(z1 - 1) < 1e-3 && Math.abs(z2 - 1) < 1e-3, `causal: both likelihoods integrate to 1 (${z1.toFixed(5)}, ${z2.toFixed(5)})`); }
-  {
+  if (has('wm')) {
     t.ok(Math.abs(L.wm.besselI0(0) - 1) < 1e-9, 'wm: I0(0)=1'); t.ok(L.wm.kappaToSD(2) > L.wm.kappaToSD(20), 'wm: κ→SD decreasing');
     let sx = 0, sy = 0; for (let i = 0; i < 3000; i++) { const th = L.wm.vmSample(0.6, 8, U); sx += Math.cos(th); sy += Math.sin(th); } t.ok(Math.abs(Math.atan2(sy, sx) - 0.6) < 0.12, 'wm: von Mises sample mean ≈ μ');
     let nt = 0; const TT = 5000; for (let i = 0; i < TT; i++) if (L.wm.mixtureRecall({ target: 0, nontargets: [1.5, -1.5], kappa: 10, pT: 0.6, pSwap: 0.25, pGuess: 0.15 }, U).branch === 'target') nt++;
     t.ok(Math.abs(nt / TT - 0.6) < 0.05, 'wm: mixture target proportion ≈ pT');
     for (const c of [{ kappa: 16, pT: 0.75, pSwap: 0.15, pGuess: 0.1, nontargetOffsets: [1.57, 3.14, -1.57] }, { kappa: 4, pT: 0.6, pSwap: 0, pGuess: 0.4, nontargetOffsets: [] }]) { let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.mixturePdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, c) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-4, `wm: mixturePdf integrates to 1 (κ=${c.kappa}: ${z.toFixed(6)})`); }
     t.ok(Math.abs(L.wm.kappaToSD(400) * 20 - 1) < 0.01, 'wm: kappaToSD·√κ → 1 for large κ'); t.ok(t.rel(L.wm.sdToKappa(L.wm.kappaToSD(8)), 8) < 0.03, 'wm: sdToKappa inverts kappaToSD (tol 3%)'); }
-  {
+  if (has('network')) {
     const pat8 = [1, -1, 1, -1, 1, -1, 1, -1], Wh = L.network.hopfieldStore([pat8], 8); let sr = Int8Array.from(pat8); sr[0] = -sr[0]; L.network.hopfieldStep(Wh, sr, 8, [0, 1, 2, 3, 4, 5, 6, 7]);
     t.ok(L.network.overlap(Array.from(sr), pat8, 8) > 0.9, 'network: Hopfield recall');
     const Wr = L.network.ringKernel(16, 8, 1.3, 0.3); t.ok(Wr[0] > Wr[8], 'network: ring local excitation');
     const N = 64, W = L.network.ringKernel(N, 8, 1.3, 0.3), dd = 2 * Math.PI * 3 / N; t.ok(Math.abs(W[3] - (8 * Math.exp(-dd * dd / (2 * 0.09)) - 1.3)) < 1e-12 && Math.abs(W[5 * N + 2] - W[3]) < 1e-12, 'network: ring kernel = J·exp(−d²/2σ²) − J_I, translation invariant'); }
-  {
+  if (has('osc')) {
     t.ok(L.osc.kuramotoOrder([0.5, 0.5, 0.5, 0.5]).r > 0.99 && L.osc.kuramotoOrder([0, Math.PI / 2, Math.PI, 3 * Math.PI / 2]).r < 0.05, 'osc: sync vs incoherent r');
     const kr = SIM.makeRNG('kur'), n = 12, ph = Array.from({ length: n }, () => (kr() * 2 - 1) * Math.PI), om = Array.from({ length: n }, () => SIM.gaussian(kr)), K = 2.3, dt = 0.01, out = L.osc.kuramotoStep(ph, om, K, dt, 0, () => 0); let w = 0;
     for (let i = 0; i < n; i++) { let s = 0; for (let j = 0; j < n; j++) s += Math.sin(ph[j] - ph[i]); w = Math.max(w, Math.abs(out[i] - (ph[i] + dt * (om[i] + K / n * s)))); }
     t.ok(w < 1e-12, 'osc: Kuramoto mean-field step = (K/N) Σ_j sin(θ_j − θ_i)'); }
-  {
+  if (has('belief')) {
     const bp = L.belief.predict([0, 1, 0, 0], [[.5, .5, 0, 0], [0, .5, .5, 0], [0, 0, .5, .5], [.5, 0, 0, .5]]), bu = L.belief.update([.25, .25, .25, .25], [.1, .7, .1, .1]);
     t.ok(Math.abs(bp.reduce((a, b) => a + b, 0) - 1) < 1e-9 && Math.abs(bu.reduce((a, b) => a + b, 0) - 1) < 1e-9 && bu[1] > 0.5 && L.belief.entropy([1, 0, 0, 0]) < 1e-9, 'belief: predict/update normalise + concentrate'); }
-  {
+  if (has('vision')) {
     const dks = L.vision.dogKernel(1.5, 4, 1); let dsum = 0; for (const v of dks.k) dsum += v; const dc = L.vision.dogKernel(1.5, 4, 0); let csum = 0; for (const v of dc.k) csum += v;
     t.ok(Math.abs(dsum) < 0.15 && csum > 0.5, 'vision: DoG band-pass ≈ 0 vs low-pass > 0'); }
-  {
+  if (has('attn')) {
     const sm = L.attn.softmax([1, 2, 3]); t.ok(Math.abs(sm.reduce((a, b) => a + b, 0) - 1) < 1e-9 && sm[2] > sm[1] && sm[1] > sm[0], 'attn: softmax sums to 1 + monotone');
     t.ok(Math.abs(L.attn.entropy([.25, .25, .25, .25]) - Math.log(4)) < 1e-9, 'attn: uniform entropy = ln(N)'); }
-  {
+  if (has('sde')) {
     t.ok(Math.abs(L.sde.wiener(0.2, 1.5, 0.8, 0.01, () => 0.7) - (0.2 + 1.5 * 0.01 + 0.8 * 0.1 * 0.7)) < 1e-15, 'sde: wiener step = x + drift·dt + c·√dt·ξ');
     t.ok(Math.abs(L.sde.ou(0.3, 4, -1, 0.5, 0.01, () => -1.2) - (0.3 + 4 * (-1 - 0.3) * 0.01 + 0.5 * 0.1 * -1.2)) < 1e-15, 'sde: OU step = x + θ(μ−x)·dt + σ·√dt·ξ');
     t.ok(Math.abs(L.sde.normpdf(1.3, 1.3, 0.5) - 1 / (0.5 * Math.sqrt(2 * Math.PI))) < 1e-12 && Math.abs(L.sde.normpdf(2.3, 1.3, 0.5) / L.sde.normpdf(1.3, 1.3, 0.5) - Math.exp(-2)) < 1e-12, 'sde: normpdf peak 1/(σ√2π), falls by e^(−z²/2)');
     t.ok(Math.abs(L.sde.normcdf(0) - 0.5) < 3e-7 && Math.abs(L.sde.normcdf(1.959964) - 0.975) < 3e-7 && Math.abs(L.sde.normcdf(-1) - 0.158655254) < 3e-7, 'sde: normcdf(0)=0.5, Φ(1.96)=0.975, Φ(−1)=0.1587 (tol 3e-7, the Abramowitz–Stegun 26.2.17 approximation)'); }
-  {
+  if (has('bayes')) {
     const w = 1 / (1 + 0.8 * 0.8), ct = L.bayes.centralTendency([-2, 0, 3], 0.8, 0.5, 1);
     t.ok(ct.every(q => Math.abs(q.est - (w * q.theta + (1 - w) * 0.5)) < 1e-12 && Math.abs(q.sd - w * 0.8) < 1e-12), 'bayes: centralTendency = w·θ + (1−w)·μ0, SD w·σ_m (w = σ0²/(σ0²+σ_m²))');
     t.ok(Math.abs(L.bayes.weberNoise(-4, 0.15) - 0.6) < 1e-12 && L.bayes.weberNoise(0, 0.15) === 1e-3, 'bayes: weberNoise = wf·|θ|, floored');
     const tr = L.bayes.trial(2, 0.8, 0.5, 1, () => 0.25); t.ok(Math.abs(tr.m - 2.2) < 1e-12 && Math.abs(tr.est - (w * 2.2 + (1 - w) * 0.5)) < 1e-12, 'bayes: trial draws m = θ + σ_m·ξ and estimates the posterior mean'); }
-  {
+  if (has('neuron')) {
     const D = L.neuron.IZH_DEFAULT; t.ok(D.a === 0.02 && D.b === 0.2 && D.c === -65 && D.d === 8, 'neuron: IZH_DEFAULT is regular spiking (a .02, b .2, c −65, d 8)');
     const s = { v: -60, u: -12 }, h = 0.5, v1 = -60 + h * (0.04 * 3600 + 5 * -60 + 140 + 12 + 10), u1 = -12 + h * (0.02 * (0.2 * v1 + 12));
     L.neuron.izhStep(s, 10, null, h / 1000); t.ok(Math.abs(s.v - v1) < 1e-12 && Math.abs(s.u - u1) < 1e-12, 'neuron: one Izhikevich step equals the written equations (dt in s, model in ms)');
@@ -370,50 +370,50 @@ const LIBRARY_CHECKS = t => {
     t.ok(fired && sp.v === -65 && Math.abs(sp.u - (0.02 * 0.2 * vPeak + 8)) < 1e-9, 'neuron: Izhikevich reset v → c, u → u + d at v ≥ 30');
     const fz = L.neuron.fI((st, I, dt) => L.neuron.izhStep(st, I, null, dt), () => ({ v: -65, u: -13 }), [3, 10], 0.00025, 2);
     t.ok(fz[0].rate === 0 && fz[1].rate > 12 && fz[1].rate < 35, `neuron: Izhikevich RS silent at I = 3, tonic at I = 10 (${fz[1].rate} Hz)`); }
-  {
+  if (has('rl')) {
     const Q = L.rl.qUpdate([0.2, 0.5, -1], 1, 1, 0.3); t.ok(Q[0] === 0.2 && Math.abs(Q[1] - (0.5 + 0.3 * (1 - 0.5))) < 1e-15 && Q[2] === -1, 'rl: qUpdate = Rescorla–Wagner on arm a, the others untouched');
     const pr = [0.2, 0.5, 0.3], cnt = [0, 0, 0], n = 20000; for (let i = 0; i < n; i++) cnt[L.rl.choose(pr, U)]++; t.ok(cnt.every((c, i) => Math.abs(c / n - pr[i]) < 0.015), `rl: choose draws arm i with probability p_i (${cnt.map(c => (c / n).toFixed(3)).join(', ')})`);
     const k = L.rl.kalman({ mu: 1, sigma: 0.8 }, 3, 0.25, 2), pv = 0.64 + 0.25, post = 1 / (1 / pv + 1 / 2);
     t.ok(Math.abs(k.sigma * k.sigma - post) < 1e-12 && Math.abs(k.mu - (1 + pv / (pv + 2) * 2)) < 1e-12, 'rl: kalman posterior 1/σ² = 1/(σ²+q) + 1/r, mean moves by the gain K = (σ²+q)/(σ²+q+r)'); }
-  {
+  if (has('bayes', 'efficient')) {
     const xs = [-2, -1, 0, 1, 2], post = [0.1, 0.2, 0.4, 0.2, 0.1];
     t.ok(Math.abs(L.efficient.condMean(post, xs, 0, 1) - (0.4 * 0 + 0.2 * 1 + 0.1 * 2) / 0.7) < 1e-12 && Math.abs(L.efficient.condMean(post, xs, 0, -1) - (-0.1 * 2 - 0.2) / 0.3) < 1e-12, 'efficient: condMean = posterior mean truncated to the decided side');
     const gx = L.bayes.linspace(-4, 4, 81), pri = Array.from(gx, x => Math.exp(-x * x / 2)), F = L.efficient.cdf(gx, pri), br = SIM.makeRNG('ec-bias'), b = L.efficient.biasCurve(gx, 0.08, F, pri, 'BLS', 600, () => SIM.gaussian(br));
     t.ok(b[50] > 0.01 && b[30] < -0.01, `efficient: BLS bias is repulsive, away from the prior peak (θ=+1: ${b[50].toFixed(3)}, θ=−1: ${b[30].toFixed(3)})`); }
-  {
+  if (has('causal')) {
     const rw = L.causal.reliabilityWeights([1, 2]); t.ok(Math.abs(rw[0] - 0.8) < 1e-12 && Math.abs(rw[1] - 0.2) < 1e-12, 'causal: reliabilityWeights ∝ 1/σ², sum to 1');
     t.ok(Math.abs(L.causal.ciSegEstimate(6, 2, 4, 1) - (6 / 4 + 1 / 16) / (1 / 4 + 1 / 16)) < 1e-12, 'causal: segregated estimate = precision-weighted cue and prior mean');
     const h = { members: new Set([2, 4, 6, 8]), size: 4 }; t.ok(Math.abs(L.causal.sizePrincipleLikelihood(h, [2, 8]) - 1 / 16) < 1e-15 && L.causal.sizePrincipleLikelihood(h, [2, 3]) === 0, 'causal: size principle (1/|h|)^n, 0 if an example is outside h');
     const H = L.causal.numberGameHypotheses(100), iE = H.findIndex(x => x.name === 'even'), gc = L.causal.generalizationCurve(H, H.map((_, i) => i === iE ? 1 : 0), 100);
     t.ok(gc[64] === 1 && gc[63] === 0 && gc.reduce((a, v) => a + v, 0) === 50, 'causal: generalization of a posterior on "even" = indicator of the even numbers'); }
-  {
+  if (has('wm')) {
     const In = (nn, x) => { const M = 2000; let s = 0; for (let k = 0; k < M; k++) { const tt = Math.PI * (k + 0.5) / M; s += Math.exp(x * Math.cos(tt)) * Math.cos(nn * tt); } return s / M; };
     let e1 = 0, ef = 0; for (const k of [0.5, 1, 5, 14.9, 15, 20, 40]) { e1 = Math.max(e1, t.rel(L.wm.besselI1(k), In(1, k))); ef = Math.max(ef, t.rel(L.wm.fisherInfo(k), k * In(1, k) / In(0, k))); }
     t.ok(e1 < 1e-5 && Math.abs(L.wm.besselI1(-1) + L.wm.besselI1(1)) < 1e-15, `wm: besselI1 matches the integral, odd in κ (max rel err ${e1.toExponential(1)})`);
     t.ok(ef < 1e-5, `wm: fisherInfo = κ·I1(κ)/I0(κ) (max rel err ${ef.toExponential(1)})`);
     t.ok(Math.abs(L.wm.precisionFromSetsize(4, { P1: 2, k: 0.5 }) - 1) < 1e-12, 'wm: precisionFromSetsize = P1·N^(−k)'); }
-  { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
-  { const gp = L.bayes.gaussPosterior(1, 1, 0, 1); t.ok(Math.abs(gp.mu - 0.5) < 1e-12 && Math.abs(gp.sigma - Math.SQRT1_2) < 1e-12, 'bayes: gaussPosterior(m=1, σm=1, μ0=0, σ0=1) = N(0.5, 1/2)');
+  if (has('vision')) { t.ok(Math.abs(L.vision.rfSizeVsEcc(10, 0.5, 0.2) - 1.5) < 1e-12, 'vision: rfSizeVsEcc = base·(1 + slope·ecc)'); }
+  if (has('bayes')) { const gp = L.bayes.gaussPosterior(1, 1, 0, 1); t.ok(Math.abs(gp.mu - 0.5) < 1e-12 && Math.abs(gp.sigma - Math.SQRT1_2) < 1e-12, 'bayes: gaussPosterior(m=1, σm=1, μ0=0, σ0=1) = N(0.5, 1/2)');
     const xs = L.bayes.linspace(-4, 4, 161), npd = (x, m, sd) => Math.exp(-0.5 * ((x - m) / sd) ** 2), post = L.bayes.gridPost(Array.from(xs, x => npd(x, 1, 1)), Array.from(xs, x => npd(x, 0, 1)));
     t.ok(Math.abs(post.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(L.bayes.gridMean(post, xs) - 0.5) < 1e-5 && Math.abs(L.bayes.gridMode(post, xs) - 0.5) < 1e-9, 'bayes: gridPost normalises like·prior; gridMean and gridMode of that Gaussian posterior = 0.5'); }
-  { const p = L.rl.softmax([1, 2, 3], 2), u = L.rl.softmax([1, 2, 3], 0);
+  if (has('rl')) { const p = L.rl.softmax([1, 2, 3], 2), u = L.rl.softmax([1, 2, 3], 0);
     t.ok(Math.abs(p.reduce((a, b) => a + b, 0) - 1) < 1e-12 && Math.abs(p[1] / p[0] - Math.exp(2)) < 1e-9 && u.every(v => Math.abs(v - 1 / 3) < 1e-12) && L.rl.softmax([1000, 0], 1)[0] === 1, 'rl: softmax sums to 1, odds = e^{β·Δv}, β=0 is uniform, no overflow at large values'); }
-  { const xs = L.bayes.linspace(-4, 4, 241), F = L.efficient.cdf(xs, Array.from(xs, x => Math.exp(-0.5 * x * x)));
+  if (has('bayes', 'efficient')) { const xs = L.bayes.linspace(-4, 4, 241), F = L.efficient.cdf(xs, Array.from(xs, x => Math.exp(-0.5 * x * x)));
     t.ok(Math.abs(L.efficient.interp(0.25, [0, 1], [0, 10]) - 2.5) < 1e-12 && Math.abs(L.efficient.inv(L.efficient.encode(1.2, xs, F), xs, F) - 1.2) < 1e-3, 'efficient: interp is linear; inv undoes encode (F⁻¹(F(θ)) = θ)');
     t.ok(Math.abs(L.efficient.measure(1, 0.1, xs, F, () => 1) - (L.efficient.encode(1, xs, F) + 0.1)) < 1e-12, 'efficient: measure = F(θ) + σ·noise'); }
-  { const [xv, xa, sv, sa, sp, pc] = [2, -1, 1, 2, 10, 0.4], e = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc), pC = L.causal.ciPosteriorCommon(xv, xa, sv, sa, sp, pc), sF = L.causal.ciFusedEstimate(xv, xa, sv, sa, sp);
+  if (has('causal')) { const [xv, xa, sv, sa, sp, pc] = [2, -1, 1, 2, 10, 0.4], e = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc), pC = L.causal.ciPosteriorCommon(xv, xa, sv, sa, sp, pc), sF = L.causal.ciFusedEstimate(xv, xa, sv, sa, sp);
     const sV = (xv / sv ** 2) / (1 / sv ** 2 + 1 / sp ** 2), sel = L.causal.ciEstimate(xv, xa, sv, sa, sp, pc, { strategy: 'select' });
     t.ok(Math.abs(e.pCommon - pC) < 1e-12 && Math.abs(e.sSegV - sV) < 1e-12 && Math.abs(e.sHatV - (pC * sF + (1 - pC) * sV)) < 1e-12 && sel.sHatV === (pC > 0.5 ? sF : e.sSegV), 'causal: ciEstimate averages fused and segregated estimates by p(C=1) (select picks one)'); }
-  { const w = L.wm.wrap; t.ok(Math.abs(w(3 * Math.PI / 2) + Math.PI / 2) < 1e-12 && Math.abs(w(-3 * Math.PI / 2) - Math.PI / 2) < 1e-12 && Math.abs(w(0.3) - 0.3) < 1e-15, 'wm: wrap maps angles into (−π, π]');
+  if (has('wm')) { const w = L.wm.wrap; t.ok(Math.abs(w(3 * Math.PI / 2) + Math.PI / 2) < 1e-12 && Math.abs(w(-3 * Math.PI / 2) - Math.PI / 2) < 1e-12 && Math.abs(w(0.3) - 0.3) < 1e-15, 'wm: wrap maps angles into [−π, π)');
     let z = 0; const n = 4000; for (let i = 0; i < n; i++) z += L.wm.vmPdf(-Math.PI + 2 * Math.PI * (i + 0.5) / n, 0.7, 6) * 2 * Math.PI / n; t.ok(Math.abs(z - 1) < 1e-6 && L.wm.vmPdf(0.7, 0.7, 6) > L.wm.vmPdf(2, 0.7, 6), `wm: vmPdf integrates to 1 and peaks at μ (${z.toFixed(8)})`); }
-  { const pat = [1, -1, 1, 1, -1, -1, 1, -1], W = L.network.hopfieldStore([pat], 8), s = Int8Array.from(pat); s[0] = -s[0]; s[3] = -s[3];
+  if (has('network')) { const pat = [1, -1, 1, 1, -1, -1, 1, -1], W = L.network.hopfieldStore([pat], 8), s = Int8Array.from(pat); s[0] = -s[0]; s[3] = -s[3];
     const E0 = L.network.hopfieldEnergy(W, s, 8); L.network.hopfieldStep(W, s, 8); const E1 = L.network.hopfieldEnergy(W, s, 8);
     t.ok(E1 <= E0 && Math.abs(E1 - L.network.hopfieldEnergy(W, Int8Array.from(pat), 8)) < 1e-12, `network: hopfieldEnergy falls under an async sweep to the stored pattern's energy (${E0.toFixed(3)} → ${E1.toFixed(3)})`);
     const N = 12, r = L.network.ringStep(new Float64Array(N).fill(0.2), new Float64Array(N * N), null, 0.5, 1, 1, 0, 0, () => 0);
     t.ok(r.every(v => Math.abs(v - (0.2 + 0.5 * (0.5 - 0.2))) < 1e-12), 'network: ringStep is one Euler step of τ dr/dt = −r + f(·) (no input: f = 1/2)');
     const one = new Float64Array(8); one[3] = 2.5; const pv = L.network.popVector(one, 8), flat = L.network.popVector(new Float64Array(8).fill(1), 8);
     t.ok(Math.abs(pv.angle - 2 * Math.PI * 3 / 8) < 1e-12 && Math.abs(pv.length - 1) < 1e-12 && flat.length < 1e-12, 'network: popVector decodes a one-unit bump at its angle (length 1 whatever its rate), a flat profile has length 0'); }
-  { const p = { wEE: 12, wEI: 10, wIE: 10, wII: 2, P: 1, Q: 0, theta: 4, k: 1, tauE: 1, tauI: 2 }, S = x => 1 / (1 + Math.exp(-(x - p.theta) / p.k)), s0 = { E: 0.3, I: 0.2 }, dt = 0.01, o = L.osc.wilsonCowanStep(s0, p, dt);
+  if (has('osc')) { const p = { wEE: 12, wEI: 10, wIE: 10, wII: 2, P: 1, Q: 0, theta: 4, k: 1, tauE: 1, tauI: 2 }, S = x => 1 / (1 + Math.exp(-(x - p.theta) / p.k)), s0 = { E: 0.3, I: 0.2 }, dt = 0.01, o = L.osc.wilsonCowanStep(s0, p, dt);
     t.ok(Math.abs(o.E - (0.3 + dt * (-0.3 + S(12 * 0.3 - 10 * 0.2 + 1)) / 1)) < 1e-12 && Math.abs(o.I - (0.2 + dt * (-0.2 + S(10 * 0.3 - 2 * 0.2 + 0)) / 2)) < 1e-12, 'osc: wilsonCowanStep is one Euler step of the Wilson–Cowan equations'); }
 };
 
@@ -424,16 +424,16 @@ console.log(`\n--- analytic checks (tied to each model's science) — from ${CHE
 const asserted = new Set();
 for (const id of usable) { if (!MODEL_CHECKS[id]) continue; console.log(`  ${id}`); const n0 = nAsserts; checkScript = CHECK_SRC[id]; guarded(id, MODEL_CHECKS[id]); checkScript = null; if (nAsserts > n0) asserted.add(id); }
 { const missing = ORDER.filter(id => !asserted.has(id));
-  if (missing.length) warn(`no analytic check for ${missing.length} model${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — write one in engine.checks.mjs (see gui-qc.md §1)`); }
+  if (missing.length) warn(`no analytic check for ${missing.length} model${missing.length > 1 ? 's' : ''}: ${missing.join(', ')} — write one in engine.checks.mjs (README.md, "Write its check")`); }
 
 if (MSLIB) { console.log('\n=== mslib.js building blocks ===\n'); guarded('mslib', LIBRARY_CHECKS); }
 else console.log('\n(modules/mslib.js is not loaded by index.html — library checks skipped)');
 
 if (ARGV.includes('--snapshot') || ARGV.includes('--against')) {
-  const snap = { format: 1, seed: 'seed-1', models: {} };
+  const snap = { format: 1, seed: SNAPSHOT_SEED, models: {} };
   for (const id of usable) { const m = SIM.MODELS[id], base = def(id), cases = { default: base };
     for (const s of (m.params || [])) for (const v of extremesOf(s)) cases[s.name + '=' + v] = { ...base, [s.name]: v };
-    const sims = {}; for (const [name, p] of Object.entries(cases)) { try { sims[name] = digest(m.simulate({ ...p }, { rng: SIM.makeRNG('seed-1'), seed: 'seed-1', params: { ...p }, batch: false })); } catch (e) { sims[name] = 'threw'; } }
+    const sims = {}; for (const [name, p] of Object.entries(cases)) { try { sims[name] = digest(m.simulate({ ...p }, { rng: SIM.makeRNG(SNAPSHOT_SEED), seed: SNAPSHOT_SEED, params: { ...p }, batch: false })); } catch (e) { sims[name] = 'threw'; } }
     snap.models[id] = { params: (m.params || []).map(s => [s.name, s.type || 'num', s.min, s.max, s.step, s.default].join(',')), simulate: sims }; }
   console.log('\n--- snapshot ---');
   if (ARGV.includes('--against')) {
