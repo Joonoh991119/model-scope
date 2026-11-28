@@ -3,6 +3,15 @@
 The plugin version lives in `.claude-plugin/plugin.json` only. Releases before 1.22.0 are described
 in the git history.
 
+## 2.0.1
+
+- README: the third paper-vs-GUI GIF is now a parameter sweep. Bays, Catalao & Husain (2009) Fig. 2a
+  beside the working-memory model as set size goes 1 → 2 → 4 → 6 with κ following the power law; the
+  recall-error distribution widens and swap bumps appear. It replaces the Körding et al. (2007)
+  structure diagram, which did not show what the GUI computes.
+- `tests/shots.mjs`: a pair is either a playhead scrub or a list of `variants` (URL settings, each
+  labelled in the GIF), and can capture chosen view cards (`cards`).
+
 ## 2.0.0
 
 Major release: the plugin is renamed. Shipped models and their `simulate()` are unchanged (the

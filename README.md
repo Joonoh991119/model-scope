@@ -9,10 +9,11 @@ model back as a live app: every parameter is a slider, and the model re-runs as 
 
 ![Wong & Wang (2006) Fig. 4B beside the ccn-sim attractor network at zero coherence: one trial per seed rolling into one of the two attractors](docs/pair-attractor.gif)
 
-![Körding et al. (2007) Fig. 1 beside the ccn-sim causal-inference model stepping from cues to p(C=1) to the combined estimate](docs/pair-causal.gif)
+![Bays, Catalao & Husain (2009) Fig. 2a beside the ccn-sim working-memory model: as set size N grows from 1 to 6 and precision κ falls, the recall-error distribution widens and swap bumps appear](docs/pair-wm.gif)
 
 <sub>Left panels are reproduced from the cited papers for comparison: Ratcliff & McKoon (2008) © MIT Press (NIH author
-manuscript, PMC2474742); Wong & Wang (2006) © Society for Neuroscience, CC BY-NC-SA 4.0; Körding et al. (2007) CC BY.
+manuscript, PMC2474742); Wong & Wang (2006) © Society for Neuroscience, CC BY-NC-SA 4.0; Bays, Catalao & Husain (2009) © ARVO (Europe PMC author
+manuscript, PMC3118422).
 Right panels are screen captures of this repository's template.</sub>
 
 A [Claude Code](https://docs.claude.com/en/docs/claude-code) plugin. It reads your paper, asks a few questions,
