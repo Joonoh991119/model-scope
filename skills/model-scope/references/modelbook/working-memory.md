@@ -4,7 +4,7 @@
 precision vs capacity, **swap/misbinding** errors, and decomposing a report-error
 distribution into target + non-target + guess components. A natural **process-mode**
 (`stages`) model: *allocate → encode → maintain → probe → recall → accumulate → decompose*.
-The template's `wm` model is a worked instance. Angles in **radians on (−π,π]**.
+The template's `wm` model is a worked instance. Angles in **radians on [−π,π)**.
 
 ## Mixture models of recall error `e = θ̂ − θ_target`
 - **2-component (Zhang & Luck 2008):** `P(e) = (1−g)·VM(e;0,κ) + g·(1/2π)` — a von Mises

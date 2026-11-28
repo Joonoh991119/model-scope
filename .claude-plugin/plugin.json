@@ -1,6 +1,6 @@
 {
   "name": "model-scope",
-  "version": "1.22.0",
+  "version": "1.23.0",
   "description": "Turn a paper or any parameterised model into a no-build interactive simulator: sliders re-run the model live, in views the model defines, checked by a Node gate. Ships 21 worked examples, a modelbook of 14 families, a reusable model library and a GUI QC pipeline.",
   "author": { "name": "Joonoh Park", "url": "https://github.com/Joonoh991119" },
   "license": "MIT",

@@ -1,62 +1,31 @@
-/* =============================================================================
- * bundle.mjs — write the app as ONE self-contained page.        Run:  node bundle.mjs
- *
- * Optional. Nobody needs it to run or edit the app: index.html already works when
- * opened from file://. Use it when a host wants a single file with nothing beside it,
- * for example to publish the explorer as a Claude Artifact and share it by link.
- *
- *   node bundle.mjs                                  writes bundle.html next to index.html
- *   node bundle.mjs --out explorer.html              another file name
- *   node bundle.mjs --title "Drift Diffusion Lab"    the page's name (two to four words)
- *   node bundle.mjs --standalone                     a complete document instead of a fragment
- *
- * What it does: takes index.html, inlines its <style> and every script it loads (in
- * page order), and emits a FRAGMENT: one <title>, the style, the markup, the scripts.
- * No doctype, <html>, <head> or <body> (a host that wraps pages supplies those), and
- * no file reference left, so the page loads zero external resources.
- * With --standalone the same content is wrapped in a doctype, <html>, <head> and
- * <body>: one file to open in a browser or send to a colleague.
- *
- * It bundles what index.html loads. To ship only your own models, delete the
- * examples.js script line first (see README.md); the bundle is then much smaller.
- * No dependencies: plain Node.
- * ========================================================================== */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { SCRIPT_TAG, srcOf, withoutHtmlComments, isRemote, stripJsComments } from './page.mjs';
 
 const words = s => String(s).trim().split(/\s+/).filter(Boolean);
-/** A page name is two to four words, with no explanation appended after a dash or a colon. */
 export const titleProblem = t => { const n = words(t).length;
   return (n < 2 || n > 4) ? `a title is a name of two to four words (got ${n}: "${t}")` : /[—–:]| - /.test(t) ? `a title is a name, not a name plus an explanation (drop what follows the dash or colon in "${t}")` : null; };
 const escText = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-// a script's text inside <script>…</script>: the only sequences that can end or derail the element.
-// Both replacements are escapes that mean the same character inside a string, a template or a regex.
 export const escScript = js => js.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\x21--');
 
-/** Build the single page for the template in `dir`: a fragment, or with `standalone` a complete document.
- *  Returns { html, title, scripts, bytes }. */
 export function bundle(dir, { title, standalone = false } = {}) {
   const page = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
   const style = [...page.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(m => m[1].trim()).join('\n');
   const bodyM = /<body\b[^>]*>([\s\S]*)<\/body>/i.exec(page);
   if (!bodyM) throw new Error('index.html has no <body>');
   const scripts = [];
-  // HTML comments are notes for the editor of index.html: drop those outside scripts (a script's own text is left alone)
-  let body = bodyM[1].replace(/(<script\b[^>]*>[\s\S]*?<\/script>)|<!--[\s\S]*?-->/gi, (all, script) => script || '');
-  body = body.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (all, attrs, inline) => {
-    const sm = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attrs), src = sm ? (sm[1] ?? sm[2] ?? sm[3]) : undefined;   // quoted or not
+  let body = withoutHtmlComments(bodyM[1]).replace(SCRIPT_TAG, (all, attrs, inline) => {
+    const src = srcOf(attrs);
     if (!src) return `<script>${escScript(inline)}</script>`;
-    if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src)) throw new Error(`index.html loads ${src} from another host; a bundle must be self-contained`);
+    if (isRemote(src)) throw new Error(`index.html loads ${src} from another host; a bundle must be self-contained`);
     const file = path.join(dir, src);
     if (!fs.existsSync(file)) throw new Error(`index.html loads ${src} but that file is missing`);
     scripts.push(src);
-    return `<script>/* ${src} */\n${escScript(fs.readFileSync(file, 'utf8'))}\n</script>`;
+    return `<script>\n${escScript(fs.readFileSync(file, 'utf8'))}\n</script>`;
   });
   body = body.replace(/[ \t]+$/gm, '').replace(/\n{3,}/g, '\n\n').trim();
-  // the name: --title, else SIM.APP.title if the app sets one that fits, else a neutral default
-  const noComments = js => js.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[\s;{}(),])\/\/[^\n]*/g, '$1');   // a commented-out example must not name the page
-  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(noComments(fs.readFileSync(path.join(dir, s), 'utf8'))); if (m) return m[2]; } return null; })();
+  const appTitle = (() => { for (const s of scripts) { const m = /\bSIM\.APP\s*=\s*\{[^}]*\btitle\s*:\s*(['"`])((?:(?!\1).)+)\1/.exec(stripJsComments(fs.readFileSync(path.join(dir, s), 'utf8'))); if (m) return m[2]; } return null; })();
   const name = title || (appTitle && !titleProblem(appTitle) ? appTitle : 'Model Scope Explorer');
   const bad = titleProblem(name); if (bad) throw new Error(bad);
   const head = `<title>${escText(name)}</title>\n<style>\n${style}\n</style>`;
@@ -66,17 +35,14 @@ export function bundle(dir, { title, standalone = false } = {}) {
   return { html, title: name, scripts, bytes: Buffer.byteLength(html) };
 }
 
-/** What a bundle must satisfy. Returns a list of problems (empty = fine). Used by validate.mjs and the tests.
- *  A fragment must carry no doctype, <html>, <head> or <body>; a `standalone` document must carry them. */
 export function bundleProblems(html, { standalone = false } = {}) {
-  const out = [], markup = html.replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, '$1$2').replace(/(<style\b[^>]*>)[\s\S]*?(<\/style>)/gi, '$1$2');   // the tags, without the code inside them
+  const out = [], markup = html.replace(/(<script\b[^>]*>)[\s\S]*?(<\/script>)/gi, '$1$2').replace(/(<style\b[^>]*>)[\s\S]*?(<\/style>)/gi, '$1$2');
   for (const [re, what] of [[/<!doctype/i, 'a doctype'], [/<html[\s>]/i, 'an <html> tag'], [/<head[\s>]/i, 'a <head> tag'], [/<body[\s>]/i, 'a <body> tag']]) {
     if (!standalone && re.test(markup)) out.push(`contains ${what} (the host page supplies it)`);
     if (standalone && !re.test(markup)) out.push(`a standalone document needs ${what}`);
   }
   if (/<[a-z][^>]*\s(?:src|srcset|data|poster)\s*=/i.test(markup)) out.push('an element still references a file (src=)');
   if (/<link\b|<iframe\b|<object\b|<embed\b/i.test(markup)) out.push('contains a <link>, <iframe>, <object> or <embed>');
-  // a file beside the page is gone once it is one file: an SVG <image>/<use>/<feImage> href, or a CSS url()/image-set() that is not data: or #
   if (/<(?:image|use|feImage)\b[^>]*\shref\s*=\s*["']?\s*(?!#|data:)[^\s"'>]/i.test(markup)) out.push('an SVG element still references a file (href=)');
   const css = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '') + [...markup.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)].map(m => m[1]).join('\n');
   if (/url\(\s*["']?\s*(?!data:|#|["')])/i.test(css) || /image-set\(\s*["']\s*(?!data:)/i.test(css)) out.push('a CSS url() or image-set() still references a file');
@@ -89,7 +55,6 @@ export function bundleProblems(html, { standalone = false } = {}) {
   return out;
 }
 
-// ---- command line ----
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2), opt = f => { const i = argv.indexOf(f); return i >= 0 ? argv[i + 1] : undefined; };
   const dir = path.dirname(fileURLToPath(import.meta.url));

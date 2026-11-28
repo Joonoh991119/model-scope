@@ -154,8 +154,8 @@ refers to them. With no model registered at all, the page shows a short message 
 add one, and the gate fails with the same message.
 
 Analytic checks sit next to the script that registers the model: for every `X.js` the page loads,
-`validate.mjs` imports `X.checks.mjs` if it exists. `engine.checks.mjs` is yours (it ships as a
-commented example); `examples.checks.mjs` holds the checks for the examples. Each is a table keyed
+`validate.mjs` imports `X.checks.mjs` if it exists. `engine.checks.mjs` is yours (it ships
+empty; the template README shows a worked check); `examples.checks.mjs` holds the checks for the examples. Each is a table keyed
 by model id, and an entry runs only when that model is registered.
 
 ## The validation gate (`validate.mjs`)

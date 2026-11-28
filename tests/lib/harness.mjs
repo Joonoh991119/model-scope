@@ -1,26 +1,19 @@
-// Shared test harness (dev only — nothing in the shipped template depends on it).
-//
-// It loads a template the way index.html does: the same <script src> list, in the same order, with the REAL
-// plot.js running on a canvas stub that records every call and property write. From that it produces digests:
-//   schema   — every parameter spec of every registered model (name, type, range, step, default, int, unit, options)
-//   simulate — FNV-1a over toPrecision(10) of every number simulate() returns, at defaults and at each control's
-//              min and max (seed 'seed-1', batch:false). Ten significant digits, not bit-exact: transcendental
-//              functions differ in the last digits between JavaScript engines.
-//   draw     — per view and playhead (0 and end): a digest of the full canvas op stream issued through plot.js.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pageScripts } from '../../skills/model-scope/assets/template/page.mjs';
 
 export const DEFAULT_TEMPLATE = fileURLToPath(new URL('../../skills/model-scope/assets/template/', import.meta.url));
 export const SEED = 'seed-1';
 export const CANVAS = [560, 320];
+export const DEFAULT_CHANNEL = 'chrome';
+export const launch = (chromium, A) => chromium.launch({ channel: A.opt('--channel') || DEFAULT_CHANNEL, headless: true });
 
 export const fnv = (s, h) => { for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; };
 const FNV0 = 0x811c9dc5;
 const hex = h => h.toString(16).padStart(8, '0');
 const num = v => Number.isFinite(v) ? v.toPrecision(10) : String(v);
 
-// ---- canvas stub: a 2d context that records every call and every property write into REC ----
 let REC = null;
 const enc = a => typeof a === 'number' ? num(a) : typeof a === 'string' ? a
   : Array.isArray(a) ? '[' + a.map(enc).join(',') + ']'
@@ -40,13 +33,11 @@ function mkCtx() {
 }
 export const mkCanvas = (w = CANVAS[0], h = CANVAS[1]) => { const ctx = mkCtx(); return { __cv: true, width: 0, height: 0, getBoundingClientRect: () => ({ width: w, height: h }), getContext: () => ctx }; };
 
-/** The <script src> list of a template's index.html, in page order. */
 export function scriptList(dir) {
   const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
-  return [...html.matchAll(/<script\s+src="([^"]+)"/g)].map(m => m[1]);
+  return pageScripts(html).map(t => t.src).filter(Boolean);
 }
 
-/** Evaluate a template's scripts in page order (once per process: they install globals). */
 export function loadTemplate(dir = DEFAULT_TEMPLATE) {
   globalThis.window = globalThis; globalThis.devicePixelRatio = 1;
   globalThis.document = { createElement: () => mkCanvas(1, 1) };
@@ -65,12 +56,10 @@ function walk(v, st, depth) {
     else for (const k of Object.keys(v).sort()) { st.h = fnv(k, st.h); walk(v[k], st, depth + 1); }
   }
 }
-/** "count:hash" of every number (10 significant digits), string, boolean and key in a data object. */
 export const digest = d => { const st = { n: 0, h: FNV0, fn: 0 }; walk(d, st, 0); return st.n + ':' + hex(st.h); };
 
 export const defaults = m => { const p = {}; (m.params || []).forEach(s => { p[s.name] = s.default; }); return p; };
 export const schemaOf = m => (m.params || []).map(s => [s.name, s.type || 'num', s.min, s.max, s.step, s.default, s.int ? 1 : 0, s.unit || '', (s.options || []).join('|')].join(','));
-/** [name, params] for the default case and each control's two extremes. */
 export function cases(m) {
   const base = defaults(m), out = [['default', base]];
   for (const s of (m.params || [])) {
@@ -81,7 +70,6 @@ export function cases(m) {
 }
 export const envFor = (SIM, p, seed = SEED) => ({ rng: SIM.makeRNG(seed), seed, params: { ...p }, batch: false });
 
-/** The lens bundles of a model with their resolved stage list and playhead length. */
 export function lensSpecs(m, p, data) {
   return (m.lenses ? Object.entries(m.lenses) : [['', m]]).map(([key, spec]) => {
     let stages = null, len = 1;
@@ -95,14 +83,12 @@ export function uiFor(head, p, stages, len) {
   const stage = stages ? Math.min(len - 1, Math.floor(head)) : null;
   return { head, playing: false, params: p, frac: 0, stage, stageKey: stage != null ? stages[stage].key : null, stages, nStages: stages ? stages.length : 0 };
 }
-/** Draw one view through the real plot.js onto a recording canvas. Returns {digest, n, ops?}. */
 export function recordDraw(Plot, view, data, ui, { size = CANVAS, keepOps = false } = {}) {
   REC = { n: 0, h: FNV0, ops: keepOps ? [] : null };
   try { view.draw(Plot.make(mkCanvas(size[0], size[1])), data, ui); const r = { digest: REC.n + ':' + hex(REC.h), n: REC.n, ops: REC.ops }; return r; }
   finally { REC = null; }
 }
 
-/** Capture schema, simulate digests and draw digests for every registered model. */
 export function capture({ SIM, Plot }, { draw = true } = {}) {
   const out = { order: SIM.MODEL_ORDER.slice(), schema: {}, simulate: {}, draw: {} };
   for (const id of SIM.MODEL_ORDER) {
@@ -121,7 +107,6 @@ export function capture({ SIM, Plot }, { draw = true } = {}) {
   return out;
 }
 
-/** Compare a capture with a stored reference. Returns a list of human-readable differences. */
 export function compare(ref, out, { draw = true } = {}) {
   const diffs = [];
   if (ref.order.join() !== out.order.filter(id => ref.order.includes(id)).join()) diffs.push('the relative order of the baseline models changed');
@@ -139,7 +124,6 @@ export function compare(ref, out, { draw = true } = {}) {
 
 export const countCases = (o, k) => Object.values(o[k]).reduce((a, x) => a + Object.keys(x).length, 0);
 
-/** Tiny argv helper: flag('--x') → true/false, opt('--x') → the following value or undefined. */
 export function args(argv = process.argv.slice(2)) {
   return { flag: f => argv.includes(f), opt: f => { const i = argv.indexOf(f); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : undefined; }, argv };
 }

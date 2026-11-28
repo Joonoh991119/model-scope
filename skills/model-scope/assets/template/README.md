@@ -63,7 +63,7 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   `Plot.histify`, `Plot.nearestY(points, x)`, `Plot.ramp(from, to)`, `Plot.RAMPS`, `Plot.TH`.
   Rarely edited.
 - `engine.js` — pure math: RNG + the `MODELS` registry. **Your models go here; this is what you edit.**
-- `engine.checks.mjs` — the analytic checks for your models (ships as a commented example).
+- `engine.checks.mjs` — the analytic checks for your models (empty; see "Write its check").
 - `examples.js` + `examples.checks.mjs` — the worked examples and their checks. Optional: delete both
   files and the `examples.js` script line in `index.html` to ship only your own models.
 - `index.html` — the toolbox: sliders from the schema, the simulate-on-change loop, the
@@ -74,6 +74,8 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
   **Unpin** removes it.
 - `modules/mslib.js` — optional reusable library (`MSLIB`: `sde, bayes, neuron, decision, rl, psy,
   efficient, causal, wm, network, osc, belief, vision, attn`) of canonical building blocks you compose inside `simulate()`.
+- `page.mjs` — reads the script tags of `index.html` the way the browser does; shared by the gate and
+  the bundler.
 - `validate.mjs` — the gate. `node validate.mjs` loads what `index.html` loads and checks every model:
   schema, a deterministic `simulate()`, every view drawn through the real `plot.js` at defaults and at
   every control's min and max, an analytic check tied to the science, and the `mslib` blocks.
@@ -84,36 +86,106 @@ and views read `ui.stage`/`ui.stageKey`. `g.flow(ui.stages, ui.stage)` draws the
 
 ## Add your model — one registry entry
 
-In `engine.js`, add an entry to `MODELS` and its id to `MODEL_ORDER` (a commented skeleton is already
-there). Your models come first in the tab order; the examples follow. Give yours an id no example
-uses: one that matches an example's (`lif`, `ddm`, ...) hides that example and its check, and the
-gate warns.
+In `engine.js`, add an entry to `MODELS` and its id to `MODEL_ORDER`. Your models come first in the
+tab order; the examples follow. Give yours an id no example uses: one that matches an example's
+(`lif`, `ddm`, ...) hides that example and its check, and the gate warns.
+
+A minimal entry, ready to paste into `MODELS`:
 
 ```js
-mymodel: {
-  id:'mymodel', name:'My model', blurb:'…', note:'…',
-  params:[ {name:'g', label:'Gain', min:0, max:5, step:0.01, default:1}, … ],
-  // run the model; return whatever your views need (curves, samples, fields, sequences…)
-  simulate:(p, env) => { /* env = {rng, seed, params} */ return { /* data */ }; },
-  views:[
-    { title:'…', draw:(g, data, ui) => {
-        g.frame({ x:[0,10], y:[0,1], xlabel:'input', ylabel:'response', title:'tuning' });
-        g.line(data.curve, { color:Plot.TH.accent, width:2 });
-        // ui.params, and ui.head if you add `anim`
-    }},
-  ],
-  // add only if the model is sequential (animate a continuous playhead 0..N):
-  // anim:{ length:(p)=>p.nTrials },
-  // …or, for a "see each process step" model, declare stages instead of anim:
-  // stages:()=>[ {key:'a',name:'Stage A',about:'…'}, {key:'b',name:'Stage B',about:'…'} ],
-},
+    mymodel: {
+      id:'mymodel', name:'My model',
+      blurb:'one line: what this model is',
+      note:'the key effect to look for when a slider moves',
+      params:[ {name:'gain', label:'Gain', min:0, max:5, step:0.01, default:1} ],
+      simulate:(p, env)=>{
+        const curve=[]; for(let i=0;i<=100;i++){ const x=i/10; curve.push([x, 1-Math.exp(-p.gain*x)]); }
+        return { curve };
+      },
+      views:[ { title:'response', draw:(g, d, ui)=>{
+        g.frame({ x:[0,10], y:[0,1], xlabel:'input', ylabel:'response', title:'saturating response' });
+        g.line(d.curve, { color:g.TH.accent, width:2 });
+      } } ],
+    },
 ```
 
-`makeRNG`, `gaussian`, `trialRng`, `npdf` are in scope in `engine.js`; `Plot.*` (helpers,
-theme, `histify`) are global in views. Reload `index.html` — your model appears as a tab
-with sliders auto-generated from `params`, and your views render and update as you tune.
-Then write its check in `engine.checks.mjs` (a property the science guarantees) and run
-`node validate.mjs`.
+- `simulate(p, env)` runs the whole simulation and returns any data the views need;
+  `env = { rng, seed, params }`, with `rng` seeded from the seed field, so runs are reproducible.
+- Each view owns its axes: `draw(g, data, ui)` calls `g.frame` and the primitives.
+  `ui = { head, playing, params, frac, stage, stageKey, stages, nStages }`.
+- A sequential model adds ONE of `anim:{ length:(p, data)=>N }` (a continuous playhead, `ui.head`
+  in `[0, N]`) or `stages:(p, data)=>[ {key, name, about}, … ]` (a step-by-step stepper,
+  `ui.stage` / `ui.stageKey`).
+- `makeRNG`, `gaussian`, `trialRng`, `npdf`, `runChunks` are on `SIM`; `Plot.*` (helpers, theme,
+  `histify`) is global in views. A script loaded after `engine.js` can add models with
+  `SIM.register(models, order)`; the first model registered under an id keeps it.
+
+Reload `index.html`: the model appears as a tab with sliders generated from `params`.
+
+## Write its check
+
+`engine.checks.mjs` exports a table keyed by model id; each entry runs when that model is
+registered. A model without a check is a counted warning, not a failure: a vacuous check written to
+silence the gate is worse than none. Tie the check to the science: a closed form, a conservation
+law, a limit, or an independent re-computation. The check for the entry above:
+
+```js
+  mymodel(t) {
+    const p = t.def('mymodel'), d = t.sim('mymodel', {}, 'check');
+    const worst = Math.max(...d.curve.map(([x, y]) => Math.abs(y - (1 - Math.exp(-p.gain * x)))));
+    t.ok(worst < 1e-12, 'the curve equals 1 − exp(−gain·x)');
+    const flat = t.sim('mymodel', { gain: 0 }, 'check');
+    t.ok(flat.curve.every(q => q[1] === 0), 'gain 0 gives no response');
+  },
+```
+
+| Toolkit `t` | |
+|---|---|
+| `t.sim(id, overrides, seed)` | run `simulate()` at defaults + overrides, synchronously |
+| `t.def(id)` | the default parameters |
+| `t.ok(condition, text)` | record one PASS / FAIL line |
+| `t.rel(a, b)` | relative difference `|a−b| / |b|` |
+| `t.env(seed)` | a fresh `{ rng, seed, params, batch:false }` |
+| `t.has(id)` | whether a model with that id is registered |
+| `t.info(text)` | an informational line |
+| `t.SIM`, `t.Plot`, `t.L` | the engine, the plot helper, `MSLIB` |
+
+Then run `node validate.mjs`. `examples.checks.mjs` holds the checks for the worked examples.
+
+## Heavy screens — `runChunks`
+
+When a screen needs many trials, run them in animation frames so the page never freezes:
+
+```js
+simulate:(p, env)=>{
+  const d = { perCond:[…], loading:true };
+  const doItem = k => { /* one item */ if(k===total-1) d.loading=false; };
+  if(env.batch===false){ for(let k=0;k<total;k++) doItem(k); }
+  else SIM.runChunks(total, doItem, 'sweeping conditions');
+  return d;
+}
+```
+
+`simulate()` returns at once; the loading overlay shows progress, a newer slider move cancels the
+run, and after the last chunk the lens is bound again and drawn. A throw in a later chunk is shown
+where the plots would be. In Node, and with `env.batch===false`, the items run synchronously.
+
+## `MSLIB` conventions
+
+All times are in seconds. Every function is free-standing (no `this`), so destructuring works.
+Randomness comes in as an argument `g`: `sde`, `bayes`, `efficient`, `neuron` and `decision` expect a
+**Gaussian** `g = ()=>SIM.gaussian(rng)`; the `wm` samplers (`vmSample`, `mixtureRecall`) and
+`causal`'s probability matching expect a **uniform** `g = ()=>rng()`. Passing the wrong one gives
+wrong-shaped draws, not an error. The step functions (`lifStep`, `izhStep`, `wwStep`, `qUpdate`,
+`hopfieldStep`) update the state object they are given.
+
+## Links
+
+| Link | Opens |
+|---|---|
+| `#<model>` or `#<model>-<lens>` | that model and lens; rewritten as you navigate |
+| `?model=&lens=&head=&still=1&text=` | the opening model, lens, playhead, frozen last frame, text size |
+| `?seed=&p.<name>=<value>` | the RNG seed and any parameter of that model |
 
 ## Share it as one page
 

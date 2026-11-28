@@ -1,16 +1,3 @@
-// Docs consistency check (dev only). The docs must say what the code is.
-//
-//   node tests/docs-check.mjs
-//
-// 1. Every "N models / N examples" and "N families" in the docs equals the registry and the
-//    modelbook INDEX; the README gallery table and the template README list name every example.
-// 2. Every MSLIB.<block> and MSLIB.<block>.<fn> named in the docs exists in modules/mslib.js.
-// 3. Every path named in the skill, command and agent files exists.
-// 4. Vendored files (another repository copies them and rewrites the prefix) contain the literal
-//    `model-scope:` only in the two command names, and no plugin-root-relative
-//    `skills/model-scope/` path without ${CLAUDE_PLUGIN_ROOT}.
-// 5. Skill descriptions are under 1,024 characters; plugin.json's description under 300; the plugin
-//    version is set in plugin.json only.
 import fs from 'node:fs'; import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadTemplate, DEFAULT_TEMPLATE } from './lib/harness.mjs';
@@ -24,7 +11,6 @@ const walk = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).fl
   e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 
-// ---- what the code says
 const { SIM, MSLIB } = loadTemplate(DEFAULT_TEMPLATE);
 const nModels = SIM.MODEL_ORDER.length;
 const index = read('skills/model-scope/references/modelbook/INDEX.md');
@@ -34,13 +20,11 @@ for (const f of familyRows) ok(fs.existsSync(path.join(ROOT, 'skills/model-scope
 const modelbookFiles = fs.readdirSync(path.join(ROOT, 'skills/model-scope/references/modelbook')).filter(f => f.endsWith('.md') && f !== 'INDEX.md');
 ok(modelbookFiles.length === nFamilies, `modelbook has ${modelbookFiles.length} family files, INDEX.md lists ${nFamilies}`);
 
-// ---- the docs (CHANGELOG.md is history: it may quote old counts)
 const VENDORED = [...walk('skills/model-scope').filter(f => /\.(md|json)$/.test(f)), ...walk('skills/paper-to-sim'),
   'commands/scaffold.md', 'commands/from-paper.md', 'agents/model-gui-builder.md'];
-const DOCS = [...new Set(['README.md', 'MIGRATION.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
+const DOCS = [...new Set(['README.md', 'docs/GUIDE.md', 'MIGRATION.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
   'tests/README.md', ...VENDORED])];
 
-// 1. counts
 const WORDS = { eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16,
   seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, 'twenty-one': 21, 'twenty-two': 22, 'twenty-three': 23,
   'twenty-four': 24, 'twenty-five': 25 };
@@ -53,18 +37,28 @@ for (const f of DOCS) {
   for (const m of s.matchAll(new RegExp(`\\b${NUM}(?:\\*\\*)?\\s+(?:(?:canonical|model)\\s+)*families\\b`, 'gi')))
     ok(val(m[1]) === nFamilies, `${f}:${lineOf(s, m.index)} says "${m[0]}", INDEX.md lists ${nFamilies}`);
 }
-const readme = read('README.md');
-const gallery = readme.slice(readme.indexOf('| Model | Domain'), readme.indexOf('Copy one, swap in'));
-const galleryRows = gallery.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(galleryRows === nModels, `README.md example table has ${galleryRows} rows, the registry holds ${nModels}`);
-const familyTable = readme.slice(readme.indexOf('| Family | Use it for'), readme.indexOf('These are **recipes'));
-const familyTableRows = familyTable.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(familyTableRows === nFamilies, `README.md family table has ${familyTableRows} rows, INDEX.md lists ${nFamilies}`);
+const section = (doc, name, from, to) => { const s = read(doc), i = s.indexOf(from), j = i < 0 ? -1 : s.indexOf(to, i);
+  ok(i >= 0 && j > i, `${doc}: cannot find the ${name} (between "${from}" and "${to}")`); return i >= 0 && j > i ? s.slice(i, j) : ''; };
+const boldRows = t => t.split('\n').filter(l => /^\| \*\*/.test(l)).map(l => l.split('|')[1].trim());
+{ const rows = boldRows(section('docs/GUIDE.md', 'example table', '| Model | Domain', 'Copy one, swap in'));
+  ok(rows.length === nModels, `docs/GUIDE.md example table has ${rows.length} rows, the registry holds ${nModels}`);
+  ok(new Set(rows).size === rows.length, 'docs/GUIDE.md example table names a model twice'); }
+{ const rows = boldRows(section('docs/GUIDE.md', 'family table', '| Family | Use it for', 'These are **recipes'));
+  ok(rows.length === nFamilies, `docs/GUIDE.md family table has ${rows.length} rows, INDEX.md lists ${nFamilies}`); }
+{ const items = section('README.md', 'example keyword table', '| Domain | Models |', '\n\n').split('\n').slice(2).flatMap(l => l.split('|')[2].split('·').map(x => x.trim()).filter(Boolean));
+  ok(items.length === nModels, `README.md example keyword table names ${items.length} models, the registry holds ${nModels}`); }
+for (const doc of ['README.md', 'docs/GUIDE.md', 'MIGRATION.md', 'tests/README.md', 'skills/model-scope/assets/template/README.md', 'skills/model-scope/references/modelbook/INDEX.md']) {
+  const s = read(doc), base = path.dirname(path.join(ROOT, doc));
+  for (const m of s.matchAll(/!?\[[^\]]*\]\(([^)\s]+)\)|<img\s+src="([^"]+)"/g)) {
+    const target = (m[1] || m[2]).split('#')[0];
+    if (!target || /^[a-z]+:/i.test(target)) continue;
+    ok(fs.existsSync(path.join(base, target)), `${doc}:${lineOf(s, m.index)} links to ${target}, which does not exist`);
+  }
+}
 const tReadme = read('skills/model-scope/assets/template/README.md');
 const tList = tReadme.slice(0, tReadme.indexOf('## Files')).split('\n').filter(l => /^- \*\*/.test(l)).length;
 ok(tList === nModels, `template README.md lists ${tList} examples, the registry holds ${nModels}`);
 
-// 2. MSLIB names
 for (const f of DOCS) {
   const s = read(f);
   for (const m of s.matchAll(/\bMSLIB\.(\w+)(?:\.(\w+))?/g)) {
@@ -75,16 +69,15 @@ for (const f of DOCS) {
   }
 }
 
-// 3. paths named in the skill, command and agent files
 const SKILL_FILES = ['skills/model-scope/SKILL.md', 'skills/paper-to-sim/SKILL.md', 'commands/scaffold.md', 'commands/from-paper.md', 'agents/model-gui-builder.md'];
 const MS = 'skills/model-scope';
 for (const f of SKILL_FILES) {
   const s = read(f);
   for (const m of s.matchAll(/`([^`\s]*(?:references|assets|modelbook|\$\{CLAUDE_(?:PLUGIN_ROOT|SKILL_DIR)\})[^`\s]*)`/g)) {
     let p = m[1].replace(/\/\.$/, '');
-    if (/[<>*]/.test(p)) continue;                                    // a pattern, not a path
+    if (/[<>*]/.test(p)) continue;
     p = p.replace('${CLAUDE_PLUGIN_ROOT}/', '').replace('${CLAUDE_SKILL_DIR}/', MS + '/');
-    if (!p.startsWith('skills/')) {                                   // relative to the model-scope skill: only resolves from inside it
+    if (!p.startsWith('skills/')) {
       ok(f.startsWith(MS + '/'), `${f}:${lineOf(s, m.index)} names \`${m[1]}\` relative to the model-scope skill; from ${f} write \${CLAUDE_PLUGIN_ROOT}/${MS}/${p}`);
       p = path.join(MS, p); }
     ok(fs.existsSync(path.join(ROOT, p)), `${f}:${lineOf(s, m.index)} names \`${m[1]}\`, which does not exist (${p})`);
@@ -92,7 +85,6 @@ for (const f of SKILL_FILES) {
   }
 }
 
-// 4. vendored files
 for (const f of VENDORED) {
   const s = read(f);
   for (const m of s.matchAll(/model-scope:(?!scaffold\b|from-paper\b)/g))
@@ -101,12 +93,10 @@ for (const f of VENDORED) {
     ok(s.slice(Math.max(0, m.index - 22), m.index) === '${CLAUDE_PLUGIN_ROOT}/', `${f}:${lineOf(s, m.index)} has a plugin-root-relative skills/model-scope/ path without \${CLAUDE_PLUGIN_ROOT}`);
 }
 
-// 4b. the --bare steps in commands/scaffold.md edit the template README by quoting it: the quoted text must be there
 { const sc = read('commands/scaffold.md'), tr = read('skills/model-scope/assets/template/README.md');
   for (const q of ['Ships with twenty-one examples', '## Files', '`examples.js` + `examples.checks.mjs`'])
     ok(sc.includes(q) && tr.includes(q), `commands/scaffold.md quotes "${q}" from the template README, but one of the two no longer has it`); }
 
-// 5. lengths and the version field
 for (const f of ['skills/model-scope/SKILL.md', 'skills/paper-to-sim/SKILL.md']) {
   const fm = read(f).split(/^---$/m)[1] || '';
   const d = (fm.match(/^description:\s*>-?\n((?:[ \t]+.*\n?)+)/m) || fm.match(/^description:\s*(.*)$/m) || [, ''])[1];

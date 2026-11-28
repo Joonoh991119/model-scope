@@ -110,7 +110,7 @@ a separate job: ask the user first.
 ## The model contract: the one place you edit
 
 Adding or altering a model is one declarative entry in `MODELS` in `engine.js` (plus its id in
-`MODEL_ORDER`; a commented skeleton is already there). A model is pure (no DOM, no globals), so the
+`MODEL_ORDER`; the template README has a minimal entry to paste). A model is pure (no DOM, no globals), so the
 same code runs in the browser and in the gate:
 
 ```js

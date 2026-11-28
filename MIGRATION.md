@@ -28,7 +28,7 @@ model-scope/
   .claude-plugin/plugin.json        # the plugin manifest; its "version" is the only plugin version
   .claude-plugin/marketplace.json   # the marketplace (repo root = plugin root); no plugin version here
   README.md, CHANGELOG.md, MIGRATION.md
-  docs/                             # *.drawio = editable sources of the *.png; shots/ + ddm-trial.gif = README gallery
+  docs/                             GUIDE.md; hero.png (tests/hero.py), flow.drawio.png (editable in draw.io); shots/ + ddm-trial.gif = the GUIDE gallery
   commands/{scaffold,from-paper}.md # user-typed only (disable-model-invocation)
   agents/model-gui-builder.md       # model: inherit; returns open questions to the caller
   skills/paper-to-sim/SKILL.md      # reference -> interview -> build -> deliver
@@ -39,11 +39,12 @@ model-scope/
     assets/template/                # THE app a user copies
       index.html        toolbox (sliders, lenses, transport, links, Pin). No external resources.
       engine.js         window.SIM: RNG, runChunks, the MODELS registry. A researcher's models go here.
-      engine.checks.mjs analytic checks for those models (ships as a commented example)
+      engine.checks.mjs analytic checks for those models (ships empty)
       examples.js       the 21 worked examples, registered after engine.js's models (optional)
       examples.checks.mjs their analytic checks
       plot.js           window.Plot: frame + primitives, histify, nearestY, ramp, RAMPS, TH
       modules/mslib.js  window.MSLIB: reusable building blocks
+      page.mjs          reads index.html's script tags (the gate and the bundler)
       validate.mjs      the gate
       bundle.mjs        optional: the app as one self-contained page
   tests/                            # developer checks; never shipped inside a generated app
@@ -87,7 +88,7 @@ claude plugin validate .
 - `tests/baseline/v1.21.1.json` locks the numbers and drawing of the 21 examples. A difference in its
   schema or simulate sections is a behaviour change: allowed only as a verified correction, with the
   evidence in the commit and in CHANGELOG.md. The draw section is re-recorded only in a commit that
-  deliberately changes drawing, together with `node tests/shots.mjs --pw <dir>` for the README gallery.
+  deliberately changes drawing, together with `node tests/shots.mjs --pw <dir>` for the gallery and the README hero.
 - Nothing runs these for you: there is no plugin hook. Run them yourself.
 
 ## Working rules
