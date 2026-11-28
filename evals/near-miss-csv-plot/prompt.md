@@ -1,6 +1,6 @@
 ---
 description: A plain data-plotting request shares words with the skills but must not load either.
-expected_outcome: Neither model-scope nor paper-to-sim is invoked; Claude writes a short plotting script for the CSV.
+expected_outcome: Neither ccn-sim nor paper-to-sim is invoked; Claude writes a short plotting script for the CSV.
 tags: [near-miss]
 max_turns: 6
 allowed_tools: [Read, Glob, Grep, Skill, Write]

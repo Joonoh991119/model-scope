@@ -3,6 +3,33 @@
 The plugin version lives in `.claude-plugin/plugin.json` only. Releases before 1.22.0 are described
 in the git history.
 
+## 2.0.0
+
+Major release: the plugin is renamed. Shipped models and their `simulate()` are unchanged (the
+baseline passes in full).
+
+### Renamed: model-scope → ccn-sim
+
+- Plugin `ccn-sim`, skill `ccn-sim`, commands `/ccn-sim:from-paper` and `/ccn-sim:scaffold`, agent
+  `ccn-sim-builder`, paths `skills/ccn-sim/`. The repository is `Joonoh991119/ccn-sim` (GitHub
+  redirects the old URL). The marketplace name `joonoh-modeling` is unchanged.
+- The model library is `CCNLIB` in `modules/ccnlib.js` (was `MSLIB` in `modules/mslib.js`). Apps
+  generated before this release keep their own copy and are unaffected.
+- To move an installed copy: `/plugin uninstall model-scope@joonoh-modeling`, then
+  `/plugin marketplace update joonoh-modeling` and `/plugin install ccn-sim@joonoh-modeling`.
+
+### README
+
+- Three GIFs set an original paper figure beside the same model running in the template: Ratcliff &
+  McKoon (2008) for drift-diffusion, Wong & Wang (2006) for the attractor network, Körding et al.
+  (2007) for causal inference. `tests/shots.mjs --only pairs` rebuilds them with `tests/pairs.py`
+  from the crops in `docs/papers/`.
+- A References section lists the original paper behind every shipped example, each checked
+  against Crossref, OpenAlex or Semantic Scholar.
+- `docs/BACKLOG.md` lists canonical models not built yet (TD learning, Q-learning, actor-critic,
+  predictive coding, Boltzmann machine, Hodgkin–Huxley and more), each with its paper and the views
+  to build.
+
 ## 1.23.0
 
 Refactor release. The public surface and every shipped model's `simulate()` are unchanged (the

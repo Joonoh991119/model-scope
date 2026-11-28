@@ -1,4 +1,4 @@
-# model-scope — the full guide
+# ccn-sim — the full guide
 
 The detail behind the [README](../README.md): every shipped example, the model contract, the modelbook, validation and the repository layout.
 
@@ -12,13 +12,13 @@ you vary parameters or switch models.
 The model is replicated faithfully and shown from the **angles that fit its class** — and a model
 with structure (a network's wiring, a CNN's architecture) shows that structure first. Move a slider
 or switch the model and read off the qualitative and quantitative difference. (See the per-class
-angle catalogue in [`references/levels.md`](../skills/model-scope/references/levels.md).)
+angle catalogue in [`references/levels.md`](../skills/ccn-sim/references/levels.md).)
 
 ---
 
 ## At a glance
 
-- **Hand it a paper, get a simulator.** `/model-scope:from-paper <paper>` reads the reference,
+- **Hand it a paper, get a simulator.** `/ccn-sim:from-paper <paper>` reads the reference,
   **interviews** you about the visualisation purpose and what you want (purpose, scope, which
   angles, what to compare), then builds the GUI and **starts a verified local URL**. When you want a
   link to share and the Artifact tool is available, it also publishes the app as one self-contained
@@ -46,7 +46,7 @@ angle catalogue in [`references/levels.md`](../skills/model-scope/references/lev
   talks). It never mixes two units on one axis.
 - **Grounded, not invented.** A *modelbook* of canonical families distilled from real
   open-source computational-neuroscience ecosystems, plus a small reusable code library
-  (`mslib.js`) to compose from.
+  (`ccnlib.js`) to compose from.
 
 ---
 
@@ -138,7 +138,7 @@ code.
 There are two layers: the **plugin** you install (two skills, an agent, two commands, a
 template, and a modelbook) and the **explorer** it produces — a no-build app of four core
 files (`index.html`, `engine.js`, `plot.js`, `validate.mjs`, with `page.mjs` for the gate) plus optional ones: the
-worked examples (`examples.js`), the reusable-model library they use (`mslib.js`), and a
+worked examples (`examples.js`), the reusable-model library they use (`ccnlib.js`), and a
 bundler (`bundle.mjs`) that writes the whole app as one self-contained page.
 
 The colours and fonts live in one place, `Plot.TH` in `plot.js`: the canvas draws with it and the page
@@ -157,7 +157,7 @@ scripts in Node, so the math you read is the math that runs.
 
 You *could* ask a chatbot "write me a simulator for model X" and paste the code back. That result
 is a **one-off**: regenerated from scratch each time, unverified, and different on every run.
-model-scope is a **harness** instead — it fixes the stable machinery and constrains each model to a
+ccn-sim is a **harness** instead — it fixes the stable machinery and constrains each model to a
 small, validated contract, so the unreliable part (an LLM writing code) is channelled into the one
 place that *should* vary: the model's math and its views.
 
@@ -169,14 +169,14 @@ rewritten.
 
 **How that structure buys reliability — versus asking a chatbot each time:**
 
-| | ad-hoc "write me a simulator" | a model-scope harness |
+| | ad-hoc "write me a simulator" | a ccn-sim harness |
 |---|---|---|
 | **Reproducibility** | non-deterministic; re-runs differ | a seedable per-trial RNG: same seed, same result; any trial is addressable by index |
 | **Correctness** | rarely checked; errors ship silently | `node validate.mjs` re-runs the *same* scripts the browser runs, plus analytic checks tied to the science, before it's "done" |
 | **Separation of concerns** | math, UI, controls tangled in one blob | pure math (`engine.js`, no DOM), rendering (`plot.js`), toolbox (`index.html`) — edit one, the rest is already proven |
 | **Consistency** | every request reinvents controls, axes, layout | every model gets the same sliders, readability conventions, perspectives, and QC for free |
 | **Stable change** | adding a feature regenerates the whole app, with fresh bugs | adding a model is one entry; the battle-tested toolbox is untouched |
-| **Accumulation** | starts from zero each time | a *modelbook* of canonical families + a reusable `mslib.js` to compose from |
+| **Accumulation** | starts from zero each time | a *modelbook* of canonical families + a reusable `ccnlib.js` to compose from |
 | **Bounded LLM** | free-form code, easy to hallucinate scaffolding | the skill/agent work *inside* the contract + the GUI-QC pipeline — freedom goes to the science, not the plumbing |
 
 In short, a harness turns a stochastic code generator into a **dependable producer** by (1) fixing
@@ -245,7 +245,7 @@ simulation from several **angles** chosen for the model's class — the lens key
 decision model: one update, one trial, the statistics. A network: structure, activity,
 representation, landscape. A vision model: architecture, layer transforms. Where there is
 structure, show it first. The template's drift-diffusion, attractor, and early-vision models are
-the worked exemplars; see [`references/levels.md`](../skills/model-scope/references/levels.md).
+the worked exemplars; see [`references/levels.md`](../skills/ccn-sim/references/levels.md).
 
 ### Scaling to a whole paper — screens and conditions
 
@@ -255,12 +255,12 @@ experimental condition at fixed model parameters), then the key prediction. Keep
 conditions** (swept across fixed levels) separate from **model parameters** (sliders), and make
 the comparison the payoff: read off what changes across the sweep. Heavy comparison screens stream
 their trials via `SIM.runChunks` behind a loading overlay. See
-[`references/gui-qc.md`](../skills/model-scope/references/gui-qc.md).
+[`references/gui-qc.md`](../skills/ccn-sim/references/gui-qc.md).
 
-See [`references/plotting.md`](../skills/model-scope/references/plotting.md) for the full `g`
+See [`references/plotting.md`](../skills/ccn-sim/references/plotting.md) for the full `g`
 API and worked view recipes,
-[`references/architecture.md`](../skills/model-scope/references/architecture.md) for the model
-contract and runtime, and [`references/gui-qc.md`](../skills/model-scope/references/gui-qc.md) for
+[`references/architecture.md`](../skills/ccn-sim/references/architecture.md) for the model
+contract and runtime, and [`references/gui-qc.md`](../skills/ccn-sim/references/gui-qc.md) for
 the GUI QC pipeline (static gate + visual checklist + two-axis review) every build passes.
 
 ---
@@ -270,19 +270,19 @@ the GUI QC pipeline (static gate + visual checklist + two-axis review) every bui
 From inside Claude Code, once the repo is on GitHub:
 
 ```
-/plugin marketplace add Joonoh991119/model-scope
-/plugin install model-scope@joonoh-modeling
+/plugin marketplace add Joonoh991119/ccn-sim
+/plugin install ccn-sim@joonoh-modeling
 ```
 
 Or from a local clone — point the marketplace at the cloned folder (a path relative to your
 Claude Code working directory, or an absolute path):
 
 ```bash
-git clone https://github.com/Joonoh991119/model-scope
+git clone https://github.com/Joonoh991119/ccn-sim
 ```
 ```
-/plugin marketplace add ./model-scope          # or an absolute path to the clone
-/plugin install model-scope@joonoh-modeling
+/plugin marketplace add ./ccn-sim          # or an absolute path to the clone
+/plugin install ccn-sim@joonoh-modeling
 ```
 
 ## Use
@@ -292,7 +292,7 @@ you about what you want, then builds the GUI and starts a verified local URL, wi
 link to share when you want one (see "Deliver" below):
 
 ```
-/model-scope:from-paper ./furman-wang-2008.pdf
+/ccn-sim:from-paper ./furman-wang-2008.pdf
 ```
 
 The `paper-to-sim` skill reads the reference, runs a short `AskUserQuestion` interview (purpose,
@@ -301,7 +301,7 @@ then drives the build + QC and verifies the local URL before reporting it. It
 also triggers on plain language — *“turn this paper into an interactive sim”*, *“interview me and
 build a simulator from these equations.”*
 
-**Or describe a model directly.** The `model-scope` skill triggers and the `model-gui-builder`
+**Or describe a model directly.** The `ccn-sim` skill triggers and the `ccn-sim-builder`
 agent can take it end to end:
 
 > *“Build me a GUI to explore a leaky integrate-and-fire neuron as I vary the input current
@@ -310,7 +310,7 @@ agent can take it end to end:
 To start from the template by hand:
 
 ```
-/model-scope:scaffold ./my-sim "a leaky integrate-and-fire neuron"
+/ccn-sim:scaffold ./my-sim "a leaky integrate-and-fire neuron"
 ```
 
 Then `cd ./my-sim`, run `node validate.mjs` to check it, and open `index.html` to use it. Add
@@ -320,19 +320,19 @@ Then `cd ./my-sim`, run `node validate.mjs` to check it, and open `index.html` t
 `node bundle.mjs --title "Drift Diffusion Lab"` (plain Node, no install) writes it as one page with
 every script inlined, the form a host such as a Claude Artifact expects; `--standalone --out app.html`
 writes a complete document to send as one file. A hosted page keeps only a plain `#model-lens` in
-its link. See the template's [`README.md`](../skills/model-scope/assets/template/README.md).
+its link. See the template's [`README.md`](../skills/ccn-sim/assets/template/README.md).
 
 ---
 
 ## The modelbook — canonical model families
 
 Don't invent a model from scratch when a canonical family fits.
-[`references/modelbook/`](../skills/model-scope/references/modelbook/INDEX.md) is a curated,
+[`references/modelbook/`](../skills/ccn-sim/references/modelbook/INDEX.md) is a curated,
 extensible catalogue: for each family it gives the canonical equations, parameters with
 their meaning and typical ranges, the views that make it intuitive, a ready-to-compose
-`MSLIB` code module, and source pointers.
+`CCNLIB` code module, and source pointers.
 
-| Family | Use it for | `MSLIB` |
+| Family | Use it for | `CCNLIB` |
 |---|---|---|
 | **Bayesian / ideal observer** | perception, magnitude & time estimation, central tendency, prior learning | `bayes` |
 | **Efficient coding & sequential observers** | prior-shaped encoding, repulsive/anti-Bayesian bias, bias vs discriminability | `efficient`, `bayes` |
@@ -350,7 +350,7 @@ their meaning and typical ranges, the views that make it intuitive, a ready-to-c
 | **Attention & transformers** | self-attention, content-based routing, the attention matrix, temperature / heads | `attn` |
 
 These are **recipes, not prescriptions** — start from a family, then adapt it to your exact
-equations and compose the small `MSLIB` functions rather than copying a whole repo. The
+equations and compose the small `CCNLIB` functions rather than copying a whole repo. The
 families are distilled from named open-source ecosystems for grounding and deeper
 reference: Acerbi lab (observer modelling + PyVBMC / PyBADS / PyIBS fitting), Wang lab
 (the reduced Wong–Wang decision circuit), Gardner lab (psychophysics, the normalization
@@ -374,20 +374,20 @@ mixtures), and Brian2 / *Neuronal Dynamics* / Neuromatch (canonical neuron model
   to the science — for example the drift-diffusion error rate and mean decision time against the
   closed forms `1/(1 + e^{2Az/c²})` and `(z/A)·tanh(Az/c²)` with the discretisation correction,
   mass conservation in the SIR model, and the Bayes-filter trajectory against an independent
-  recursion. It then checks every exported `mslib.js` building block against a closed form or a
+  recursion. It then checks every exported `ccnlib.js` building block against a closed form or a
   known value, including the ones no shipped example uses. It must pass before a model is "done".
   A deliberate-error probe in `tests/` measures how much the gate catches: 51 of 54 seeded
   errors on its own, two more by the golden baseline of the shipped examples, and the last (a
   toolbox that throws on load) by the browser smoke test.
 - **GUI QC pipeline.** Beyond the static gate, every build walks
-  [`references/gui-qc.md`](../skills/model-scope/references/gui-qc.md): a **visual checklist**
+  [`references/gui-qc.md`](../skills/ccn-sim/references/gui-qc.md): a **visual checklist**
   (no clipped/overlapping text, ceiling/chance reference lines, accuracy clamped to `[chance,1]`,
   units on every axis, legends off the data, a colorbar on every heatmap, a loading overlay on
   heavy screens) and a **two-axis review pass** (scientific-plot readability + concept clarity) —
   fix and re-verify.
 
 ```bash
-node skills/model-scope/assets/template/validate.mjs   # prints: ALL CHECKS PASSED
+node skills/ccn-sim/assets/template/validate.mjs   # prints: ALL CHECKS PASSED
 ```
 
 For work on the plugin itself, `tests/` holds developer checks that never ship inside a generated
@@ -401,20 +401,20 @@ Node ones; add `--browser` for the smoke test. See [`tests/README.md`](../tests/
 ## Repository layout
 
 ```
-model-scope/
+ccn-sim/
 ├── .claude-plugin/              plugin.json (holds the version) + marketplace.json (the repo root is both)
 ├── CHANGELOG.md, MIGRATION.md   release notes; a handoff for whoever maintains the plugin next
-├── docs/                        this guide; README figures (hero.png from tests/hero.py, flow.drawio.png editable in draw.io), shots/
+├── docs/                        this guide, BACKLOG.md; README figures (pair-*.gif from tests/pairs.py and papers/, flow.drawio.png editable in draw.io), shots/
 ├── evals/                       eval cases for `claude plugin eval` (authored, not yet run)
 ├── tests/                       developer checks (never shipped in a generated app)
 ├── agents/
-│   └── model-gui-builder.md     the subagent that builds an explorer end-to-end
+│   └── ccn-sim-builder.md     the subagent that builds an explorer end-to-end
 ├── commands/
-│   ├── scaffold.md              /model-scope:scaffold <dir> [--bare] [model idea]
-│   └── from-paper.md            /model-scope:from-paper <paper> (interview, build, deliver)
+│   ├── scaffold.md              /ccn-sim:scaffold <dir> [--bare] [model idea]
+│   └── from-paper.md            /ccn-sim:from-paper <paper> (interview, build, deliver)
 ├── skills/paper-to-sim/
 │   └── SKILL.md                 the autonomous flow: ingest reference, interview, build, deliver
-└── skills/model-scope/
+└── skills/ccn-sim/
     ├── SKILL.md                 the method (auto-loaded when you ask to build a model GUI)
     ├── references/
     │   ├── architecture.md      the model contract + runtime, in detail
@@ -430,7 +430,7 @@ model-scope/
         ├── examples.js          optional: the 21 worked examples (delete to ship only yours)
         ├── examples.checks.mjs  their analytic checks
         ├── plot.js              the canvas charting helper g
-        ├── modules/mslib.js     optional reusable model library (MSLIB)
+        ├── modules/ccnlib.js     optional reusable model library (CCNLIB)
         ├── page.mjs             reads index.html's script tags (shared by the gate and the bundler)
         ├── validate.mjs         the Node correctness gate
         └── bundle.mjs           optional: the app as one self-contained page

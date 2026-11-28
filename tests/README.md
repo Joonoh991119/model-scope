@@ -1,7 +1,7 @@
 # tests — developer checks for the plugin
 
 Nothing here ships inside a generated app, and nobody needs it to run or edit one. The template's
-own gate is `skills/model-scope/assets/template/validate.mjs`; this folder holds the checks that
+own gate is `skills/ccn-sim/assets/template/validate.mjs`; this folder holds the checks that
 guard the plugin itself while it is being changed.
 
 ```bash
@@ -14,10 +14,10 @@ node tests/run.mjs --browser    # ... plus the headless-Chrome smoke test
 | `baseline.mjs` | The 21 shipped examples behave as they did at v1.21.1: same parameter ids, ranges and defaults; the same numbers out of `simulate()` at defaults and at every control's min and max; the same drawing through the real `plot.js` (draws are recorded at default parameters only, at the start and end of the playhead; a drawing error that only shows away from the defaults is not caught here). | Node |
 | `mutations.mjs` | The gate bites: 54 deliberate wrong-math or broken-app edits, each of which some layer must catch. | Node |
 | `bare-app.mjs` | The template works without its examples: with none it fails clearly (gate) and shows an empty state (page); the minimal model and check in the template README are real code; deleting one example leaves the gate green; a model of yours with an example's id hides that example and its check with a warning; `env.params` reaches `simulate()` in the gate as on the page; a throw for one seed only, and two `#model-lens` links that collide, fail the gate; `bundle()` inlines an unquoted `<script src=…>` and `bundleProblems()` reports a relative CSS `url()`. | Node (+ Playwright with `--pw`) |
-| `docs-check.mjs` | The docs say what the code is: model and family counts equal the registry and the modelbook INDEX; every MSLIB block and function named exists; every path named in the skill, command and agent files exists; vendored files use `${CLAUDE_PLUGIN_ROOT}` and the literal `model-scope:` only in the two command names; description lengths; one plugin version field. | Node |
+| `docs-check.mjs` | The docs say what the code is: model and family counts equal the registry and the modelbook INDEX; every CCNLIB block and function named exists; every path named in the skill, command and agent files exists; vendored files use `${CLAUDE_PLUGIN_ROOT}` and the literal `ccn-sim:` only in the two command names; description lengths; one plugin version field. | Node |
 | `smoke.mjs` | The page works in a real browser from `file://`: every model and lens paints, no console or page error, no network request, plus accessibility (axe), phone width, and toolbox behaviour. | Playwright |
-| `shots.mjs` | Regenerates the gallery (`docs/shots/*.png`, `docs/ddm-trial.gif`) and the README hero `docs/hero.png` (via `hero.py`) from the current template, and with `--all <dir>` a contact sheet of every screen. Run it in the same commit as a change that alters how a screen looks. | Playwright, ffmpeg for the GIF, python3 + Pillow for the hero |
-| `hero.py` | Builds `docs/hero.png` from the screenshots `shots.mjs` names, cropped to the view area it measures, in the template's palette. Called by `shots.mjs`. | python3 + Pillow; a system font (`--font` overrides) |
+| `shots.mjs` | Regenerates the gallery (`docs/shots/*.png`, `docs/ddm-trial.gif`) and the README's paper-vs-GUI GIFs `docs/pair-*.gif` (via `pairs.py`; `--only pairs`) from the current template, and with `--all <dir>` a contact sheet of every screen. Run it in the same commit as a change that alters how a screen looks. | Playwright, ffmpeg for the GIF, python3 + Pillow for the paper-vs-GUI GIFs |
+| `pairs.py` | Builds one `docs/pair-<name>.gif`: a paper figure from `docs/papers/` beside the frames `shots.mjs` captured, in the template's palette. Called by `shots.mjs`. | python3 + Pillow; a system font (`--font` overrides) |
 | `run.mjs` | Runs the above in order and reports. | Node |
 | `lib/harness.mjs` | Loads a template exactly as `index.html` does and digests what it computes and draws. | |
 | `fixtures/heavy.js` | A model that fills in through `SIM.runChunks`, so the async path has a test; `?p.fail=1` makes a later chunk throw. | |

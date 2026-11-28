@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ccn-sim — cognitive computational neuroscience simulator</title>
+<style>
+:root{ color-scheme:light; --plot-min:258px; }
+*{box-sizing:border-box} html,body{height:100%} [hidden]{display:none !important}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.45; -webkit-font-smoothing:antialiased; overflow:hidden}
+:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+.sr{position:absolute; width:1px; height:1px; margin:-1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0}
+.app{display:grid; grid-template-rows:auto 1fr; grid-template-columns:minmax(0,1fr); height:100%}
+
+header.topbar{display:flex; align-items:center; gap:20px; padding:10px 20px; border-bottom:1px solid var(--edge); background:var(--surface)}
+.brand{flex:0 0 auto; min-width:0}
+.brand h1{margin:0; font-family:var(--mono); font-size:13px; font-weight:600; line-height:1.3; white-space:nowrap}
+.brand p{margin:0; font-size:11.5px; color:var(--ink-dim); white-space:nowrap}
+.models{position:relative; flex:1 1 auto; display:flex; gap:4px; padding:4px; border:1px solid var(--edge); border-radius:12px; background:var(--surface-2); min-width:0; overflow-x:auto; scrollbar-width:thin}
+.models::-webkit-scrollbar{height:6px} .models::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
+.models button{font-family:var(--sans); font-size:12.5px; font-weight:500; color:var(--ink-dim); background:transparent; border:0; padding:7px 13px; border-radius:8px; cursor:pointer; white-space:nowrap}
+.models button:hover{color:var(--ink); background:var(--hover)} .models button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); font-weight:600}
+
+.layout{display:grid; grid-template-columns:330px minmax(0,1fr); min-height:0}
+aside.console{border-right:1px solid var(--edge); overflow-y:auto; padding:18px; display:flex; flex-direction:column; gap:18px; background:var(--surface)}
+.console::-webkit-scrollbar{width:9px}.console::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
+.block{display:flex; flex-direction:column; gap:11px}
+.block h2{margin:0; font-size:12px; font-weight:600; color:var(--ink-dim); display:flex; align-items:center; gap:8px}
+.block h2::after{content:""; flex:1; height:1px; background:var(--edge)}
+.blurb{margin:0; font-size:12.5px; color:var(--ink-dim); line-height:1.5}
+.note{margin:0; font-size:11.5px; color:var(--ink); line-height:1.5; padding:9px 11px; border-radius:8px; background:var(--accent-soft); border:1px solid var(--accent-line); border-left:2px solid var(--accent)}
+.fields{display:flex; flex-direction:column; gap:14px}
+.field{display:flex; flex-direction:column; gap:6px} .field .row{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+.field label,.field .flabel{font-size:12.5px; font-weight:500} .field .unit{color:var(--ink-dim); font-size:11px; font-weight:400; font-family:var(--mono)}
+.field .num{width:82px; font-family:var(--mono); font-size:12.5px; text-align:right; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:6px; padding:3px 7px}
+.field .num:focus-visible,.seed input:focus-visible,.linkout:focus-visible{outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent)}
+.field .toggle{appearance:none;-webkit-appearance:none;width:38px;height:21px;border-radius:11px;background:var(--edge-2);position:relative;cursor:pointer;transition:.15s;flex:0 0 auto;margin:0}
+.field .toggle:checked{background:var(--accent)} .field .toggle::after{content:"";position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px var(--shadow);transition:.15s} .field .toggle:checked::after{left:19px}
+.field .seg{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.field .segbtn{flex:1 1 0;min-width:0;font-family:var(--mono);font-size:11px;color:var(--ink);background:var(--surface-2);border:1px solid var(--edge-2);border-radius:6px;padding:4px 6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .field .segbtn[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;border-radius:4px;cursor:pointer;margin:6px 0 2px;background:linear-gradient(90deg,var(--accent) 0 var(--fill,50%),var(--edge-2) var(--fill,50%) 100%)}
+input[type=range]:focus-visible{outline-offset:6px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);box-shadow:0 1px 3px var(--shadow-soft);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:var(--surface);border:2px solid var(--accent);cursor:pointer}
+.seed{display:flex; gap:8px} .seed input{flex:1; min-width:0; font-family:var(--mono); font-size:12.5px; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:7px; padding:7px 10px}
+.seed .dice{width:38px;border-radius:7px;border:1px solid var(--edge-2);background:var(--surface-2);color:var(--ink-dim);cursor:pointer;font-size:16px}
+.actions{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+.btn{font-family:var(--sans); font-size:13px; font-weight:600; cursor:pointer; border-radius:9px; padding:10px 12px; border:1px solid var(--edge-2); background:var(--surface); color:var(--ink); transition:background .15s,border-color .15s; display:flex; align-items:center; justify-content:center; gap:7px}
+.btn:hover{border-color:var(--ink-dim); background:var(--surface-2)} .btn.primary{grid-column:1/-1; background:var(--accent); color:var(--on-accent); border:0; padding:13px}
+.linkout{width:100%; font-family:var(--mono); font-size:11px; color:var(--ink); background:var(--surface-2); border:1px solid var(--edge-2); border-radius:7px; padding:6px 8px}
+.valuenote{font-family:var(--mono); font-size:11px; color:var(--ink-dim)}
+
+.right{position:relative; display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--bg)}
+.tbar{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; padding:9px 18px; border-bottom:1px solid var(--edge); background:var(--surface)}
+.tbar.hidden{display:none}
+.lenses{display:flex; flex-wrap:wrap; gap:5px; align-items:center}
+.lenses .ll{font-size:12px; font-weight:600; color:var(--ink-dim); margin-right:3px}
+.lenses button{font-family:var(--sans); font-size:12px; font-weight:500; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge-2); padding:6px 12px; border-radius:7px; cursor:pointer; white-space:nowrap}
+.lenses button:hover{color:var(--ink); border-color:var(--ink-dim)} .lenses button[aria-pressed="true"]{color:var(--on-accent); background:var(--accent); border-color:var(--accent); font-weight:600}
+.tbar .sep{width:1px; align-self:stretch; background:var(--edge); margin:2px 2px}
+.tbar .transport{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; flex:1 1 340px; min-width:0}
+.tctrl{display:flex; gap:5px} .tctrl button{width:32px;height:30px;border-radius:7px;border:1px solid var(--edge-2);background:var(--surface);color:var(--ink-dim);cursor:pointer;display:grid;place-items:center} .tctrl button:hover{color:var(--accent);border-color:var(--accent)} .tctrl button svg{width:13px;height:13px;fill:currentColor}
+.scrub{flex:1 1 110px; min-width:90px}
+.tread{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);white-space:nowrap;min-width:120px;text-align:right} .tread b{color:var(--ink);font-weight:600}
+.spd{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-dim)} .spd input{width:90px}
+.tip{margin:0; padding:9px 18px 0; font-size:12px; color:var(--ink-dim); line-height:1.4}
+.tip:empty{display:none}
+.views{flex:1 1 auto; min-height:0; padding:12px; overflow:auto; display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr)); grid-auto-rows:minmax(var(--plot-min),1fr); align-content:start}
+.views::-webkit-scrollbar{width:9px}.views::-webkit-scrollbar-thumb{background:var(--edge-2);border-radius:6px}
+.empty{grid-column:1/-1; align-self:start; max-width:560px; margin:24px auto; padding:18px 20px; border:1px dashed var(--edge-2); border-radius:10px; background:var(--surface); color:var(--ink-dim); font-size:13px; line-height:1.6} .empty b{color:var(--ink)} .empty code{font-family:var(--mono); font-size:12px; color:var(--ink)}
+.plot{position:relative; border:1px solid var(--edge); border-radius:10px; overflow:hidden; background:var(--surface); min-height:var(--plot-min)} .plot canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+.views.pinned{grid-template-columns:repeat(auto-fit,minmax(min(620px,100%),1fr))}
+.plot.pinned{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.plot .pane{position:relative; min-width:0; min-height:0} .plot .pane.ref{border-left:1px dashed var(--edge-2)}
+.reftag{position:absolute; top:6px; right:8px; z-index:1; font-family:var(--mono); font-size:10.5px; color:var(--ink-dim); background:var(--surface); border:1px solid var(--edge); border-radius:4px; padding:0 5px; pointer-events:none}
+.pinline{margin:0; padding:9px 18px 0; font-family:var(--mono); font-size:11.5px; color:var(--ink); line-height:1.45; overflow-wrap:anywhere}
+.btn:disabled{opacity:.55; cursor:default}
+#loading{position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:13px; background:var(--veil); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); z-index:20}
+#loading.on{display:flex}
+#loading .ttl{font-family:var(--mono); font-size:12px; color:var(--ink-dim)}
+#loading .barwrap{width:min(320px,55%); height:6px; border-radius:6px; background:var(--edge-2); overflow:hidden}
+#loading .bar{height:100%; width:0%; background:var(--accent); transition:width .12s}
+#loading .sub{font-family:var(--mono); font-size:11px; color:var(--ink-dim)}
+
+@media (max-width:1000px){ .layout{grid-template-columns:272px minmax(0,1fr)} aside.console{padding:14px} .brand p{display:none} }
+@media (max-width:700px){
+  body{overflow:auto} html,body{height:auto} .app{display:block; height:auto}
+  header.topbar{flex-direction:column; align-items:stretch; gap:8px; padding:10px 16px}
+  .layout{display:flex; flex-direction:column} .right{order:1} aside.console{order:2; border-right:0; border-top:1px solid var(--edge); overflow:visible; padding:16px}
+  .tbar{padding:9px 16px} .tbar .sep{display:none} .tbar .transport{flex-basis:100%}
+  .tread{min-width:0; text-align:left; white-space:normal; flex:1 1 100%; order:9} .spd input{width:72px}
+  .tip{padding:9px 16px 0}
+  .views{overflow:visible; padding:12px 16px 16px; grid-template-columns:minmax(0,1fr); grid-auto-rows:280px}
+  .pinline{padding:9px 16px 0}
+  .views.pinned{grid-template-columns:minmax(0,1fr); grid-auto-rows:520px}
+  .plot.pinned{grid-template-columns:minmax(0,1fr); grid-template-rows:minmax(0,1fr) minmax(0,1fr)} .plot .pane.ref{border-left:0; border-top:1px dashed var(--edge-2)}
+}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand"><h1 id="appTitle">ccn-sim</h1><p id="appTagline">move a slider, watch the result change</p></div>
+    <nav class="models" id="modelTabs" aria-label="Models"></nav>
+  </header>
+  <div class="layout">
+    <aside class="console" aria-label="Model description and parameters">
+      <section class="block"><h2>Model</h2><p class="blurb" id="blurb"></p><p class="note" id="note"></p></section>
+      <section class="block"><h2>Parameters</h2><div id="paramFields" class="fields"></div></section>
+      <section class="block"><h2>Run</h2>
+        <div class="field"><div class="row"><label for="seedInput">RNG seed</label></div><div class="seed"><input id="seedInput" type="text" spellcheck="false" autocomplete="off"/><button class="dice" id="diceBtn" type="button" title="Random seed" aria-label="Random seed"><span aria-hidden="true">⚂</span></button></div></div>
+        <div class="actions">
+          <button class="btn primary" id="runBtn" type="button"><span aria-hidden="true">↻</span> Re-simulate</button>
+          <button class="btn" id="resetBtn" type="button">Reset</button>
+          <button class="btn" id="pinBtn" type="button" title="Keep this result as a reference beside every view">Pin</button>
+          <button class="btn" id="linkBtn" type="button" style="grid-column:1/-1">Copy link</button>
+        </div>
+        <input class="linkout" id="linkOut" type="text" readonly hidden aria-label="Link to this model, lens, seed and parameters"/>
+        <div class="field">
+          <div class="row"><label for="fontScale">Text size</label><span id="fontScaleVal" class="valuenote">100%</span></div>
+          <input id="fontScale" type="range"/>
+        </div>
+      </section>
+    </aside>
+    <main class="right">
+      <div class="tbar hidden" id="tbar">
+        <div class="lenses" id="lensSwitch" role="group" aria-label="Lens" style="display:none"></div>
+        <div class="sep" id="lensSep" style="display:none"></div>
+        <div class="transport" id="transport">
+          <div class="tctrl">
+            <button id="toStartBtn" type="button" title="Restart" aria-label="Restart"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="2" height="10"/><path d="M13 3l-7 5 7 5z"/></svg></button>
+            <button id="playBtn" type="button" title="Play" aria-label="Play"><svg id="playIcon" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 3l9 5-9 5z"/></svg></button>
+            <button id="toEndBtn" type="button" title="Jump to the end" aria-label="Jump to the end"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l7 5-7 5z"/><rect x="11" y="3" width="2" height="10"/></svg></button>
+          </div>
+          <div class="tctrl" id="stepCtrl" style="display:none">
+            <button id="stepBackBtn" type="button" title="Previous step" aria-label="Previous step"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M11 3v10L4 8z"/></svg></button>
+            <button id="stepFwdBtn" type="button" title="Next step" aria-label="Next step"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3v10l7-5z"/></svg></button>
+          </div>
+          <input type="range" id="scrub" class="scrub" min="0" max="100" value="0" step="1" aria-label="Playhead"/>
+          <span class="tread" id="tread">0 / 0</span>
+          <label class="spd">Speed<input type="range" id="spd"/></label>
+        </div>
+      </div>
+      <p class="tip" id="tip"></p>
+      <p class="pinline" id="pinLine" hidden></p>
+      <div class="views" id="views"></div>
+      <div id="loading"><div class="ttl">computing…</div><div class="barwrap" id="loadingProg" role="progressbar" aria-label="Computing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="bar" id="loadingBar"></div></div><div class="sub" id="loadingSub"></div></div>
+      <div class="sr" id="live" aria-live="polite"></div>
+    </main>
+  </div>
+</div>
+<script src="plot.js"></script>
+<script src="modules/ccnlib.js"></script>
+<script src="engine.js"></script>
+<script src="examples.js"></script>
+<script>
+(function(){
+"use strict";
+const $=(s,r=document)=>r.querySelector(s);
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const has=(o,k)=>!!o && Object.prototype.hasOwnProperty.call(o,k);
+const isModel=id=>SIM.MODEL_ORDER.includes(id);
+const DEFAULT_SEED='ccn-sim';
+const SPEED={ anim:{min:1, max:800, step:1, value:12, unit:'frames'}, stage:{min:0.2, max:8, step:0.1, value:1.4, unit:'steps'} };
+const WAIT={ simulate:220, resize:90, copied:1400 };
+const seedValue=()=>$('#seedInput').value||DEFAULT_SEED;
+const mqReduce = window.matchMedia ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+let reduceMotion = !!(mqReduce && mqReduce.matches);
+const S={ modelId:SIM.MODEL_ORDER[0], params:{}, seed:DEFAULT_SEED, data:null, simError:null, model:null,
+  mem:{}, lensMem:{},
+  views:[], canvases:[], anim:null, length:1, maxHead:1, head:1, playing:false, speed:SPEED.anim.value, speedMode:null, lastT:null, rafId:0, gen:0, suppress:false,
+  stageMode:false, stageList:null, lens:null, lensKeys:null, loading:false,
+  pins:{}, ref:null, refCanvases:[], refDrawn:false };
+function activeSpec(){ return (S.model&&S.model.lenses&&S.lens) ? S.model.lenses[S.lens] : S.model; }
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const defaultsOf=m=>{ const p={}; (m.params||[]).forEach(s=>{ p[s.name]=s.default; }); return p; };
+
+const Q=(()=>{ try{ const o={}; for(const [k,v] of new URLSearchParams(location.search)) o[k]=v; return o; }catch(e){ return {}; } })();
+function parseHash(){ let h=''; try{ h=decodeURIComponent(String(location.hash||'').replace(/^#/,'')); }catch(e){ return null; }
+  if(!h) return null; if(isModel(h)) return {model:h, lens:null};
+  for(let i=h.indexOf('-'); i>0; i=h.indexOf('-',i+1)){ const id=h.slice(0,i), k=h.slice(i+1); if(isModel(id) && has(SIM.MODELS[id].lenses,k)) return {model:id, lens:k}; }
+  return null; }
+function writeHash(){ const h='#'+S.modelId+(S.lens?'-'+S.lens:'');
+  try{ history.replaceState(null,'',location.pathname+h); }catch(e){ try{ history.replaceState(null,'',h); }catch(_){} } }
+function coerce(spec,raw){
+  if(spec.type==='bool') return /^(1|true|on|yes)$/i.test(raw) ? true : /^(0|false|off|no)$/i.test(raw) ? false : undefined;
+  if(spec.type==='enum'){ const opts=spec.options||[]; let i=opts.indexOf(raw); if(i<0 && /^\d+$/.test(raw)) i=+raw; return (i>=0 && i<opts.length) ? i : undefined; }
+  const v=parseFloat(raw); return Number.isFinite(v) ? clamp(spec.int?Math.round(v):v, spec.min, spec.max) : undefined; }
+function stateUrl(){ const q=new URLSearchParams(); q.set('model',S.modelId); if(S.lens) q.set('lens',S.lens);
+  const seed=seedValue(); if(seed!==DEFAULT_SEED) q.set('seed',seed);
+  for(const s of (S.model.params||[])){ const v=S.params[s.name], d=s.type==='bool'?!!s.default:s.type==='enum'?(s.default||0):s.default; if(v!==d) q.set('p.'+s.name, s.type==='bool'?(v?1:0):v); }
+  return location.href.split(/[?#]/)[0]+'?'+q.toString()+'#'+S.modelId+(S.lens?'-'+S.lens:''); }
+let boot=true;
+
+function say(text){ const el=$('#live'); if(el) el.textContent=text; }
+function readoutText(){ if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k]; return `Step ${k+1} of ${S.length}${st&&st.name?': '+st.name:''}`; }
+  return `${Math.min(S.length,Math.floor(S.head)).toLocaleString()} of ${S.length.toLocaleString()}`; }
+
+function revealTab(b){ const nav=b.parentNode; if(!nav) return;
+  if(b.offsetLeft<nav.scrollLeft || b.offsetLeft+b.offsetWidth>nav.scrollLeft+nav.clientWidth) nav.scrollLeft=Math.max(0, b.offsetLeft-(nav.clientWidth-b.offsetWidth)/2); }
+function buildModelTabs(){ const nav=$('#modelTabs'); nav.innerHTML='';
+  SIM.MODEL_ORDER.forEach(id=>{ const b=document.createElement('button'); b.type='button'; b.dataset.id=id; b.textContent=SIM.MODELS[id].name; b.setAttribute('aria-pressed',id===S.modelId);
+    b.onclick=()=>{ if(id===S.modelId) return; setModel(id, S.lensMem[id]); writeHash(); }; nav.appendChild(b); }); }
+function buildLensSwitch(){ const box=$('#lensSwitch'), sep=$('#lensSep'); box.innerHTML='';
+  if(!S.lensKeys){ box.style.display='none'; sep.style.display='none'; return; }
+  box.style.display='flex'; sep.style.display='block';
+  const lab=document.createElement('span'); lab.className='ll'; lab.textContent='Lens'; lab.setAttribute('aria-hidden','true'); box.appendChild(lab);
+  S.lensKeys.forEach(k=>{ const L=S.model.lenses[k], b=document.createElement('button'); b.type='button'; b.dataset.id=k; b.textContent=L.label||k;
+    b.setAttribute('aria-pressed',k===S.lens); b.title=L.about||''; b.onclick=()=>{ if(k===S.lens) return; switchLens(k); writeHash(); }; box.appendChild(b); }); }
+function switchLens(k){ if(k===S.lens || !has(S.model.lenses,k)) return; S.lens=k; S.lensMem[S.modelId]=k; stopPlayback(); staleLink();
+  for(const b of $('#lensSwitch').querySelectorAll('button')) b.setAttribute('aria-pressed', b.dataset.id===k);
+  bindLens(); }
+function makeField(spec,obj,onChange){ const name=spec.label||spec.name;
+  if(spec.type==='bool'){ const wrap=document.createElement('div'); wrap.className='field';
+    const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=name; lab.htmlFor='f_'+spec.name;
+    const sw=document.createElement('input'); sw.type='checkbox'; sw.className='toggle'; sw.id='f_'+spec.name; sw.setAttribute('role','switch');
+    sw.checked = obj[spec.name]!==undefined ? !!obj[spec.name] : !!spec.default; obj[spec.name]=sw.checked;
+    sw.addEventListener('change',()=>{ obj[spec.name]=sw.checked; onChange&&onChange(); });
+    row.appendChild(lab); row.appendChild(sw); wrap.appendChild(row); return wrap; }
+  if(spec.type==='enum'){ const wrap=document.createElement('div'); wrap.className='field';
+    const lab=document.createElement('span'); lab.className='flabel'; lab.textContent=name; lab.setAttribute('aria-hidden','true'); wrap.appendChild(lab);
+    const seg=document.createElement('div'); seg.className='seg'; seg.id='f_'+spec.name; seg.setAttribute('role','group'); seg.setAttribute('aria-label',name);
+    let cur = obj[spec.name]!==undefined ? obj[spec.name] : (spec.default||0); obj[spec.name]=cur;
+    (spec.options||[]).forEach((opt,i)=>{ const b=document.createElement('button'); b.type='button'; b.className='segbtn'; b.textContent=opt; b.title=opt; b.setAttribute('aria-pressed', i===cur);
+      b.addEventListener('click',()=>{ obj[spec.name]=i; [...seg.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===i)); onChange&&onChange(); }); seg.appendChild(b); });
+    wrap.appendChild(seg); return wrap; }
+  const wrap=document.createElement('div'); wrap.className='field';
+  const row=document.createElement('div'); row.className='row'; const lab=document.createElement('label'); lab.textContent=name; lab.htmlFor='f_'+spec.name;
+  const num=document.createElement('input'); num.className='num'; num.type='number'; num.min=spec.min; num.max=spec.max; num.step=spec.step; num.id='f_'+spec.name;
+  if(spec.unit){ const u=document.createElement('span'); u.className='unit'; u.textContent=spec.unit; lab.appendChild(document.createTextNode(' ')); lab.appendChild(u); }
+  row.appendChild(lab); row.appendChild(num); const range=document.createElement('input'); range.type='range'; range.min=spec.min; range.max=spec.max; range.step=spec.step;
+  range.setAttribute('aria-label', name+(spec.unit?' ('+spec.unit+')':''));
+  wrap.appendChild(row); wrap.appendChild(range);
+  const fill=v=>range.style.setProperty('--fill',clamp((v-spec.min)/(spec.max-spec.min)*100,0,100)+'%');
+  const show=v=>{ num.value=spec.int?v:+v.toFixed(4); range.value=v; fill(v); };
+  const apply=v=>{ v=clamp(spec.int?Math.round(v):v,spec.min,spec.max); const changed=v!==obj[spec.name]; obj[spec.name]=v; show(v); if(changed) onChange&&onChange(); };
+  range.addEventListener('input',()=>apply(parseFloat(range.value)));
+  num.addEventListener('input',()=>{const v=parseFloat(num.value); if(!Number.isNaN(v)){obj[spec.name]=clamp(spec.int?Math.round(v):v,spec.min,spec.max); range.value=obj[spec.name]; fill(obj[spec.name]); onChange&&onChange();}});
+  num.addEventListener('blur',()=>{ const v=parseFloat(num.value); apply(Number.isNaN(v) ? obj[spec.name] : v); });
+  const v0=clamp(obj[spec.name]!==undefined?obj[spec.name]:spec.default,spec.min,spec.max); obj[spec.name]=v0; show(v0); return wrap; }
+function setModel(id, lens){ S.suppress=true; S.modelId=id; const m=SIM.MODELS[id]; S.model=m;
+  for(const b of $('#modelTabs').children){ const on=b.dataset.id===id; b.setAttribute('aria-pressed',on); if(on) revealTab(b); }
+  S.lensKeys = m.lenses ? Object.keys(m.lenses) : null; S.lens = S.lensKeys ? (has(m.lenses,lens) ? lens : S.lensKeys[0]) : null;
+  if(S.lens) S.lensMem[id]=S.lens; buildLensSwitch();
+  $('#blurb').textContent=m.blurb||''; const note=$('#note'); note.textContent=m.note||''; note.hidden=!m.note;
+  S.params = S.mem[id] || (S.mem[id]=defaultsOf(m));
+  const box=$('#paramFields'); box.innerHTML=''; (m.params||[]).forEach(p=>box.appendChild(makeField(p,S.params,onChange)));
+  S.suppress=false; recompute(); }
+function onChange(){ if(!S.suppress) schedule(); }
+const mkCanvas=name=>{ const cv=document.createElement('canvas'); cv.setAttribute('role','img'); cv.setAttribute('aria-label',name); return cv; };
+function buildCards(){ const vc=$('#views'); vc.innerHTML=''; const P=S.pins[S.modelId]||null;
+  S.ref = P ? {P, ...refFrame(activeSpec(), P)} : null; S.refCanvases=[]; S.refDrawn=false; vc.classList.toggle('pinned', !!P);
+  S.canvases=S.views.map(v=>{ const d=document.createElement('div'); d.className='plot'; const name=(v&&v.title)||'view', cv=mkCanvas(name);
+    if(P){ d.classList.add('pinned'); const a=document.createElement('div'), b=document.createElement('div'); a.className='pane'; b.className='pane ref';
+      const rc=mkCanvas(name+' (pinned reference)'), t=document.createElement('span'); t.className='reftag'; t.textContent='pinned'; t.setAttribute('aria-hidden','true');
+      a.appendChild(cv); b.appendChild(rc); b.appendChild(t); d.appendChild(a); d.appendChild(b); S.refCanvases.push(rc); }
+    else d.appendChild(cv);
+    vc.appendChild(d); return cv; }); }
+function resolveSeq(spec, params, data, what){
+  let st=null; try{ st = spec.stages ? ((typeof spec.stages==='function') ? spec.stages(params, data) : spec.stages) : null; }catch(e){ console.error(`[ccn-sim] stages() threw${what}`, {model:S.modelId, error:e}); st=null; }
+  const sm=!!(st&&st.length); let len=1; if(!sm && spec.anim){ try{ len=spec.anim.length(params, data); }catch(e){ console.error(`[ccn-sim] anim.length() threw${what}`, {model:S.modelId, error:e}); len=1; } }
+  len = sm ? st.length : Math.max(1, (Number.isFinite(len)?Math.floor(len):1) || 1);
+  return { stages: sm?st:null, len, max: sm ? Math.max(0,len-1) : len }; }
+function refFrame(spec,P){ return resolveSeq(spec, P.params, P.data, ' on the pinned result'); }
+const fmtVal=(s,v)=> s.type==='bool' ? (v?'on':'off') : s.type==='enum' ? String((s.options||[])[v]!=null ? s.options[v] : v) : String(+(+v).toFixed(4));
+function pinUi(){ const P=S.pins[S.modelId], b=$('#pinBtn'), line=$('#pinLine');
+  b.textContent = P ? 'Unpin' : 'Pin'; b.title = P ? 'Remove the pinned reference' : 'Keep this result as a reference beside every view';
+  b.disabled = !P && (!S.data || !!S.simError || S.loading);
+  if(!P){ line.hidden=true; line.textContent=''; return; }
+  const diff=[]; for(const s of (S.model.params||[])){ const a=P.params[s.name], c=S.params[s.name]; if(a!==c) diff.push(`${s.label||s.name} ${fmtVal(s,a)} → ${fmtVal(s,c)}`); }
+  const seed=seedValue(); if(P.seed!==seed) diff.push(`seed ${P.seed} → ${seed}`);
+  line.hidden=false; line.textContent = diff.length ? 'Pinned → now: '+diff.join(', ') : 'Pinned: the same parameters and seed as now'; }
+function showProblem(title, detail){ const vc=$('#views'); vc.innerHTML=''; S.views=[]; S.canvases=[]; S.refCanvases=[]; S.ref=null; vc.classList.remove('pinned');
+  const d=document.createElement('div'); d.className='empty'; d.setAttribute('role','alert'); const b=document.createElement('b'); b.textContent=title;
+  d.appendChild(b); d.appendChild(document.createElement('br')); d.appendChild(document.createTextNode(detail)); vc.appendChild(d); }
+
+function recompute(){ clearTimeout(rt); supersede(); staleLink(); S.seed=seedValue();
+  const env={ rng:SIM.makeRNG(S.seed), seed:S.seed, params:{...S.params} }; S.simError=null; S.dataParams={...S.params};
+  S.inSim=true; try{ S.data=S.model.simulate({...S.params}, env); }
+  catch(e){ S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[ccn-sim] simulate() threw', {model:S.modelId, error:e}); }
+  finally{ S.inSim=false; }
+  if(!S.simError && (!S.data || typeof S.data!=='object')){ S.data=null; S.simError='simulate() returned no data object'; console.error('[ccn-sim] '+S.simError, {model:S.modelId}); }
+  bindLens(); }
+function bindLens(){ const spec=activeSpec(); pinUi();
+  if(S.simError){ S.stageList=null; S.stageMode=false; S.anim=null; S.length=1; S.maxHead=1; S.head=1; boot=false;
+    $('#tbar').classList.toggle('hidden', !S.lensKeys); $('#transport').style.display='none'; $('#tip').textContent='';
+    showProblem('This model could not be simulated with these values.', S.simError+'. Change a control, or fix the model in engine.js; the views come back as soon as it runs.'); return; }
+  S.views=spec.views||[]; buildCards();
+  $('#tip').textContent = (S.model.lenses&&spec.about) ? spec.about : (spec.stages?'Move a slider, or step through each stage.':spec.anim?'Move a slider, or play to watch it build.':'Move a slider and watch the views update.');
+  const q=resolveSeq(spec, S.dataParams||S.params, S.data, '');
+  S.stageList=q.stages; S.stageMode=!!q.stages; S.anim=spec.anim||null; S.length=q.len; S.maxHead=q.max;
+  const seq = S.stageMode || !!S.anim;
+  $('#tbar').classList.toggle('hidden', !(S.lensKeys || seq));
+  $('#transport').style.display = seq ? 'flex' : 'none'; $('#lensSep').style.display = (S.lensKeys && seq) ? 'block' : 'none';
+  $('#stepCtrl').style.display = S.stageMode ? 'flex' : 'none';
+  setSpeedMode(S.stageMode?'stage':'anim');
+  const useQ = boot && (Q.still==='1' || Q.head!=null); if(!S.loading) boot=false;
+  if(useQ){ S.head = Q.head!=null ? clamp(parseFloat(Q.head)||0, 0, S.maxHead) : S.maxHead; readout(); drawAll(); return; }
+  S.head = (seq && !reduceMotion) ? 0 : S.maxHead;
+  readout(); if(seq && !reduceMotion && !S.loading){ play(); } else { drawAll(); } }
+function uiAt(head, playing, params, stages, n){ const stg = stages ? Math.min(n-1, Math.max(0, Math.floor(head))) : null;
+  return { head, playing, params, frac:head-Math.floor(head), stage:stg, stageKey:(stg!=null && stages[stg]) ? stages[stg].key : null, stages, nStages:stages?n:0 }; }
+function drawViews(canvases, data, ui, what){
+  for(let i=0;i<S.views.length && i<canvases.length;i++){
+    try{ S.views[i].draw(Plot.make(canvases[i]), data, ui); }
+    catch(e){ console.error(`[ccn-sim] ${what} draw failed`, { model:S.modelId, view:S.views[i]&&S.views[i].title, index:i, error:e });
+      try{ Plot.make(canvases[i]).note('view error: '+((e&&e.message)||e)); }catch(_){} } } }
+function drawAll(){
+  drawViews(S.canvases, S.data, uiAt(S.head, S.playing, S.dataParams||S.params, S.stageMode?S.stageList:null, S.length), 'view');
+  if(S.ref && S.refCanvases.length && (!S.playing || !S.refDrawn)) drawRefs(); }
+function drawRefs(){ const R=S.ref, P=R.P; S.refDrawn=true;
+  const h = S.playing ? R.max : R.stages ? Math.min(R.max, Math.max(0, Math.floor(S.head))) : (S.maxHead ? S.head/S.maxHead*R.max : R.max);
+  drawViews(S.refCanvases, P.data, uiAt(h, false, P.params, R.stages, R.len), 'pinned view'); }
+function redrawAll(){ S.refDrawn=false; drawAll(); }
+let rt; function schedule(){ clearTimeout(rt); staleLink(); rt=setTimeout(()=>{ if(!S.suppress) recompute(); }, WAIT.simulate); }
+
+function loop(now){ if(S.lastT==null) S.lastT=now; const fdt=Math.min(0.1,(now-S.lastT)/1000); S.lastT=now;
+  let ended=false;
+  if(S.playing){ S.head=Math.min(S.maxHead, S.head + S.speed*fdt); if(S.head>=S.maxHead){ S.playing=false; ended=true; } }
+  drawAll(); readout();
+  if(S.playing) S.rafId=requestAnimationFrame(loop); else { S.rafId=0; pico(); if(ended) say('End. '+readoutText()); } }
+function play(){ if(S.head>=S.maxHead) S.head=0; S.playing=true; S.refDrawn=false; S.lastT=null; pico(); cancelAnimationFrame(S.rafId); S.rafId=requestAnimationFrame(loop); }
+function pause(){ if(!S.playing) return; S.playing=false; pico(); say('Paused. '+readoutText()); }
+function stopPlayback(){ S.playing=false; cancelAnimationFrame(S.rafId); S.rafId=0; pico(); }
+function supersede(){ S.gen++; window.__simGen=S.gen; stopPlayback(); window.__setLoading(false); }
+function readout(){ const sc=$('#scrub'); sc.max=Math.max(1,S.maxHead); sc.value=S.head; sc.style.setProperty('--fill',(S.maxHead?S.head/S.maxHead*100:0)+'%'); sc.setAttribute('aria-valuetext', readoutText());
+  if(S.stageMode){ const k=Math.min(S.length-1,Math.max(0,Math.floor(S.head))), st=S.stageList[k];
+    $('#tread').innerHTML=`<b>${k+1}</b> / ${S.length} — ${st?esc(st.name):''}`; }
+  else { const k=Math.min(S.length,Math.floor(S.head)); $('#tread').innerHTML=`<b>${k.toLocaleString()}</b> / ${S.length.toLocaleString()}`; } }
+function pico(){ const b=$('#playBtn'), t=S.playing?'Pause':'Play'; b.title=t; b.setAttribute('aria-label',t);
+  $('#playIcon').innerHTML=S.playing?'<rect x="4" y="3" width="3" height="10"/><rect x="9" y="3" width="3" height="10"/>':'<path d="M4 3l9 5-9 5z"/>'; }
+
+const rangeFill=el=>el.style.setProperty('--fill', clamp((+el.value-+el.min)/((+el.max-+el.min)||1)*100,0,100)+'%');
+function speedUi(){ const el=$('#spd'); rangeFill(el); el.setAttribute('aria-valuetext', (+el.value)+' '+SPEED[S.speedMode||'anim'].unit+' per second'); }
+function setSpeedMode(mode){ if(mode===S.speedMode) return; const c=SPEED[mode], el=$('#spd');
+  S.speedMode=mode; el.min=c.min; el.max=c.max; el.step=c.step; el.value=c.value; S.speed=c.value; speedUi(); }
+function setFontScale(v){ const f=$('#fontScale'); v=clamp(v, +f.min, +f.max); f.value=v; window.__plotFontScale=v; const t=Math.round(v*100)+'%';
+  $('#fontScaleVal').textContent=t; f.setAttribute('aria-valuetext', t); rangeFill(f); }
+function staleLink(){ const o=$('#linkOut'); if(o && !o.hidden){ o.hidden=true; o.value=''; } }
+
+window.__simGen=S.gen;
+window.__redraw=()=>{ if(!S.inSim) bindLens(); };
+window.__simFailed=e=>{ if(S.inSim) throw e; S.data=null; S.simError='simulate() threw: '+((e&&e.message)||e); console.error('[ccn-sim] simulate() threw in a later chunk', {model:S.modelId, error:e}); stopPlayback(); bindLens(); };
+window.__setLoading=(on,prog,label)=>{ const el=$('#loading'); if(!el)return; on=!!on; el.classList.toggle('on',on);
+  if(on!==S.loading){ S.loading=on; say(on?'Computing.':'Done.'); pinUi(); const v=$('#views'); if(v) v.setAttribute('aria-busy', on); }
+  if(on){ const b=$('#loadingBar'); if(b)b.style.width=Math.round((prog||0)*100)+'%'; const pg=$('#loadingProg'); if(pg) pg.setAttribute('aria-valuenow', Math.round((prog||0)*100)); const s=$('#loadingSub'); if(s)s.textContent=label||(Math.round((prog||0)*100)+'%'); } };
+
+$('#runBtn').onclick=()=>recompute();
+$('#resetBtn').onclick=()=>{ S.suppress=true; (S.model.params||[]).forEach(p=>{const f=$('#f_'+p.name); if(!f)return;
+    if(f.classList&&f.classList.contains('seg')){ const def=p.default||0; S.params[p.name]=def; [...f.children].forEach((c,j)=>c.setAttribute('aria-pressed', j===def)); }
+    else if(f.type==='checkbox'){ f.checked=!!p.default; f.dispatchEvent(new Event('change')); }
+    else { f.value=p.default; f.dispatchEvent(new Event('input')); }}); $('#seedInput').value=DEFAULT_SEED; S.suppress=false; recompute(); };
+$('#pinBtn').onclick=()=>{ const id=S.modelId;
+  if(S.pins[id]){ delete S.pins[id]; say('Unpinned.'); }
+  else { if(!S.data || S.simError || S.loading) return; S.pins[id]={ params:{...(S.dataParams||S.params)}, seed:S.seed, data:S.data }; say('Pinned. Each view now shows this result beside the live one.'); }
+  pinUi(); if(!S.simError){ buildCards(); drawAll(); } };
+$('#diceBtn').onclick=()=>{ $('#seedInput').value='seed-'+Math.floor(Math.random()*1e6).toString(36); schedule(); };
+$('#seedInput').addEventListener('input',()=>{ if(!S.suppress) schedule(); });
+$('#linkBtn').onclick=()=>{ const url=stateUrl(), out=$('#linkOut'), btn=$('#linkBtn'); out.value=url; out.hidden=false; out.select();
+  const done=ok=>{ say(ok?'Link copied.':'Link ready to copy.'); if(ok){ btn.textContent='Copied'; setTimeout(()=>{ btn.textContent='Copy link'; },WAIT.copied); } };
+  try{ navigator.clipboard.writeText(url).then(()=>done(true),()=>done(false)); }catch(e){ done(false); } };
+$('#playBtn').onclick=()=>{ if(S.playing)pause(); else play(); };
+$('#toStartBtn').onclick=()=>{ S.head=0; play(); };
+$('#toEndBtn').onclick=()=>{ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); say('End. '+readoutText()); };
+const stepBy=d=>{ stopPlayback(); const cur=Math.min(S.maxHead,Math.floor(S.head)); S.head=clamp(cur+d,0,S.maxHead); drawAll(); readout(); say(readoutText()); };
+$('#stepBackBtn').onclick=()=>stepBy(-1);
+$('#stepFwdBtn').onclick=()=>stepBy(1);
+$('#scrub').addEventListener('input',()=>{ stopPlayback(); S.head=clamp(+$('#scrub').value,0,S.maxHead); drawAll(); readout(); });
+$('#scrub').addEventListener('change',()=>say(readoutText()));
+$('#spd').addEventListener('input',()=>{ S.speed=+$('#spd').value; speedUi(); });
+$('#fontScale').addEventListener('input',()=>{ setFontScale(+$('#fontScale').value); redrawAll(); });
+let zt; const onResize=()=>{ clearTimeout(zt); zt=setTimeout(redrawAll,WAIT.resize); };
+addEventListener('resize',onResize); new ResizeObserver(onResize).observe($('#views'));
+if(mqReduce){ const onMotion=e=>{ reduceMotion=e.matches; if(reduceMotion && S.playing){ stopPlayback(); S.head=S.maxHead; drawAll(); readout(); } };
+  if(mqReduce.addEventListener) mqReduce.addEventListener('change',onMotion); else if(mqReduce.addListener) mqReduce.addListener(onMotion); }
+addEventListener('hashchange',()=>{ const h=parseHash(); if(!h) return;
+  if(h.model!==S.modelId) setModel(h.model, h.lens||S.lensMem[h.model]); else if(h.lens && h.lens!==S.lens) switchLens(h.lens); });
+
+{ let framed=false; try{ framed = window.self!==window.top; }catch(e){ framed=true; }
+  if(framed) $('#linkBtn').hidden=true; }
+const APP=SIM.APP||{};
+if(APP.title){ $('#appTitle').textContent=APP.title; document.title=APP.title; }
+if(APP.tagline!=null) $('#appTagline').textContent=APP.tagline;
+{ const f=$('#fontScale'), F=Plot.FONT_SCALE; f.min=F.min; f.max=F.max; f.step=F.step; f.value=1; }
+$('#seedInput').value=DEFAULT_SEED;
+setFontScale(+$('#fontScale').value);
+if(Q.text){ const ts=parseFloat(Q.text); if(ts>0) setFontScale(ts); }
+if(!SIM.MODEL_ORDER.length){
+  $('#views').innerHTML='<div class="empty"><b>No model is registered yet.</b><br>Add one to <code>MODELS</code> and <code>MODEL_ORDER</code> in <code>engine.js</code> (README.md shows the entry), or put the <code>examples.js</code> script line back in <code>index.html</code> to load the worked examples.</div>';
+  $('#blurb').textContent='No model registered.'; $('#note').hidden=true;
+  for(const b of ['runBtn','resetBtn','pinBtn','linkBtn','diceBtn','seedInput']) $('#'+b).disabled=true; return; }
+{ const H=parseHash(), qm=(Q.model!=null && isModel(Q.model)) ? Q.model : null;
+  const startModel = H ? H.model : (qm || S.modelId);
+  const startLens = (H && H.lens) || ((!H || !qm || qm===H.model) ? Q.lens : null);
+  const target = qm || startModel, tm=SIM.MODELS[target], mem=defaultsOf(tm); let any=false;
+  for(const s of (tm.params||[])){ const raw=Q['p.'+s.name]; if(raw==null) continue; const v=coerce(s,raw); if(v!==undefined){ mem[s.name]=v; any=true; } }
+  if(any) S.mem[target]=mem;
+  if(Q.seed!=null && Q.seed!=='') $('#seedInput').value=Q.seed;
+  S.modelId=startModel; buildModelTabs(); setModel(startModel, startLens); }
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(redrawAll);
+})();
+</script>
+</body>
+</html>

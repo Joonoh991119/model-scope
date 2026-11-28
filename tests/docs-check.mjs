@@ -11,17 +11,17 @@ const walk = d => fs.readdirSync(path.join(ROOT, d), { withFileTypes: true }).fl
   e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
 const lineOf = (s, i) => s.slice(0, i).split('\n').length;
 
-const { SIM, MSLIB } = loadTemplate(DEFAULT_TEMPLATE);
+const { SIM, CCNLIB } = loadTemplate(DEFAULT_TEMPLATE);
 const nModels = SIM.MODEL_ORDER.length;
-const index = read('skills/model-scope/references/modelbook/INDEX.md');
+const index = read('skills/ccn-sim/references/modelbook/INDEX.md');
 const familyRows = [...index.matchAll(/^\| \[([\w-]+)\.md\]\(\1\.md\) \|/gm)].map(m => m[1]);
 const nFamilies = familyRows.length;
-for (const f of familyRows) ok(fs.existsSync(path.join(ROOT, 'skills/model-scope/references/modelbook', f + '.md')), `INDEX.md lists ${f}.md, which does not exist`);
-const modelbookFiles = fs.readdirSync(path.join(ROOT, 'skills/model-scope/references/modelbook')).filter(f => f.endsWith('.md') && f !== 'INDEX.md');
+for (const f of familyRows) ok(fs.existsSync(path.join(ROOT, 'skills/ccn-sim/references/modelbook', f + '.md')), `INDEX.md lists ${f}.md, which does not exist`);
+const modelbookFiles = fs.readdirSync(path.join(ROOT, 'skills/ccn-sim/references/modelbook')).filter(f => f.endsWith('.md') && f !== 'INDEX.md');
 ok(modelbookFiles.length === nFamilies, `modelbook has ${modelbookFiles.length} family files, INDEX.md lists ${nFamilies}`);
 
-const VENDORED = [...walk('skills/model-scope').filter(f => /\.(md|json)$/.test(f)), ...walk('skills/paper-to-sim'),
-  'commands/scaffold.md', 'commands/from-paper.md', 'agents/model-gui-builder.md'];
+const VENDORED = [...walk('skills/ccn-sim').filter(f => /\.(md|json)$/.test(f)), ...walk('skills/paper-to-sim'),
+  'commands/scaffold.md', 'commands/from-paper.md', 'agents/ccn-sim-builder.md'];
 const DOCS = [...new Set(['README.md', 'docs/GUIDE.md', 'MIGRATION.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
   'tests/README.md', ...VENDORED])];
 
@@ -47,7 +47,7 @@ const boldRows = t => t.split('\n').filter(l => /^\| \*\*/.test(l)).map(l => l.s
   ok(rows.length === nFamilies, `docs/GUIDE.md family table has ${rows.length} rows, INDEX.md lists ${nFamilies}`); }
 { const items = section('README.md', 'example keyword table', '| Domain | Models |', '\n\n').split('\n').slice(2).flatMap(l => l.split('|')[2].split('·').map(x => x.trim()).filter(Boolean));
   ok(items.length === nModels, `README.md example keyword table names ${items.length} models, the registry holds ${nModels}`); }
-for (const doc of ['README.md', 'docs/GUIDE.md', 'MIGRATION.md', 'tests/README.md', 'skills/model-scope/assets/template/README.md', 'skills/model-scope/references/modelbook/INDEX.md']) {
+for (const doc of ['README.md', 'docs/GUIDE.md', 'docs/BACKLOG.md', 'MIGRATION.md', 'tests/README.md', 'skills/ccn-sim/assets/template/README.md', 'skills/ccn-sim/references/modelbook/INDEX.md']) {
   const s = read(doc), base = path.dirname(path.join(ROOT, doc));
   for (const m of s.matchAll(/!?\[[^\]]*\]\(([^)\s]+)\)|<img\s+src="([^"]+)"/g)) {
     const target = (m[1] || m[2]).split('#')[0];
@@ -55,22 +55,22 @@ for (const doc of ['README.md', 'docs/GUIDE.md', 'MIGRATION.md', 'tests/README.m
     ok(fs.existsSync(path.join(base, target)), `${doc}:${lineOf(s, m.index)} links to ${target}, which does not exist`);
   }
 }
-const tReadme = read('skills/model-scope/assets/template/README.md');
+const tReadme = read('skills/ccn-sim/assets/template/README.md');
 const tList = tReadme.slice(0, tReadme.indexOf('## Files')).split('\n').filter(l => /^- \*\*/.test(l)).length;
 ok(tList === nModels, `template README.md lists ${tList} examples, the registry holds ${nModels}`);
 
 for (const f of DOCS) {
   const s = read(f);
-  for (const m of s.matchAll(/\bMSLIB\.(\w+)(?:\.(\w+))?/g)) {
+  for (const m of s.matchAll(/\bCCNLIB\.(\w+)(?:\.(\w+))?/g)) {
     const [, block, fn] = m;
-    ok(MSLIB[block] !== undefined, `${f}:${lineOf(s, m.index)} names MSLIB.${block}, which mslib.js does not export`);
-    if (fn && MSLIB[block] && typeof MSLIB[block] === 'object')
-      ok(MSLIB[block][fn] !== undefined, `${f}:${lineOf(s, m.index)} names MSLIB.${block}.${fn}, which mslib.js does not export`);
+    ok(CCNLIB[block] !== undefined, `${f}:${lineOf(s, m.index)} names CCNLIB.${block}, which ccnlib.js does not export`);
+    if (fn && CCNLIB[block] && typeof CCNLIB[block] === 'object')
+      ok(CCNLIB[block][fn] !== undefined, `${f}:${lineOf(s, m.index)} names CCNLIB.${block}.${fn}, which ccnlib.js does not export`);
   }
 }
 
-const SKILL_FILES = ['skills/model-scope/SKILL.md', 'skills/paper-to-sim/SKILL.md', 'commands/scaffold.md', 'commands/from-paper.md', 'agents/model-gui-builder.md'];
-const MS = 'skills/model-scope';
+const SKILL_FILES = ['skills/ccn-sim/SKILL.md', 'skills/paper-to-sim/SKILL.md', 'commands/scaffold.md', 'commands/from-paper.md', 'agents/ccn-sim-builder.md'];
+const MS = 'skills/ccn-sim';
 for (const f of SKILL_FILES) {
   const s = read(f);
   for (const m of s.matchAll(/`([^`\s]*(?:references|assets|modelbook|\$\{CLAUDE_(?:PLUGIN_ROOT|SKILL_DIR)\})[^`\s]*)`/g)) {
@@ -78,26 +78,26 @@ for (const f of SKILL_FILES) {
     if (/[<>*]/.test(p)) continue;
     p = p.replace('${CLAUDE_PLUGIN_ROOT}/', '').replace('${CLAUDE_SKILL_DIR}/', MS + '/');
     if (!p.startsWith('skills/')) {
-      ok(f.startsWith(MS + '/'), `${f}:${lineOf(s, m.index)} names \`${m[1]}\` relative to the model-scope skill; from ${f} write \${CLAUDE_PLUGIN_ROOT}/${MS}/${p}`);
+      ok(f.startsWith(MS + '/'), `${f}:${lineOf(s, m.index)} names \`${m[1]}\` relative to the ccn-sim skill; from ${f} write \${CLAUDE_PLUGIN_ROOT}/${MS}/${p}`);
       p = path.join(MS, p); }
     ok(fs.existsSync(path.join(ROOT, p)), `${f}:${lineOf(s, m.index)} names \`${m[1]}\`, which does not exist (${p})`);
-    ok(!m[1].includes('${CLAUDE_SKILL_DIR}') || f === 'skills/model-scope/SKILL.md', `${f}:${lineOf(s, m.index)} uses \${CLAUDE_SKILL_DIR} outside the model-scope skill`);
+    ok(!m[1].includes('${CLAUDE_SKILL_DIR}') || f === 'skills/ccn-sim/SKILL.md', `${f}:${lineOf(s, m.index)} uses \${CLAUDE_SKILL_DIR} outside the ccn-sim skill`);
   }
 }
 
 for (const f of VENDORED) {
   const s = read(f);
-  for (const m of s.matchAll(/model-scope:(?!scaffold\b|from-paper\b)/g))
-    ok(false, `${f}:${lineOf(s, m.index)} has a literal "model-scope:" outside the two command names`);
-  for (const m of s.matchAll(/skills\/model-scope\//g))
-    ok(s.slice(Math.max(0, m.index - 22), m.index) === '${CLAUDE_PLUGIN_ROOT}/', `${f}:${lineOf(s, m.index)} has a plugin-root-relative skills/model-scope/ path without \${CLAUDE_PLUGIN_ROOT}`);
+  for (const m of s.matchAll(/ccn-sim:(?!scaffold\b|from-paper\b)/g))
+    ok(false, `${f}:${lineOf(s, m.index)} has a literal "ccn-sim:" outside the two command names`);
+  for (const m of s.matchAll(/skills\/ccn-sim\//g))
+    ok(s.slice(Math.max(0, m.index - 22), m.index) === '${CLAUDE_PLUGIN_ROOT}/', `${f}:${lineOf(s, m.index)} has a plugin-root-relative skills/ccn-sim/ path without \${CLAUDE_PLUGIN_ROOT}`);
 }
 
-{ const sc = read('commands/scaffold.md'), tr = read('skills/model-scope/assets/template/README.md');
+{ const sc = read('commands/scaffold.md'), tr = read('skills/ccn-sim/assets/template/README.md');
   for (const q of ['Ships with twenty-one examples', '## Files', '`examples.js` + `examples.checks.mjs`'])
     ok(sc.includes(q) && tr.includes(q), `commands/scaffold.md quotes "${q}" from the template README, but one of the two no longer has it`); }
 
-for (const f of ['skills/model-scope/SKILL.md', 'skills/paper-to-sim/SKILL.md']) {
+for (const f of ['skills/ccn-sim/SKILL.md', 'skills/paper-to-sim/SKILL.md']) {
   const fm = read(f).split(/^---$/m)[1] || '';
   const d = (fm.match(/^description:\s*>-?\n((?:[ \t]+.*\n?)+)/m) || fm.match(/^description:\s*(.*)$/m) || [, ''])[1];
   const len = d.split('\n').map(x => x.trim()).filter(Boolean).join(' ').length;
