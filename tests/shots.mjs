@@ -1,4 +1,4 @@
-// Regenerate the README gallery from the CURRENT template (dev only). Real screenshots of the real page,
+// Regenerate the README hero and the docs/GUIDE.md gallery from the CURRENT template (dev only). Real screenshots of the real page,
 // taken in headless Chrome from file:// — nothing here is drawn by hand.
 //
 //   node tests/shots.mjs --pw <dir with node_modules/playwright>      write docs/shots/*.png and docs/ddm-trial.gif
@@ -47,6 +47,8 @@ const open = async q => { await page.goto('about:blank'); await page.goto(url(q)
 if (!ONLY || ONLY === 'png') {
   fs.mkdirSync(path.join(DOCS, 'shots'), { recursive: true });
   for (const [name, q] of GALLERY) { await open(q); await page.screenshot({ path: path.join(DOCS, 'shots', name + '.png') }); console.log(`docs/shots/${name}.png  <-  index.html${q}`); }
+  const hero = spawnSync('python3', ['-I', path.join(path.dirname(fileURLToPath(import.meta.url)), 'hero.py'), path.join(DOCS, 'shots'), path.join(DOCS, 'hero.png')], { stdio: 'inherit' });
+  if (hero.status !== 0) { console.error('docs/hero.png was NOT rebuilt (python3 + Pillow needed)'); process.exitCode = 1; } else console.log('docs/hero.png  <-  docs/shots/*.png');
 }
 
 if (!ONLY || ONLY === 'gif') {

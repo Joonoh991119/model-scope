@@ -3,7 +3,7 @@
 //   node tests/docs-check.mjs
 //
 // 1. Every "N models / N examples" and "N families" in the docs equals the registry and the
-//    modelbook INDEX; the README gallery table and the template README list name every example.
+//    modelbook INDEX; the docs/GUIDE.md gallery table and the template README list name every example.
 // 2. Every MSLIB.<block> and MSLIB.<block>.<fn> named in the docs exists in modules/mslib.js.
 // 3. Every path named in the skill, command and agent files exists.
 // 4. Vendored files (another repository copies them and rewrites the prefix) contain the literal
@@ -37,7 +37,7 @@ ok(modelbookFiles.length === nFamilies, `modelbook has ${modelbookFiles.length} 
 // ---- the docs (CHANGELOG.md is history: it may quote old counts)
 const VENDORED = [...walk('skills/model-scope').filter(f => /\.(md|json)$/.test(f)), ...walk('skills/paper-to-sim'),
   'commands/scaffold.md', 'commands/from-paper.md', 'agents/model-gui-builder.md'];
-const DOCS = [...new Set(['README.md', 'MIGRATION.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
+const DOCS = [...new Set(['README.md', 'docs/GUIDE.md', 'MIGRATION.md', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json',
   'tests/README.md', ...VENDORED])];
 
 // 1. counts
@@ -53,13 +53,13 @@ for (const f of DOCS) {
   for (const m of s.matchAll(new RegExp(`\\b${NUM}(?:\\*\\*)?\\s+(?:(?:canonical|model)\\s+)*families\\b`, 'gi')))
     ok(val(m[1]) === nFamilies, `${f}:${lineOf(s, m.index)} says "${m[0]}", INDEX.md lists ${nFamilies}`);
 }
-const readme = read('README.md');
-const gallery = readme.slice(readme.indexOf('| Model | Domain'), readme.indexOf('Copy one, swap in'));
+const guide = read('docs/GUIDE.md');
+const gallery = guide.slice(guide.indexOf('| Model | Domain'), guide.indexOf('Copy one, swap in'));
 const galleryRows = gallery.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(galleryRows === nModels, `README.md example table has ${galleryRows} rows, the registry holds ${nModels}`);
-const familyTable = readme.slice(readme.indexOf('| Family | Use it for'), readme.indexOf('These are **recipes'));
+ok(galleryRows === nModels, `docs/GUIDE.md example table has ${galleryRows} rows, the registry holds ${nModels}`);
+const familyTable = guide.slice(guide.indexOf('| Family | Use it for'), guide.indexOf('These are **recipes'));
 const familyTableRows = familyTable.split('\n').filter(l => /^\| \*\*/.test(l)).length;
-ok(familyTableRows === nFamilies, `README.md family table has ${familyTableRows} rows, INDEX.md lists ${nFamilies}`);
+ok(familyTableRows === nFamilies, `docs/GUIDE.md family table has ${familyTableRows} rows, INDEX.md lists ${nFamilies}`);
 const tReadme = read('skills/model-scope/assets/template/README.md');
 const tList = tReadme.slice(0, tReadme.indexOf('## Files')).split('\n').filter(l => /^- \*\*/.test(l)).length;
 ok(tList === nModels, `template README.md lists ${tList} examples, the registry holds ${nModels}`);
